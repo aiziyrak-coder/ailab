@@ -26,8 +26,10 @@ REPO = os.environ.get(
     "AILAB_SSH_REPO",
     "https://github.com/aiziyrak-coder/ailab.git",
 ).strip()
+RESET_NGINX = os.environ.get("AILAB_RESET_NGINX", "0").strip() or "0"
 
 BASH = f"""set -e
+export AILAB_RESET_NGINX="{RESET_NGINX}"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq git python3-venv python3-pip nginx >/dev/null
@@ -87,7 +89,14 @@ python manage.py migrate --noinput
 python manage.py collectstatic --noinput --clear
 
 cp "$APP/deploy/ailab-gunicorn.service" /etc/systemd/system/ailab-gunicorn.service
-cp "$APP/deploy/nginx-ailab.conf" /etc/nginx/sites-available/ailab-ziyrak
+NGINX_DST=/etc/nginx/sites-available/ailab-ziyrak
+if [ "${AILAB_RESET_NGINX:-0}" = "1" ]; then
+  cp "$APP/deploy/nginx-ailab.conf" "$NGINX_DST"
+elif [ -f "$NGINX_DST" ] && grep -q ssl_certificate "$NGINX_DST" 2>/dev/null; then
+  echo "nginx: SSL (certbot) saqlanadi — qayta yozilmaydi. Majburiy: AILAB_RESET_NGINX=1"
+else
+  cp "$APP/deploy/nginx-ailab.conf" "$NGINX_DST"
+fi
 ln -sf /etc/nginx/sites-available/ailab-ziyrak /etc/nginx/sites-enabled/ailab-ziyrak
 
 systemctl daemon-reload
