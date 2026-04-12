@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SSH orqali serverda AILab (faqat yangi nginx + systemd, 8010-port).
+SSH orqali serverda AILab (faqat yangi nginx + systemd, 8011-port; 8010 band bo'lsa).
 
   set AILAB_SSH_PASSWORD=...
   python scripts/bootstrap_remote_deploy.py
@@ -95,7 +95,7 @@ systemctl enable ailab-gunicorn
 systemctl restart ailab-gunicorn
 nginx -t
 systemctl reload nginx
-echo OK ailab gunicorn 127.0.0.1:8010
+echo OK ailab gunicorn 127.0.0.1:8011
 """
 
 
