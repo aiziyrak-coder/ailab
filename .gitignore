@@ -26,3 +26,6 @@ test_opencv_all.py
 test_cmex_init.py
 test_bulk_read.py
 test_usb.py
+*.pt
+test_*.jpg
+open_device_manager.bat
