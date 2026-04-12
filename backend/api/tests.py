@@ -114,3 +114,30 @@ class AnalyzeEdgeCaseTests(TestCase):
         if r.status_code == 503:
             data = r.json()
             self.assertIn("ZIYRAKAI", data.get("message", "").upper())
+
+
+class ApiHostUiRedirectTests(TestCase):
+    """API domenida HTML sahifalar UI ga yo'naltiriladi."""
+
+    _hosts = {"ALLOWED_HOSTS": ["ailabapi.example.com", "testserver", "localhost", "127.0.0.1"]}
+
+    @override_settings(
+        MEDLAB_PUBLIC_API_BASE="https://ailabapi.example.com",
+        MEDLAB_PUBLIC_UI_BASE="https://ailab.example.com",
+        MEDLAB_API_HOSTNAME="ailabapi.example.com",
+        **_hosts,
+    )
+    def test_login_on_api_host_redirects(self):
+        r = self.client.get("/login?next=/", HTTP_HOST="ailabapi.example.com")
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "https://ailab.example.com/login?next=/")
+
+    @override_settings(
+        MEDLAB_PUBLIC_API_BASE="https://ailabapi.example.com",
+        MEDLAB_PUBLIC_UI_BASE="https://ailab.example.com",
+        MEDLAB_API_HOSTNAME="ailabapi.example.com",
+        **_hosts,
+    )
+    def test_api_paths_not_redirected(self):
+        r = self.client.get("/api/health", HTTP_HOST="ailabapi.example.com")
+        self.assertEqual(r.status_code, 200)

@@ -62,6 +62,7 @@ p.write_text(
             f"DJANGO_SECRET_KEY={{secret}}",
             "DJANGO_ALLOWED_HOSTS=ailab.ziyrak.org,ailabapi.ziyrak.org,127.0.0.1,localhost",
             "MEDLAB_PUBLIC_API_BASE=https://ailabapi.ziyrak.org",
+            "MEDLAB_PUBLIC_UI_BASE=https://ailab.ziyrak.org",
             "SESSION_COOKIE_DOMAIN=.ziyrak.org",
             "CSRF_COOKIE_DOMAIN=.ziyrak.org",
             "CORS_ALLOWED_ORIGINS=https://ailab.ziyrak.org",

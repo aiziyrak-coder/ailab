@@ -46,7 +46,23 @@ if DEBUG and "*" not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.extend(["0.0.0.0", "[::1]", "testserver"])
 
 # UI va API turli subdomain bo'lsa, shablonlarda window.__MEDLAB_API_BASE__ uchun (.env)
-MEDLAB_PUBLIC_API_BASE = os.environ.get("MEDLAB_PUBLIC_API_BASE", "").strip()
+MEDLAB_PUBLIC_API_BASE = os.environ.get("MEDLAB_PUBLIC_API_BASE", "").strip().rstrip("/")
+
+# API domenida /login ochilmasin — frontend domeniga yo'naltirish (middleware)
+MEDLAB_PUBLIC_UI_BASE = os.environ.get("MEDLAB_PUBLIC_UI_BASE", "").strip().rstrip("/")
+MEDLAB_API_HOSTNAME = ""
+if MEDLAB_PUBLIC_API_BASE:
+    try:
+        from urllib.parse import urlparse
+
+        _pu = urlparse(MEDLAB_PUBLIC_API_BASE)
+        MEDLAB_API_HOSTNAME = (_pu.hostname or "").lower()
+        if not MEDLAB_PUBLIC_UI_BASE and MEDLAB_API_HOSTNAME and "ailabapi." in MEDLAB_API_HOSTNAME:
+            _uh = MEDLAB_API_HOSTNAME.replace("ailabapi.", "ailab.", 1)
+            if _uh != MEDLAB_API_HOSTNAME:
+                MEDLAB_PUBLIC_UI_BASE = f"{_pu.scheme}://{_uh}".rstrip("/")
+    except Exception:
+        MEDLAB_API_HOSTNAME = ""
 
 _INSECURE_SECRET_MARKERS = ("dev-only", "changeme", "secret", "django-insecure")
 if not DEBUG:
@@ -79,6 +95,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "api.middleware.RequestBodyLimitJsonMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "api.middleware.ApiHostUiRedirectMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
