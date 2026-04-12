@@ -70,7 +70,7 @@ p.write_text(
             "SECURE_PROXY_SSL_HEADER=X-Forwarded-Proto,https",
             "SESSION_COOKIE_SECURE=1",
             "DJANGO_SECURE_SSL_REDIRECT=0",
-            "DJANGO_ADMIN_ENABLED=0",
+            "DJANGO_ADMIN_ENABLED=1",
             "GEMINI_API_KEY=",
             "GEMINI_MODEL_ID=gemini-2.5-pro",
         ]

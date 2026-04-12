@@ -74,5 +74,5 @@ GitHub Actions: `.github/workflows/ci.yml` — har push/PR da `check` + `test`.
 - **Bir nechta video**: bir vaqtda faqat **birinchi** video tahlil qilinadi (ogohlantirish `warnings` da).
 - **Statik fayllar (prod)**: `cd backend && python manage.py collectstatic --noinput` — `WhiteNoise` `staticfiles/` dan beradi.
 - **Sessiya**: `SESSION_COOKIE_AGE` (sekund, standart 8 soat).
-- **Admin**: `DJANGO_ADMIN_ENABLED=0` — `/admin/` o‘chadi (prod tavsiyasi).
+- **Admin**: `DJANGO_ADMIN_ENABLED=1` — `https://<API-domen>/admin/` (masalan `ailabapi`). `0` bo‘lsa marshrutlar umuman yo‘q — 404. Kuchli parol + kerak bo‘lsa nginx da IP cheklovi.
 - **ZiyrakAi (texnik)**: `GEMINI_MAX_RETRIES`, `GEMINI_RETRY_DELAY_SEC` — vaqtinchalik API xatolarida qayta urinish.
