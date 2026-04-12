@@ -6,7 +6,8 @@ whitenoise>=6.6.0,<7
 python-dotenv>=1.0.0,<2
 dj-database-url>=2.2,<3
 psycopg[binary]>=3.1,<4
-opencv-python>=4.9.0,<5
+# Server/Linux: headless (libGL talab qilmaydi). Windows ham ishlaydi.
+opencv-python-headless>=4.9.0,<5
 numpy>=1.26.0,<3
 Pillow>=10.0.0,<12
 google-generativeai>=0.8.0,<1
