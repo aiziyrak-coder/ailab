@@ -164,6 +164,10 @@ _csrf_dom = os.environ.get("CSRF_COOKIE_DOMAIN", "").strip()
 if _csrf_dom:
     CSRF_COOKIE_DOMAIN = _csrf_dom
 
+# ailab.* ↔ ailabapi.* (bir xil sayt, turli host) — fetch + cookie
+SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax").strip() or "Lax"
+CSRF_COOKIE_SAMESITE = os.environ.get("CSRF_COOKIE_SAMESITE", "Lax").strip() or "Lax"
+
 REST_FRAMEWORK = {
     "JSON_RENDERER_OPTIONS": {"ensure_ascii": False},
     "DEFAULT_RENDERER_CLASSES": [

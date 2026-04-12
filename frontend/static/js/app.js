@@ -363,7 +363,7 @@ async function analyzeFile() {
     }
     if (!r.ok && (r.status === 401 || r.status === 403)) {
       stopAnalyzing();
-      window.location.href = apiPath('/login');
+      window.location.href = '/login';
       return;
     }
     if (r.status === 409 || res.busy === true) {
@@ -789,7 +789,7 @@ async function api(url, method = 'GET', body = null) {
   const opts = {
     method: m,
     headers: { ...csrfHeaders() },
-    credentials: 'same-origin',
+    credentials: typeof apiCredentials === 'function' ? apiCredentials() : 'same-origin',
   };
   if (body != null) {
     opts.headers['Content-Type'] = 'application/json';
@@ -818,7 +818,7 @@ async function api(url, method = 'GET', body = null) {
       if (msg.includes('csrf')) {
         return stamp({ success: false, message: "Sahifani yangilang (CSRF). F5 bosing." });
       }
-      window.location.href = apiPath('/login');
+      window.location.href = '/login';
       return stamp({ success: false, message: 'Kirish kerak' });
     }
     if (!r.ok && data.success !== false)
@@ -850,7 +850,7 @@ async function logoutMedlab() {
   try {
     await api(apiPath('/api/auth/logout'), 'POST', {});
   } catch (_) { /* ignore */ }
-  window.location.href = apiPath('/login');
+  window.location.href = '/login';
 }
 
 async function refreshUserPill() {

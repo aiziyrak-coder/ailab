@@ -10,6 +10,18 @@ function apiPath(p) {
   return API_BASE + p;
 }
 
+/** UI ailab.*, API ailabapi.* bo'lsa cookie yuborish uchun */
+function apiCredentials() {
+  try {
+    const base = (API_BASE || '').replace(/\/$/, '');
+    if (!base) return 'same-origin';
+    if (base === window.location.origin) return 'same-origin';
+    return 'include';
+  } catch (_) {
+    return 'same-origin';
+  }
+}
+
 function getCookie(name) {
   const esc = name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1');
   const m = document.cookie.match(new RegExp('(?:^|; )' + esc + '=([^;]*)'));
@@ -27,7 +39,7 @@ function apiFetchInit(method, bodyObj) {
   const m = (method || 'GET').toUpperCase();
   const opts = {
     method: m,
-    credentials: 'same-origin',
+    credentials: apiCredentials(),
     headers: { ...csrfHeaders() },
   };
   if (bodyObj != null) {
@@ -41,7 +53,7 @@ function apiFetchInit(method, bodyObj) {
 function formFetchInit(method) {
   return {
     method: method || 'POST',
-    credentials: 'same-origin',
+    credentials: apiCredentials(),
     headers: { ...csrfHeaders() },
   };
 }

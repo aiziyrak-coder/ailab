@@ -75,7 +75,7 @@
         show('Muvaffaqiyatli', true);
         var next = new URLSearchParams(location.search).get('next');
         var dest = (next && next.startsWith('/') && !next.startsWith('//')) ? next : '/';
-        window.location.href = apiPath(dest);
+        window.location.href = dest;
         return;
       }
       show(data.message || data.detail || 'Kirish muvaffaqiyatsiz', false);

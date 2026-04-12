@@ -84,7 +84,7 @@
       const data = await r.json().catch(function() { return {}; });
       if (r.ok && data.success) {
         show('Hisob yaratildi', true);
-        window.location.href = apiPath('/');
+        window.location.href = '/';
         return;
       }
       var m = data.message || '';
