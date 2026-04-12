@@ -126,10 +126,19 @@ def main() -> int:
     err = stderr.read().decode("utf-8", errors="replace")
     code = stdout.channel.recv_exit_status()
     client.close()
-    if out:
-        print(out)
-    if err:
-        print(err, file=sys.stderr)
+
+    def _safe_write(s: str, stream) -> None:
+        if not s:
+            return
+        buf = getattr(stream, "buffer", None)
+        line = s if s.endswith("\n") else s + "\n"
+        if buf is not None:
+            buf.write(line.encode("utf-8", errors="replace"))
+        else:
+            print(line, end="")
+
+    _safe_write(out, sys.stdout)
+    _safe_write(err, sys.stderr)
     return 0 if code == 0 else 1
 
 
