@@ -90,7 +90,7 @@ python manage.py collectstatic --noinput --clear
 
 cp "$APP/deploy/ailab-gunicorn.service" /etc/systemd/system/ailab-gunicorn.service
 NGINX_DST=/etc/nginx/sites-available/ailab-ziyrak
-if [ "${AILAB_RESET_NGINX:-0}" = "1" ]; then
+if [ "${{AILAB_RESET_NGINX:-0}}" = "1" ]; then
   cp "$APP/deploy/nginx-ailab.conf" "$NGINX_DST"
 elif [ -f "$NGINX_DST" ] && grep -q ssl_certificate "$NGINX_DST" 2>/dev/null; then
   echo "nginx: SSL (certbot) saqlanadi — qayta yozilmaydi. Majburiy: AILAB_RESET_NGINX=1"
