@@ -1,0 +1,41 @@
+# MedLab AI + PostgreSQL (namuna). GEMINI_API_KEY ni .env yoki muhitda bering.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: medlab
+      POSTGRES_PASSWORD: medlab
+      POSTGRES_DB: medlab
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medlab -d medlab"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://medlab:medlab@db:5432/medlab
+      DJANGO_DEBUG: "0"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,web,0.0.0.0
+      DJANGO_ADMIN_ENABLED: "0"
+      # Ishlab chiqarishda albatta o'zgartiring (48+ belgi, tasodifiy)
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL_ID: ${GEMINI_MODEL_ID:-gemini-2.5-pro}
+      SESSION_COOKIE_SECURE: "0"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - medlab_snapshots:/app/snapshots
+
+volumes:
+  pgdata: {}
+  medlab_snapshots: {}

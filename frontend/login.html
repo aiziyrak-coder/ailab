@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a1628">
+  <title>Kirish — MedLab AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="/favicon.ico" type="image/png">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
+</head>
+<body class="auth-page-body">
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <symbol id="icon-microscope" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M12 2v3M12 19v3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M2 12h3M19 12h3"/>
+  </symbol>
+</svg>
+
+<div class="auth-page">
+  <div class="auth-card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <svg width="28" height="28" aria-hidden="true" style="opacity:.9"><use href="#icon-microscope"/></svg>
+      <h1 style="margin:0">MedLab AI</h1>
+    </div>
+    <p class="auth-sub">Tizimga kiring (laboratoriya tahlil)</p>
+
+    <form id="loginForm" autocomplete="username">
+      <div class="auth-field">
+        <label for="username">Login</label>
+        <input id="username" name="username" type="text" required maxlength="150" placeholder="masalan: demo" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="auth-field">
+        <label for="password">Parol</label>
+        <input id="password" name="password" type="password" required maxlength="128" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <div class="auth-actions">
+        <button type="submit" class="auth-btn" id="submitBtn">Kirish</button>
+      </div>
+    </form>
+
+    <p class="auth-msg" id="msg"></p>
+    <p class="auth-link">Hisob yo'qmi? <a href="/register">Ro'yxatdan o'tish</a></p>
+  </div>
+</div>
+
+<script src="/static/js/auth.js"></script>
+<script>
+(function() {
+  const form = document.getElementById('loginForm');
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('submitBtn');
+
+  function show(text, ok) {
+    msg.textContent = text || '';
+    msg.className = 'auth-msg' + (ok ? ' ok' : text ? ' err' : '');
+  }
+
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    if (!username || !password) { show('Login va parol kiriting', false); return; }
+    btn.disabled = true;
+    show('');
+    try {
+      const r = await fetch(apiPath('/api/auth/login'), {
+        ...apiFetchInit('POST', { username, password }),
+      });
+      const data = await r.json().catch(function() { return {}; });
+      if (r.ok && data.success) {
+        show('Muvaffaqiyatli', true);
+        var next = new URLSearchParams(location.search).get('next');
+        var dest = (next && next.startsWith('/') && !next.startsWith('//')) ? next : '/';
+        window.location.href = apiPath(dest);
+        return;
+      }
+      show(data.message || data.detail || 'Kirish muvaffaqiyatsiz', false);
+    } catch (err) {
+      show("Server bilan aloqa yo'q", false);
+    }
+    btn.disabled = false;
+  });
+})();
+</script>
+</body>
+</html>
