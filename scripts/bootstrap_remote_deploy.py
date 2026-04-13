@@ -61,7 +61,7 @@ p.write_text(
             "DJANGO_DEBUG=0",
             f"DJANGO_SECRET_KEY={{secret}}",
             "DJANGO_ALLOWED_HOSTS=ailab.ziyrak.org,ailabapi.ziyrak.org,127.0.0.1,localhost",
-            "MEDLAB_PUBLIC_API_BASE=https://ailabapi.ziyrak.org",
+            "MEDLAB_PUBLIC_API_BASE=",
             "MEDLAB_PUBLIC_UI_BASE=https://ailab.ziyrak.org",
             "SESSION_COOKIE_DOMAIN=.ziyrak.org",
             "CSRF_COOKIE_DOMAIN=.ziyrak.org",
@@ -79,6 +79,8 @@ p.write_text(
 )
 PYENV
 fi
+chgrp www-data "$APP/backend/.env" 2>/dev/null || true
+chmod 640 "$APP/backend/.env" 2>/dev/null || true
 
 mkdir -p staticfiles snapshots
 chown -R www-data:www-data staticfiles snapshots
