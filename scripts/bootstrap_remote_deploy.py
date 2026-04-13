@@ -89,6 +89,11 @@ chown www-data:www-data db.sqlite3 2>/dev/null || true
 
 . .venv/bin/activate
 python manage.py migrate --noinput
+# SQLite: jurnal fayllari uchun katalog ham www-data bo'lishi kerak (aks holda readonly)
+chown www-data:www-data "$APP/backend"
+[ -f "$APP/backend/db.sqlite3" ] && chown www-data:www-data "$APP/backend/db.sqlite3"
+chmod 664 "$APP/backend/db.sqlite3" 2>/dev/null || true
+find "$APP/backend" -maxdepth 1 -name "db.sqlite3*" -exec chown www-data:www-data {} \\; 2>/dev/null || true
 python manage.py collectstatic --noinput --clear
 
 cp "$APP/deploy/ailab-gunicorn.service" /etc/systemd/system/ailab-gunicorn.service

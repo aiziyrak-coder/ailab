@@ -35,6 +35,9 @@ else
 fi
 grep '^MEDLAB_PUBLIC_API_BASE=' "$ENV" || true
 cd /opt/ailab/backend
+chown www-data:www-data /opt/ailab/backend
+find /opt/ailab/backend -maxdepth 1 -name "db.sqlite3*" -exec chown www-data:www-data {} \\; 2>/dev/null || true
+chmod 664 /opt/ailab/backend/db.sqlite3 2>/dev/null || true
 sudo -u www-data .venv/bin/python manage.py create_demo_user --force
 systemctl restart ailab-gunicorn
 sleep 2
