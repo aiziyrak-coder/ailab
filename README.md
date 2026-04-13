@@ -75,4 +75,5 @@ GitHub Actions: `.github/workflows/ci.yml` — har push/PR da `check` + `test`.
 - **Statik fayllar (prod)**: `cd backend && python manage.py collectstatic --noinput` — `WhiteNoise` `staticfiles/` dan beradi.
 - **Sessiya**: `SESSION_COOKIE_AGE` (sekund, standart 8 soat).
 - **Admin**: `DJANGO_ADMIN_ENABLED=1` — `https://<API-domen>/admin/` (masalan `ailabapi`). `0` bo‘lsa marshrutlar umuman yo‘q — 404. Kuchli parol + kerak bo‘lsa nginx da IP cheklovi.
+- **Kirish (prod)**: brauzer **https://ailab.ziyrak.org** — `MEDLAB_PUBLIC_API_BASE` bo‘sh (bir xil origin). Har deployda `create_demo_user --force`: login **`demo`**, parol **`MedLabDemo2026!`** (keyin o‘chirib yoki parolni o‘zgartiring).
 - **ZiyrakAi (texnik)**: `GEMINI_MAX_RETRIES`, `GEMINI_RETRY_DELAY_SEC` — vaqtinchalik API xatolarida qayta urinish.

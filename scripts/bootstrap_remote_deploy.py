@@ -81,6 +81,10 @@ PYENV
 fi
 chgrp www-data "$APP/backend/.env" 2>/dev/null || true
 chmod 640 "$APP/backend/.env" 2>/dev/null || true
+# Eski deploy: JS ailabapi ga urardi — login CSRF/sessiya buziladi; UI domenida nisbiy /api
+if [ -f "$APP/backend/.env" ] && grep -qE '^MEDLAB_PUBLIC_API_BASE=https?://ailabapi\\.' "$APP/backend/.env"; then
+  sed -i 's|^MEDLAB_PUBLIC_API_BASE=.*|MEDLAB_PUBLIC_API_BASE=|' "$APP/backend/.env"
+fi
 
 mkdir -p staticfiles snapshots
 chown -R www-data:www-data staticfiles snapshots
@@ -94,6 +98,7 @@ chown www-data:www-data "$APP/backend"
 [ -f "$APP/backend/db.sqlite3" ] && chown www-data:www-data "$APP/backend/db.sqlite3"
 chmod 664 "$APP/backend/db.sqlite3" 2>/dev/null || true
 find "$APP/backend" -maxdepth 1 -name "db.sqlite3*" -exec chown www-data:www-data {{}} \\; 2>/dev/null || true
+sudo -u www-data .venv/bin/python manage.py create_demo_user --force || true
 python manage.py collectstatic --noinput --clear
 
 cp "$APP/deploy/ailab-gunicorn.service" /etc/systemd/system/ailab-gunicorn.service
