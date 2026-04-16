@@ -1,4 +1,6 @@
 # MedLab AI + PostgreSQL (namuna). GEMINI_API_KEY ni .env yoki muhitda bering.
+# Tashqi port 18000: ko‘p serverlarda 8000 band (boshqa servis yoki runserver).
+# Ishlab chiqarishda odatda systemd+gunicorn (8011) ishlatiladi — Docker bilan aralashtirmang.
 services:
   db:
     image: postgres:16-alpine
@@ -19,7 +21,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "127.0.0.1:18000:8000"
     environment:
       DATABASE_URL: postgresql://medlab:medlab@db:5432/medlab
       DJANGO_DEBUG: "0"
@@ -28,7 +30,7 @@ services:
       # Ishlab chiqarishda albatta o'zgartiring (48+ belgi, tasodifiy)
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL_ID: ${GEMINI_MODEL_ID:-gemini-2.5-pro}
+      GEMINI_MODEL_ID: ${GEMINI_MODEL_ID:-gemini-2.5-flash}
       SESSION_COOKIE_SECURE: "0"
     depends_on:
       db:
