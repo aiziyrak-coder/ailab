@@ -37,11 +37,24 @@ logging.basicConfig(
 )
 log = logging.getLogger("medlab")
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
+
+def _backend_dotenv_path():
+    return os.path.join(BASE_DIR, ".env")
+
+
+def _load_backend_dotenv():
+    """Gunicorn/systemd ishlaganda cwd farq qilishi mumkin — .env doim backend/ dan."""
+    try:
+        from dotenv import load_dotenv
+
+        p = _backend_dotenv_path()
+        if os.path.isfile(p):
+            load_dotenv(p, override=True)
+    except ImportError:
+        pass
+
+
+_load_backend_dotenv()
 
 # ─── Cheklovlar (DoS va prompt-injection kamaytirish) ─────────────────────────
 MAX_UPLOAD_FILES       = 24
@@ -63,12 +76,22 @@ ZIYRAKAI_DISPLAY_NAME = "ZiyrakAi"
 GEMINI_MODEL_ID = (os.environ.get("GEMINI_MODEL_ID") or "gemini-2.5-flash").strip()
 
 
+def _normalize_gemini_api_key(raw):
+    if raw is None:
+        return ""
+    s = str(raw).strip()
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in "\"'":
+        s = s[1:-1].strip()
+    return s
+
+
 def _init_gemini_models():
-    key = (os.environ.get("GEMINI_API_KEY") or "").strip()
+    key = _normalize_gemini_api_key(os.environ.get("GEMINI_API_KEY"))
     if not key:
         log.warning(
-            "%s: API kaliti topilmadi (GEMINI_API_KEY) — tahlil ishlamaydi (.env tekshiring)",
+            "%s: API kaliti topilmadi (GEMINI_API_KEY) — tahlil ishlamaydi (%s)",
             ZIYRAKAI_DISPLAY_NAME,
+            _backend_dotenv_path(),
         )
         return None, None
     genai.configure(api_key=key)
@@ -77,6 +100,19 @@ def _init_gemini_models():
 
 
 gemini_model, gemini_vision = _init_gemini_models()
+
+
+def ensure_gemini_from_env():
+    """
+    .env diskda yangilangan bo'lsa (restart qilmasdan) yoki birinchi importda cwd noto'g'ri bo'lsa —
+    qayta yuklab Gemini ni ishga tushirish.
+    """
+    global gemini_model, gemini_vision
+    if gemini_model is not None:
+        return True
+    _load_backend_dotenv()
+    gemini_model, gemini_vision = _init_gemini_models()
+    return gemini_model is not None
 
 # ─── Barcha tahlillar oldidan: maksimal chuqurlik + tibbiy chegara ───────────
 CLINICAL_EXCELLENCE_PREFIX_UZ = """

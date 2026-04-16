@@ -80,6 +80,7 @@ class HealthView(APIView):
         except OSError:
             snap_ok = False
 
+        eng.ensure_gemini_from_env()
         ziyrakai_ready = eng.gemini_model is not None
         overall = db_ok and snap_ok
         payload = {
@@ -205,13 +206,15 @@ class AnalyzeView(APIView):
             else None
         )
 
+        eng.ensure_gemini_from_env()
         if eng.gemini_model is None:
             return Response(
                 {
                     "success": False,
                     "message": (
-                        "ZiyrakAi ishlamayapti: xizmat kaliti sozlanmagan. "
-                        "Administrator backend/.env faylida kalitni kiriting."
+                        "ZiyrakAi ishlamayapti: GEMINI_API_KEY backend/.env faylida yo‘q yoki bo‘sh. "
+                        "Serverda: nano /opt/ailab/backend/.env — GEMINI_API_KEY=... qo‘shing, "
+                        "keyin: sudo systemctl restart ailab-gunicorn"
                     ),
                 },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -472,6 +475,7 @@ class StatusView(APIView):
     """GET /api/status"""
 
     def get(self, request):
+        eng.ensure_gemini_from_env()
         return Response(
             {
                 "stream_active": eng.stream_active,
