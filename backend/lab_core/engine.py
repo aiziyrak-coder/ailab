@@ -59,7 +59,8 @@ IMAGE_EXT = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 # ─── ZiyrakAi (foydalanuvchiga ko'rinadigan nom); texnik API — Google Generative AI ─
 ZIYRAKAI_DISPLAY_NAME = "ZiyrakAi"
 # Kalit va model ID: muhit o'zgaruvchilari (repoga yozilmaydi)
-GEMINI_MODEL_ID = (os.environ.get("GEMINI_MODEL_ID") or "gemini-2.5-pro").strip()
+# Standart: flash — tezroq javob; maksimal chuqurlik uchun .env da GEMINI_MODEL_ID=gemini-2.5-pro
+GEMINI_MODEL_ID = (os.environ.get("GEMINI_MODEL_ID") or "gemini-2.5-flash").strip()
 
 
 def _init_gemini_models():
@@ -109,6 +110,14 @@ QONUNIY VA TIBBIY CHEGARA:
 - Yakuniy tashxis, davolash, rasmiy tibbiy hujjat — faqat litsenziyali shifokor vakolati; sen faqat
   mikroskopik topilmalar va laborator talqin berasan.
 
+O'ZBEKISTON ME'YORIY AMALIYOTI (mazmuniy moslik):
+- Hisobot O'zbekiston Respublikasida klinik laboratoriyalarda qo'llaniladigan rasmiy va yo'riqnoma
+  asosidagi terminologiya, bo'limlar tartibi va hisobot madaniyatiga yaqin bo'lsin (tibbiy buyruqlar,
+  klinik protokollar, laboratoriya sifati bo'yicha ichki tartib-qoidalarga muvofiq yozuv uslubi).
+- Normativ qiymatlar yoki chegaralar faqat tasvir va umumiy laboratoriya bilimiga asoslangan holda,
+  "taxminiy" yoki "maydon bo'yicha" deb belgilangan holda keltirilsin; aniq RS jadvali raqamlarini
+  faqat ishonchli manba keltirilmasa, uydurma.
+
 TIL: ilmiy-aniq, laborator uslubida, jumlalar to'liq va yakuniy.
 
 SAVDO NOMI: Foydalanuvchi uchun tizim nomi doim "ZiyrakAi". Javob matnida boshqa xizmat yoki
@@ -146,7 +155,7 @@ MAJBURIY tahlil qil:
 - Miqdori (oz, normal, ko'p)
 - Morfologiyasi: o'lchami, granullari
 
-## 4. XULOSА VA IZOH
+## 4. XULOSA VA IZOH
 - Aniqlangan patologiyalar ro'yxati
 - Mumkin bo'lgan kasalliklar (qon kamqonligi turi, leykoz, infeksiya, parazit va h.k.)
 - Qo'shimcha tekshiruvlar tavsiyasi
@@ -940,21 +949,23 @@ OUTPUT_FORMAT_RULES_UZ = """
 CHIQISH QOIDALARI (majburiy tartibda, hech birini o'tkazma):
 0. Agar tahlil manbai yoki vosita nomi kerak bo'lsa — faqat "ZiyrakAi" yoki neytral iboralar; boshqa savdo nomlari yo'q.
 1. Javob matnida ** yoki boshqa yulduzcha ISHLATMA — oddiy matn.
-2. Jadval: kamida IKKITA alohida jadval (masalan, asosiy topilmalar + differensial yoki sonli ko'rsatkichlar);
-   har qator | ustun1 | ustun2 | ustun3 | ko'rinishida; :--- ajratuvchi qator QO'SHMA.
-3. "#### GLOBAL MIKROSKOPIK TAVSIF" — kamida 8-12 to'liq jumla: fon, zichlik, dominant tuzilmalar,
-   maydon sifati, masshtab his-tuyg'usi (agar berilgan bo'lsa), video bo'lsa harakat va vaqt bo'yicha o'zgarishlar.
+2. Jadval: kamida UCHTA alohida jadval (masalan: sonli/ko'rsatkichlar; morfologiya; differensial yoki
+   qo'shimcha tekshiruvlar); har qator | ustun1 | ustun2 | ustun3 | ko'rinishida; :--- ajratuvchi qator QO'SHMA.
+3. "#### GLOBAL MIKROSKOPIK TAVSIF" — kamida 14-20 to'liq jumla: fon, zichlik, dominant tuzilmalar,
+   maydon sifati, masshtab his-tuyg'usi (agar berilgan bo'lsa), video bo'lsa harakat va vaqt bo'yicha o'zgarishlar,
+   artefaktlar, sifat bahosi.
 4. Quyida laborator promptidagi BARCHA ostbo'limlar ketma-ket, to'liq hajmda (qisqartirish yoki "xulosa
    qilib" deb birlashtirish mumkin emas).
-5. "#### DIFFERENSIAL TALQIN VA TEKSHIRUV REJASI" — kamida 6-8 band: mumkin bo'lgan sabablar
+5. "#### DIFFERENSIAL TALQIN VA TEKSHIRUV REJASI" — kamida 10-14 band: mumkin bo'lgan sabablar
    (har biri ehtiyotkor, "mumkin" bilan), har bir farziyani qaysi laborator yoki instrument tekshiruvi
-   aniqlashi yoki istisno qilishi mumkinligi.
-6. "#### YAKUNIY XULOSA VA TAVSIYALAR" — kamida 14-20 to'liq jumla: eng muhim topilmalar, laborator
+   aniqlashi yoki istisno qilishi mumkinligi; O'zbekiston klinik laboratoriya amaliyotida odatiy qo'shimcha tekshiruvlar.
+6. "#### YAKUNIY XULOSA VA TAVSIYALAR" — kamida 22-32 to'liq jumla: eng muhim topilmalar, laborator
    baho, klinik orientatsiya (tashxis qo'ymasdan), shoshilinch ko'rik holatlari, takroriy tekshiruvlar
-   (mazok, likvor PCR, kultura, kolposkopiya, immunologik panel, qon va h.k.), kuzatish.
-7. "#### HUQUQIY VA TIBBIY ESKLATMA" — 3-5 jumla: natija ZiyrakAi tizimi yordamida tayyorlangan; tibbiy qaror mutaxassisniki;
-   xato yoki noaniq tasvirda javob cheklangan bo'lishi mumkin.
+   (mazok, likvor PCR, kultura, kolposkopiya, immunologik panel, qon va h.k.), kuzatish, namuna sifati bo'yicha eslatma.
+7. "#### HUQUQIY VA TIBBIY ESKLATMA" — 4-7 jumla: natija ZiyrakAi tizimi yordamida tayyorlangan; tibbiy qaror mutaxassisniki;
+   xato yoki noaniq tasvirda javob cheklangan bo'lishi mumkin; rasmiy blanka va tashkilot ichki tartibiga muvofiqlik laborant mas'uliyati.
 8. Sonlar va foizlar faqat asoslangan yoki "taxminiy" deb belgilangan bo'lsin.
+9. Kamida bitta "#### QISQACHA KLINIK XULOSA (laborant uchun)" bo'limi: 5-8 jumla, faqat mikroskopik xulosalar.
 """
 
 def _append_output_format(prompt):
@@ -1133,12 +1144,34 @@ def _merge_prompt_with_microscope(base_prompt, microscope_prefix):
     return base_prompt
 
 # ─── Gemini tahlil ────────────────────────────────────────────────────────────
-# Gemini: uzoq, batafsil hisobot + barqaror morfologik tavsif
-GEMINI_GENERATION_CONFIG = {
-    "max_output_tokens": 32768,
-    "temperature": 0.1,
-    "top_p": 0.92,
-}
+def _gemini_image_max_px():
+    try:
+        v = int(os.environ.get("GEMINI_IMAGE_MAX_PX", "1600"))
+    except ValueError:
+        v = 1600
+    return max(960, min(v, 4096))
+
+
+def _gemini_generation_config():
+    """Chiqish tokeni: katta qiymat sekinroq; .env orqali sozlash mumkin."""
+    try:
+        max_out = int(os.environ.get("GEMINI_MAX_OUTPUT_TOKENS", "16384"))
+    except ValueError:
+        max_out = 16384
+    max_out = max(4096, min(max_out, 65536))
+    try:
+        temp = float(os.environ.get("GEMINI_TEMPERATURE", "0.1"))
+    except ValueError:
+        temp = 0.1
+    try:
+        top_p = float(os.environ.get("GEMINI_TOP_P", "0.92"))
+    except ValueError:
+        top_p = 0.92
+    return {
+        "max_output_tokens": max_out,
+        "temperature": max(0.0, min(temp, 1.5)),
+        "top_p": max(0.05, min(top_p, 1.0)),
+    }
 
 
 def _truncate_field(val, maxlen):
@@ -1210,7 +1243,7 @@ def _gemini_generate(content_list):
         try:
             return gemini_model.generate_content(
                 content_list,
-                generation_config=GEMINI_GENERATION_CONFIG,
+                generation_config=_gemini_generation_config(),
             )
         except Exception as e:
             retry = bool(_GEMINI_RETRYABLE and isinstance(e, _GEMINI_RETRYABLE))
@@ -1229,12 +1262,14 @@ def _gemini_generate(content_list):
             raise
 
 
-def _resize_img(img, max_px=1800):
-    """Rasmni Gemini uchun optimallashtirish (tafsilot saqlanadi)"""
+def _resize_img(img, max_px=None):
+    """Rasmni Gemini uchun optimallashtirish (tafsilot saqlanadi)."""
+    if max_px is None:
+        max_px = _gemini_image_max_px()
     w, h = img.size
     if max(w, h) > max_px:
         scale = max_px / max(w, h)
-        img = img.resize((int(w*scale), int(h*scale)), Image.LANCZOS)
+        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
     return img
 
 def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None):
@@ -1330,18 +1365,23 @@ def do_analyze_video(
             fps = 0.0
         if not fps or fps != fps:  # 0 yoki nan
             fps = 25.0
+        try:
+            max_frames = int(os.environ.get("GEMINI_VIDEO_MAX_FRAMES", "6"))
+        except ValueError:
+            max_frames = 6
+        max_frames = max(4, min(max_frames, 12))
         step = max(1, int(round(fps)))
         frames_data = []
         count = 0
         idx = 0
-        while cap.isOpened() and count < 8:
+        while cap.isOpened() and count < max_frames:
             cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
             ret, frame = cap.read()
             if not ret:
                 break
             frame = _ensure_bgr_frame(frame)
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            pil = Image.fromarray(rgb)
+            pil = _resize_img(Image.fromarray(rgb))
             frames_data.append(pil)
             idx += step
             count += 1

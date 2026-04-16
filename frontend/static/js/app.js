@@ -683,6 +683,11 @@ function _fillPrintArea() {
   setEl('printDate', dateStr);
   setEl('printTime', timeStr);
   setEl('printPageDate', '', `<strong>${dateStr}</strong> &nbsp; ${timeStr}`);
+  setEl('printLabLine', `${lab.icon} ${lab.name}`);
+  const up = document.getElementById('userPill');
+  const rawUser = up && up.textContent ? up.textContent.trim() : '';
+  const exec = rawUser.replace(/^👤\s*/, '').trim() || '—';
+  setEl('printExecutor', exec);
 
   // Raw matn — data-raw-text atributidan olish
   const body = document.getElementById('resultBody');
@@ -746,10 +751,10 @@ async function savePDF() {
   try {
     await html2pdf()
       .set({
-        margin:       [12, 12, 12, 12],
+        margin:       [10, 10, 10, 10],
         filename:     fname,
-        image:        { type:'jpeg', quality:0.97 },
-        html2canvas:  { scale:2, useCORS:true, backgroundColor:'#ffffff' },
+        image:        { type:'jpeg', quality:0.93 },
+        html2canvas:  { scale:1.65, useCORS:true, backgroundColor:'#ffffff', logging:false },
         jsPDF:        { unit:'mm', format:'a4', orientation:'portrait' },
         pagebreak:    { mode:['avoid-all', 'css', 'legacy'] }
       })

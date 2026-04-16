@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#f4f6f9">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>MedLab — ZiyrakAi laboratoriya tahlili</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -386,6 +387,43 @@
           <span>📅 <b>Sana:</b> <span id="printDate"></span></span>
           <span>🕐 <b>Vaqt:</b> <span id="printTime"></span></span>
           <span>✅ <b>Holat:</b> Tahlil bajarildi</span>
+        </div>
+      </div>
+
+      <div class="print-reg-banner" role="note">
+        <div class="print-reg-title">Oʻzbekiston Respublikasi — klinik laboratoriya hujjati (blanka)</div>
+        <div class="print-reg-sub">Meʼyoriy hujjatlar va tibbiy muassasa ichki tartibiga mos laboratoriya natijasi chop etish / печать результата лабораторных исследований</div>
+      </div>
+      <div class="print-patient-sheet" aria-label="Bemor va namuna rekvizitlari">
+        <div class="print-ps-row">
+          <div class="print-ps-field print-ps-grow">
+            <span class="print-ps-lbl">Bemorning F.I.Sh. / Ф.И.О. пациента</span>
+            <div class="print-ps-line" contenteditable="false"></div>
+          </div>
+          <div class="print-ps-field print-ps-narrow">
+            <span class="print-ps-lbl">Tugʻilgan sanasi / Дата рождения</span>
+            <div class="print-ps-line"></div>
+          </div>
+        </div>
+        <div class="print-ps-row">
+          <div class="print-ps-field print-ps-grow">
+            <span class="print-ps-lbl">Manzil, boʻlim / Адрес, отделение</span>
+            <div class="print-ps-line"></div>
+          </div>
+          <div class="print-ps-field print-ps-narrow">
+            <span class="print-ps-lbl">Namuna № / № пробы</span>
+            <div class="print-ps-line"></div>
+          </div>
+        </div>
+        <div class="print-ps-row">
+          <div class="print-ps-field print-ps-half">
+            <span class="print-ps-lbl">Tahlil turi (blankada) / Вид исследования</span>
+            <div class="print-ps-line print-ps-line--muted" id="printLabLine"></div>
+          </div>
+          <div class="print-ps-field print-ps-half">
+            <span class="print-ps-lbl">Tizim foydalanuvchisi (login) / Пользователь</span>
+            <div class="print-ps-line print-ps-line--muted" id="printExecutor"></div>
+          </div>
         </div>
       </div>
     </div>
