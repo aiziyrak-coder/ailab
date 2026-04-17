@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-Bir marta: serverda Let's Encrypt + nginx SSL (ailab.ziyrak.org, ailabapi.ziyrak.org).
+Bir marta: serverda Let's Encrypt + nginx SSL (faqat ailab.ziyrak.org, ailabapi.ziyrak.org).
+
+Certbot bu skriptda faqat yuqoridagi ikki -d bilan ishlaydi — boshqa saytlarning
+nginx konfiglari va sertifikatlariga tegmaydi (umumiy `certbot --nginx` yurisiz).
 
 Avval HTTP ishlayotgan bo'lishi kerak (nginx 80, DNS A yozuvlari serverga).
 
