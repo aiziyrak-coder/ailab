@@ -1,25 +1,29 @@
 #!/usr/bin/env python3
 """
 1Panel: /etc/nginx/conf.d/1panel.conf ichida server_name ailab.ziyrak.org bo'lgan
-blokda proxy_pass 18888 (1Panel UI) -> 8011 (ailab-gunicorn).
+server blokida proxy_pass 18888 -> 8011 (faqat shu almashtirish).
 
-Faqat shu server blokiga tegadi; default_server (server_name _) o'zgarmaydi.
+client_max_body_size qo'shilmaydi (oldingi versiya server_name qatorini buzib,
+nginx: unexpected ";" xatosiga olib kelgan).
 
-Ishlatish (serverda root):
-  sudo python3 /opt/ailab/scripts/fix_ailab_nginx_proxy_to_8011.py
+Yozilgach `nginx -t` ishlaydi-yu tekshiriladi; xato bo'lsa zaxira qaytariladi.
+
+Zaxiradan qo'lda tiklash (birinchi patchdan oldingi nusxa):
+  sudo cp /etc/nginx/conf.d/1panel.conf.bak-ailab8011 /etc/nginx/conf.d/1panel.conf
   sudo nginx -t && sudo systemctl reload nginx
 """
 from __future__ import annotations
 
 import shutil
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 CONF = Path("/etc/nginx/conf.d/1panel.conf")
 MARKER = "server_name ailab.ziyrak.org ailabapi.ziyrak.org"
 OLD_PROXY = "proxy_pass http://127.0.0.1:18888"
 NEW_PROXY = "proxy_pass http://127.0.0.1:8011"
-BODY = "    client_max_body_size 220M;\n"
 
 
 def extract_ailab_server_block(text: str) -> tuple[int, int] | None:
@@ -29,7 +33,7 @@ def extract_ailab_server_block(text: str) -> tuple[int, int] | None:
     start = text.rfind("server {", 0, pos)
     if start == -1:
         return None
-    nxt = text.find("server {", pos + 20)
+    nxt = text.find("\nserver {", pos + len(MARKER))
     end = len(text) if nxt == -1 else nxt
     return start, end
 
@@ -45,13 +49,7 @@ def patch(text: str) -> tuple[str, bool, str]:
             return text, False, "allaqachon 8011 ga yo'naltirilgan"
         return text, False, "18888 proxy_pass topilmadi — qo'lda tekshiring"
     new_block = block.replace(OLD_PROXY, NEW_PROXY, 1)
-    if "client_max_body_size" not in new_block:
-        new_block = new_block.replace(
-            MARKER,
-            MARKER + "\n\n" + BODY.rstrip("\n"),
-            1,
-        )
-    return text[:start] + new_block + text[end:], True, "8011 ga yangilandi (kerak bo'lsa client_max_body_size 220M qo'shildi)"
+    return text[:start] + new_block + text[end:], True, "8011 ga yangilandi"
 
 
 def main() -> int:
@@ -63,10 +61,25 @@ def main() -> int:
     print(msg)
     if not changed:
         return 0
-    bak = CONF.with_suffix(CONF.suffix + ".bak-ailab8011")
+    bak = CONF.parent / f"1panel.conf.pre-patch-{int(time.time())}.bak"
     shutil.copy2(CONF, bak)
-    print(f"Zaxira: {bak}")
+    print(f"Zaxira (yozishdan oldin): {bak}")
     CONF.write_text(new_text, encoding="utf-8")
+    test = subprocess.run(
+        ["nginx", "-t"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if test.returncode != 0:
+        shutil.copy2(bak, CONF)
+        print("nginx -t xato — fayl zaxiradan qaytarildi:", file=sys.stderr)
+        if test.stderr:
+            print(test.stderr, file=sys.stderr)
+        if test.stdout:
+            print(test.stdout, file=sys.stderr)
+        return 1
+    print("nginx -t: OK (reload: sudo systemctl reload nginx)")
     return 0
 
 
