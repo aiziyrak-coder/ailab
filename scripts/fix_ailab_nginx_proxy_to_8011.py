@@ -6,7 +6,7 @@ server blokida proxy_pass 18888 -> 8011 (faqat shu almashtirish).
 client_max_body_size qo'shilmaydi (oldingi versiya server_name qatorini buzib,
 nginx: unexpected ";" xatosiga olib kelgan).
 
-Yozilgach `nginx -t` ishlaydi-yu tekshiriladi; xato bo'lsa zaxira qaytariladi.
+Yozilgach `nginx -t` va muvaffaq bo'lsa `systemctl reload nginx`; xato bo'lsa fayl zaxiraga qaytadi.
 
 Zaxiradan qo'lda tiklash (birinchi patchdan oldingi nusxa):
   sudo cp /etc/nginx/conf.d/1panel.conf.bak-ailab8011 /etc/nginx/conf.d/1panel.conf
@@ -79,7 +79,21 @@ def main() -> int:
         if test.stdout:
             print(test.stdout, file=sys.stderr)
         return 1
-    print("nginx -t: OK (reload: sudo systemctl reload nginx)")
+    print("nginx -t: OK")
+    rel = subprocess.run(
+        ["systemctl", "reload", "nginx"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if rel.returncode != 0:
+        print("systemctl reload nginx xato:", file=sys.stderr)
+        if rel.stderr:
+            print(rel.stderr, file=sys.stderr)
+        if rel.stdout:
+            print(rel.stdout, file=sys.stderr)
+        return 1
+    print("nginx reload: OK")
     return 0
 
 
