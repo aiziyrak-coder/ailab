@@ -492,16 +492,18 @@ function showLoading() {
 }
 
 function renderResult(data) {
-  const body     = document.getElementById('resultBody');
-  const ts       = document.getElementById('resultTs');
-  const pdfBtn   = document.getElementById('pdfBtn');
-  const printBtn = document.getElementById('printBtn');
+  const body      = document.getElementById('resultBody');
+  const ts        = document.getElementById('resultTs');
+  const pdfDoctor = document.getElementById('pdfDoctorBtn');
+  const pdfPatient = document.getElementById('pdfPatientBtn');
+  const printBtn  = document.getElementById('printBtn');
 
   if (data.status === 'xato') {
     body.innerHTML = `<div class="r-error r-anim">⚠ ${esc(data.text)}</div>`;
     ts.textContent = data.timestamp || '';
-    if (pdfBtn)   pdfBtn.disabled   = true;
-    if (printBtn) printBtn.disabled = true;
+    if (pdfDoctor)  pdfDoctor.disabled  = true;
+    if (pdfPatient) pdfPatient.disabled = true;
+    if (printBtn)   printBtn.disabled   = true;
     return;
   }
   if (!data.text) { body.innerHTML = '<div class="r-normal">Natija bo\'sh</div>'; return; }
@@ -510,9 +512,9 @@ function renderResult(data) {
   body.setAttribute('data-raw-text', data.text || '');
   body.innerHTML = markdownToHtml(data.text);
 
-  // Natija tayyor — PDF va Print tugmalarini yoq
-  if (pdfBtn)   pdfBtn.disabled   = false;
-  if (printBtn) printBtn.disabled = false;
+  if (pdfDoctor)  pdfDoctor.disabled  = false;
+  if (pdfPatient) pdfPatient.disabled = false;
+  if (printBtn)   printBtn.disabled   = false;
 }
 
 function isMdTableSeparator(line) {
@@ -558,6 +560,56 @@ function renderMdTable(rowLines) {
     html += '</tr>';
   }
   html += '</tbody></table></div>';
+  return html;
+}
+
+/** Jadval kataklarida | buzilishini oldini olish */
+function mdCellSanitize(s) {
+  return String(s || '').replace(/\|/g, '·').replace(/\n/g, ' ').trim();
+}
+
+/** Bemor varag'ida keraksiz bo'lim jadvallarini tashlash */
+function isExcludedPatientTableBlock(rowLines) {
+  if (!rowLines.length) return true;
+  const hdr = splitMdTableRow(rowLines[0]).join(' ').toLowerCase();
+  return /differensial|huquqiy|esklatma|chiqish qoidalari|tekshiruv rejasi|global mikroskopik|mikroskop holati/.test(hdr);
+}
+
+function extractAllMdTableBlocks(text) {
+  const lines = (text || '').split('\n');
+  const blocks = [];
+  let i = 0;
+  while (i < lines.length) {
+    while (i < lines.length && !isMdTableRow(lines[i].trim())) i++;
+    if (i >= lines.length) break;
+    const rowLines = [];
+    while (i < lines.length) {
+      const curTrim = lines[i].trim();
+      if (isMdTableSeparator(curTrim)) { i++; continue; }
+      if (isMdTableRow(curTrim)) { rowLines.push(lines[i]); i++; } else break;
+    }
+    if (rowLines.length >= 2) blocks.push(rowLines);
+  }
+  return blocks;
+}
+
+/**
+ * Bemor PDF: muassasa sarlavhasi + meta jadval + AI chiqishidagi barcha mos data jadvallari (max 5).
+ */
+function buildPatientPdfHtml(rawText, lab, dateStr, timeStr) {
+  const metaRows = [
+    `| Tahlil nomi / Вид исследования | ${mdCellSanitize(`${lab.icon} ${lab.name}`)} |`,
+    `| Sana va vaqt / Дата, время | ${mdCellSanitize(`${dateStr} ${timeStr}`)} |`,
+  ];
+  let html = renderMdTable(metaRows);
+  const blocks = extractAllMdTableBlocks(rawText).filter((b) => !isExcludedPatientTableBlock(b));
+  const maxTables = 5;
+  for (let t = 0; t < Math.min(blocks.length, maxTables); t++) {
+    html += renderMdTable(blocks[t]);
+  }
+  if (!blocks.length) {
+    html += '<p class="print-patient-empty">Jadval shaklidagi natijalar topilmadi. Toʻliq tahlil — «Shifokor PDF».</p>';
+  }
   return html;
 }
 
@@ -661,10 +713,12 @@ function clearResult() {
     </div>`;
   document.getElementById('resultTs').textContent = '';
   document.getElementById('resultBody').removeAttribute('data-raw-text');
-  const pdfBtn   = document.getElementById('pdfBtn');
-  const printBtn = document.getElementById('printBtn');
-  if (pdfBtn)   pdfBtn.disabled   = true;
-  if (printBtn) printBtn.disabled = true;
+  const pdfDoctor = document.getElementById('pdfDoctorBtn');
+  const pdfPatient = document.getElementById('pdfPatientBtn');
+  const printBtn   = document.getElementById('printBtn');
+  if (pdfDoctor)  pdfDoctor.disabled  = true;
+  if (pdfPatient) pdfPatient.disabled = true;
+  if (printBtn)   printBtn.disabled   = true;
 }
 
 function _fillPrintArea() {
@@ -735,38 +789,97 @@ function printResult() {
   el.style.display = 'none';
 }
 
-async function savePDF() {
-  _fillPrintArea();
-  const el  = document.getElementById('printArea');
-  el.style.display = 'block';
-
+function _fillPrintAreaPatient() {
   const lab = LAB_META[currentLab];
   const now = new Date();
-  const fname = `MedLab_${currentLab}_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.pdf`;
+  const dateStr = now.toLocaleDateString('uz-UZ', { year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString('uz-UZ');
+  const setEl = (id, txt, html) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (html) el.innerHTML = html; else el.textContent = txt;
+  };
+  setEl('printPatientLabBadge', `${lab.icon} ${lab.name}`);
+  setEl('printPatientDate', dateStr);
+  setEl('printPatientTime', timeStr);
+  setEl('printPatientLabLine', `${lab.icon} ${lab.name}`);
+  const up = document.getElementById('userPill');
+  const rawUser = up && up.textContent ? up.textContent.trim() : '';
+  const exec = rawUser.replace(/^👤\s*/, '').trim() || '—';
+  setEl('printPatientExecutor', exec);
+  const body = document.getElementById('resultBody');
+  const rawText = body.getAttribute('data-raw-text') || '';
+  const pc = document.getElementById('printPatientContent');
+  if (pc) pc.innerHTML = buildPatientPdfHtml(rawText, lab, dateStr, timeStr);
+}
 
-  const pdfBtn = document.getElementById('pdfBtn');
+async function savePDFDoctor() {
+  const pdfBtn = document.getElementById('pdfDoctorBtn');
+  const el = document.getElementById('printArea');
+  if (!pdfBtn || !el) return;
+  _fillPrintArea();
+  el.style.display = 'block';
+
+  const now = new Date();
+  const fname = `MedLab_shifokor_${currentLab}_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.pdf`;
+
   pdfBtn.disabled = true;
-  pdfBtn.textContent = '⏳ Saqlanmoqda...';
+  pdfBtn.textContent = '⏳...';
 
   try {
     await html2pdf()
       .set({
         margin:       [10, 10, 10, 10],
         filename:     fname,
-        image:        { type:'jpeg', quality:0.93 },
-        html2canvas:  { scale:1.65, useCORS:true, backgroundColor:'#ffffff', logging:false },
-        jsPDF:        { unit:'mm', format:'a4', orientation:'portrait' },
-        pagebreak:    { mode:['avoid-all', 'css', 'legacy'] }
+        image:        { type: 'jpeg', quality: 0.93 },
+        html2canvas:  { scale: 1.65, useCORS: true, backgroundColor: '#ffffff', logging: false },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] },
       })
-      .from(document.getElementById('printArea'))
+      .from(el)
       .save();
-    toast(`📄 "${fname}" saqlandi`, 'green');
-  } catch(e) {
+    toast(`📄 Shifokor PDF: "${fname}"`, 'green');
+  } catch (e) {
     toast('PDF saqlashda xato: ' + e.message, 'red');
   } finally {
     el.style.display = 'none';
     pdfBtn.disabled = false;
-    pdfBtn.textContent = '📄 PDF';
+    pdfBtn.textContent = 'Shifokor PDF';
+  }
+}
+
+async function savePDFPatient() {
+  const btn = document.getElementById('pdfPatientBtn');
+  const el = document.getElementById('printAreaPatient');
+  if (!btn || !el) return;
+  _fillPrintAreaPatient();
+  el.style.display = 'block';
+
+  const now = new Date();
+  const fname = `MedLab_bemor_${currentLab}_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.pdf`;
+
+  btn.disabled = true;
+  btn.textContent = '⏳...';
+
+  try {
+    await html2pdf()
+      .set({
+        margin:       [5, 5, 5, 5],
+        filename:     fname,
+        image:        { type: 'jpeg', quality: 0.9 },
+        html2canvas:  { scale: 1.35, useCORS: true, backgroundColor: '#ffffff', logging: false },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] },
+      })
+      .from(el)
+      .save();
+    toast(`📄 Bemor PDF: "${fname}"`, 'green');
+  } catch (e) {
+    toast('Bemor PDF: ' + e.message, 'red');
+  } finally {
+    el.style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = 'Bemor PDF';
   }
 }
 

@@ -337,7 +337,10 @@
         <div class="result-meta">
           <span id="resultTs" class="result-ts"></span>
           <button class="btn-small btn-sm-clear" onclick="clearResult()">🗑 Tozalash</button>
-          <button class="btn-small btn-sm-pdf"   onclick="savePDF()"    id="pdfBtn"   disabled>📄 PDF</button>
+          <span class="result-pdf-group" title="Toʻliq tahlil va blanka">
+            <button class="btn-small btn-sm-pdf" onclick="savePDFDoctor()" id="pdfDoctorBtn" disabled>Shifokor PDF</button>
+            <button class="btn-small btn-sm-pdf btn-sm-pdf-patient" onclick="savePDFPatient()" id="pdfPatientBtn" disabled>Bemor PDF</button>
+          </span>
           <button class="btn-small btn-sm-print" onclick="printResult()" id="printBtn" disabled>🖨 Chop</button>
         </div>
       </div>
@@ -475,6 +478,78 @@
     </div>
 
   </div><!-- /print-page -->
+</div>
+
+<!-- Bemor uchun qisqa PDF (asosan jadval, A4 bitta sahifa) -->
+<div id="printAreaPatient" style="display:none">
+  <div class="print-page print-page--patient">
+
+    <div class="print-clinic-header print-clinic-header--patient">
+      <div class="print-logo-row print-logo-row--patient">
+        <img src="/static/logo.png" alt="" class="print-logo-img print-logo-img--patient">
+        <div class="print-header-text">
+          <div class="print-clinic-uz print-clinic-uz--patient">FAR&#x2019;ONA JAMOAT SALOMATLIGI TIBBIYOT INSTITUTI</div>
+          <div class="print-clinic-ru print-clinic-ru--patient">Ферганский медицинский институт общественного здоровья</div>
+          <div class="print-patient-doc-title">Bemor uchun qisqa laboratoriya natijasi / Краткий результат для пациента</div>
+        </div>
+      </div>
+      <div class="print-header-divider print-header-divider--patient"></div>
+      <div class="print-doc-info print-doc-info--patient">
+        <div class="print-doc-badge" id="printPatientLabBadge">—</div>
+        <div class="print-doc-meta print-doc-meta--patient">
+          <span><b>Sana:</b> <span id="printPatientDate"></span></span>
+          <span><b>Vaqt:</b> <span id="printPatientTime"></span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="print-patient-sheet print-patient-sheet--patientpdf" aria-label="Bemor rekvizitlari">
+      <div class="print-ps-row print-ps-row--patient">
+        <div class="print-ps-field print-ps-grow">
+          <span class="print-ps-lbl print-ps-lbl--patient">Bemorning F.I.Sh. / Ф.И.О.</span>
+          <div class="print-ps-line print-ps-line--patient"></div>
+        </div>
+        <div class="print-ps-field print-ps-narrow">
+          <span class="print-ps-lbl print-ps-lbl--patient">Namuna № / № пробы</span>
+          <div class="print-ps-line print-ps-line--patient"></div>
+        </div>
+      </div>
+      <div class="print-ps-row print-ps-row--patient">
+        <div class="print-ps-field print-ps-half">
+          <span class="print-ps-lbl print-ps-lbl--patient">Tahlil nomi / Вид исследования</span>
+          <div class="print-ps-line print-ps-line--muted print-ps-line--patient" id="printPatientLabLine"></div>
+        </div>
+        <div class="print-ps-field print-ps-half">
+          <span class="print-ps-lbl print-ps-lbl--patient">Roʻyxatdan oʻtgan / Пользователь</span>
+          <div class="print-ps-line print-ps-line--muted print-ps-line--patient" id="printPatientExecutor"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="print-section-title print-section-title--patient">
+      <span>📊</span> NATIJA (JADVAL) / Результат
+    </div>
+    <div id="printPatientContent" class="print-content print-content--patient"></div>
+
+    <p class="print-patient-disclaimer">
+      Ushbu sahifada faqat jadval koʻrinishidagi asosiy koʻrsatkichlar beriladi. Batafsil mikroskopik tahlil, differensial talqin va huquqiy izohlar — «Shifokor PDF» hujjatida.
+    </p>
+
+    <div class="print-sign-row print-sign-row--patient">
+      <div class="print-sign-box">
+        <div class="print-sign-line print-sign-line--patient"></div>
+        <div class="print-sign-label">Laborant</div>
+      </div>
+      <div class="print-sign-box">
+        <div class="print-sign-line print-sign-line--patient"></div>
+        <div class="print-sign-label">Shifokor</div>
+      </div>
+    </div>
+
+    <div class="print-footer-patient-mini">
+      © 2026 Far&#x2018;ona Jamoat Salomatligi Tibbiyot Instituti · ZiyrakAi MedLab · Yakuniy baho — shifokor
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
