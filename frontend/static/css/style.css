@@ -1340,6 +1340,98 @@ textarea { resize: vertical; min-height: 44px; line-height: 1.45; max-height: 12
   white-space: nowrap;
 }
 
+.result-reg-row {
+  width: 100%;
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 10px;
+  margin: 4px 0 0;
+  background: linear-gradient(135deg, rgba(26, 46, 90, 0.06) 0%, rgba(37, 99, 235, 0.06) 100%);
+  border: 1px solid rgba(26, 46, 90, 0.15);
+  border-radius: var(--radius-md);
+  font-size: 0.68rem;
+}
+.result-reg-row.hidden { display: none !important; }
+.result-reg-label {
+  font-weight: 700;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.result-reg-id {
+  font-family: ui-monospace, monospace;
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: #1e3a5f;
+  word-break: break-all;
+}
+
+.daftar-card .daftar-hint {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+  line-height: 1.35;
+}
+.daftar-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+@media (max-width: 720px) {
+  .daftar-grid { grid-template-columns: 1fr; }
+}
+.daftar-field label {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+.daftar-inp {
+  width: 100%;
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+
+.print-registration-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 8px 0 6px;
+  padding: 8px 12px;
+  background: #f0f4f8;
+  border: 1px solid #1a2e5a;
+  border-radius: 6px;
+}
+.print-registration-bar--patient {
+  padding: 5px 8px;
+  margin: 4px 0 5px;
+  font-size: 8px;
+}
+.print-reg-bar-label {
+  font-size: 9px;
+  font-weight: 800;
+  color: #1a2e5a;
+  text-transform: uppercase;
+}
+.print-registration-bar--patient .print-reg-bar-label { font-size: 7.5px; }
+.print-reg-bar-value {
+  font-family: ui-monospace, monospace;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #0f172a;
+}
+.print-registration-bar--patient .print-reg-bar-value { font-size: 9px; }
+
 .result-meta {
   display: flex;
   align-items: center;

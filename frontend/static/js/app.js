@@ -41,6 +41,107 @@ const LAB_TITLE = {
   effusion_cytology: '💧 Effuziya sitologiyasi (pleura, periton, perikard)',
 };
 
+/** Tahlil turi qisqartmasi (identifikatsiya: 2–3 harf) */
+const LAB_ID_CODES = {
+  hematology:      'GEM',
+  urine:           'SYD',
+  coprology:       'KOP',
+  spermogram:      'SPM',
+  smear:           'MAZ',
+  csf:             'LIK',
+  lymph:           'LIM',
+  le_cell:         'LEH',
+  prostata_sok:    'PRO',
+  myelogram:       'MIY',
+  blood_parasites: 'PRZ',
+  afb_microscopy:  'AFB',
+  mycology:        'MIK',
+  effusion_cytology: 'EFZ',
+};
+
+const DAFTAR_LS = {
+  region: 'medlab_daftar_region',
+  locality: 'medlab_daftar_locality',
+  clinic: 'medlab_daftar_clinic',
+  type: 'medlab_daftar_type',
+};
+
+function daftarLoadSettings() {
+  const r = document.getElementById('daftarRegion');
+  const l = document.getElementById('daftarLocality');
+  const c = document.getElementById('daftarClinic');
+  const t = document.getElementById('daftarType');
+  if (!r || !l || !c || !t) return;
+  r.value = localStorage.getItem(DAFTAR_LS.region) || '40';
+  l.value = localStorage.getItem(DAFTAR_LS.locality) || 'FSH';
+  c.value = localStorage.getItem(DAFTAR_LS.clinic) || '7';
+  t.value = localStorage.getItem(DAFTAR_LS.type) || 'OP';
+}
+
+function daftarSaveSettings() {
+  const r = document.getElementById('daftarRegion');
+  const l = document.getElementById('daftarLocality');
+  const c = document.getElementById('daftarClinic');
+  const t = document.getElementById('daftarType');
+  if (!r || !l || !c || !t) return;
+  localStorage.setItem(DAFTAR_LS.region, (r.value || '40').trim().slice(0, 3));
+  localStorage.setItem(DAFTAR_LS.locality, (l.value || 'FSH').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) || 'FSH');
+  localStorage.setItem(DAFTAR_LS.clinic, (c.value || '7').replace(/\D/g, '').slice(0, 3) || '7');
+  localStorage.setItem(DAFTAR_LS.type, (t.value || 'OP').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) || 'OP');
+}
+
+/** Kunlik tartib raqami (0001…) */
+function nextDaftarSequence(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const key = `medlab_daftar_seq_${y}${m}${day}`;
+  let n = parseInt(localStorage.getItem(key) || '0', 10);
+  if (Number.isNaN(n)) n = 0;
+  n += 1;
+  localStorage.setItem(key, String(n));
+  return String(n).padStart(4, '0');
+}
+
+/**
+ * Format: viloyat + hudud + poliklinika№ + tur + DDMMYY + tahlil + tartib
+ * Masalan: 40FSH7OP170426GEM0001
+ */
+function buildRegistrationId(labKey) {
+  const region = (localStorage.getItem(DAFTAR_LS.region) || '40').replace(/\D/g, '').slice(0, 3) || '40';
+  let loc = (localStorage.getItem(DAFTAR_LS.locality) || 'FSH').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+  if (!loc) loc = 'FSH';
+  const clinic = (localStorage.getItem(DAFTAR_LS.clinic) || '7').replace(/\D/g, '').slice(0, 3) || '7';
+  let ctype = (localStorage.getItem(DAFTAR_LS.type) || 'OP').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+  if (!ctype) ctype = 'OP';
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yy = String(d.getFullYear()).slice(-2);
+  const labCode = LAB_ID_CODES[labKey] || 'LAB';
+  const seq = nextDaftarSequence(d);
+  return `${region}${loc}${clinic}${ctype}${dd}${mm}${yy}${labCode}${seq}`;
+}
+
+function setRegistrationUi(id) {
+  const row = document.getElementById('resultRegRow');
+  const el = document.getElementById('resultRegId');
+  if (!row || !el) return;
+  if (id) {
+    el.textContent = id;
+    row.classList.remove('hidden');
+  } else {
+    el.textContent = '';
+    row.classList.add('hidden');
+  }
+}
+
+function clearRegistrationUi() {
+  const body = document.getElementById('resultBody');
+  if (body) body.removeAttribute('data-registration-id');
+  setRegistrationUi(null);
+}
+
 // ─── Lab tanlash ─────────────────────────────────────────────────────────────
 function selectLab(lab) {
   if (!LAB_META[lab]) lab = 'hematology';
@@ -489,6 +590,7 @@ function showLoading() {
       ZiyrakAi tahlil qilmoqda...
     </div>`;
   document.getElementById('resultTs').textContent = '';
+  clearRegistrationUi();
 }
 
 function renderResult(data) {
@@ -511,6 +613,10 @@ function renderResult(data) {
   ts.textContent = data.timestamp ? `🕐 ${data.timestamp}` : '';
   body.setAttribute('data-raw-text', data.text || '');
   body.innerHTML = markdownToHtml(data.text);
+
+  const regId = buildRegistrationId(currentLab);
+  body.setAttribute('data-registration-id', regId);
+  setRegistrationUi(regId);
 
   if (pdfDoctor)  pdfDoctor.disabled  = false;
   if (pdfPatient) pdfPatient.disabled = false;
@@ -713,6 +819,7 @@ function clearResult() {
     </div>`;
   document.getElementById('resultTs').textContent = '';
   document.getElementById('resultBody').removeAttribute('data-raw-text');
+  clearRegistrationUi();
   const pdfDoctor = document.getElementById('pdfDoctorBtn');
   const pdfPatient = document.getElementById('pdfPatientBtn');
   const printBtn   = document.getElementById('printBtn');
@@ -743,8 +850,18 @@ function _fillPrintArea() {
   const exec = rawUser.replace(/^👤\s*/, '').trim() || '—';
   setEl('printExecutor', exec);
 
-  // Raw matn — data-raw-text atributidan olish
   const body = document.getElementById('resultBody');
+  const regId = body ? (body.getAttribute('data-registration-id') || '') : '';
+  const prBar = document.getElementById('printRegistrationBar');
+  const prId = document.getElementById('printRegistrationId');
+  if (regId && prBar && prId) {
+    prId.textContent = regId;
+    prBar.style.display = 'flex';
+  } else if (prBar) {
+    prBar.style.display = 'none';
+  }
+
+  // Raw matn — data-raw-text atributidan olish
   const rawText = body.getAttribute('data-raw-text') || '';
 
   let html;
@@ -808,6 +925,15 @@ function _fillPrintAreaPatient() {
   const exec = rawUser.replace(/^👤\s*/, '').trim() || '—';
   setEl('printPatientExecutor', exec);
   const body = document.getElementById('resultBody');
+  const regId = body ? (body.getAttribute('data-registration-id') || '') : '';
+  const pBar = document.getElementById('printPatientRegistrationBar');
+  const pId = document.getElementById('printPatientRegistrationId');
+  if (regId && pBar && pId) {
+    pId.textContent = regId;
+    pBar.style.display = 'flex';
+  } else if (pBar) {
+    pBar.style.display = 'none';
+  }
   const rawText = body.getAttribute('data-raw-text') || '';
   const pc = document.getElementById('printPatientContent');
   if (pc) pc.innerHTML = buildPatientPdfHtml(rawText, lab, dateStr, timeStr);
@@ -820,8 +946,12 @@ async function savePDFDoctor() {
   _fillPrintArea();
   el.style.display = 'block';
 
+  const bodyEl = document.getElementById('resultBody');
+  const rid = bodyEl ? bodyEl.getAttribute('data-registration-id') : '';
   const now = new Date();
-  const fname = `MedLab_shifokor_${currentLab}_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.pdf`;
+  const fname = rid
+    ? `MedLab_${rid}_shifokor.pdf`
+    : `MedLab_shifokor_${currentLab}_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.pdf`;
 
   pdfBtn.disabled = true;
   pdfBtn.textContent = '⏳...';
@@ -855,8 +985,12 @@ async function savePDFPatient() {
   _fillPrintAreaPatient();
   el.style.display = 'block';
 
+  const bodyEl = document.getElementById('resultBody');
+  const rid = bodyEl ? bodyEl.getAttribute('data-registration-id') : '';
   const now = new Date();
-  const fname = `MedLab_bemor_${currentLab}_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.pdf`;
+  const fname = rid
+    ? `MedLab_${rid}_bemor.pdf`
+    : `MedLab_bemor_${currentLab}_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.pdf`;
 
   btn.disabled = true;
   btn.textContent = '⏳...';
@@ -988,6 +1122,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const p = vf.getAttribute('data-stream-path') || '/video_feed';
     vf.src = apiPath(p);
   }
+  daftarLoadSettings();
+  ['daftarRegion', 'daftarLocality', 'daftarClinic', 'daftarType'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', daftarSaveSettings);
+      el.addEventListener('blur', daftarSaveSettings);
+    }
+  });
   refreshUserPill();
   scanCameras();
   selectLab('hematology');

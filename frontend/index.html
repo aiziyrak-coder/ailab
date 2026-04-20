@@ -260,6 +260,30 @@
         <div id="camMsg" class="info-msg"></div>
       </div>
 
+      <!-- Daftar identifikatsiyasi (viloyat • hudud • poliklinika • sana • tahlil • tartib) -->
+      <div class="card daftar-card">
+        <div class="card-title">📒 Daftar identifikatsiyasi</div>
+        <p class="daftar-hint">Har yangi tahlil uchun avtomatik №: viloyat + hudud + poliklinika + tur + sana (kunoyyil) + tahlil qisqartmasi + tartib.</p>
+        <div class="daftar-grid">
+          <div class="daftar-field">
+            <label for="daftarRegion">Viloyat kodi</label>
+            <input type="text" id="daftarRegion" class="daftar-inp" maxlength="3" placeholder="40" autocomplete="off">
+          </div>
+          <div class="daftar-field">
+            <label for="daftarLocality">Hudud (2–3 harf)</label>
+            <input type="text" id="daftarLocality" class="daftar-inp" maxlength="3" placeholder="FSH" title="FSH shahar, FT tuman, BT Bog'dod" autocomplete="off">
+          </div>
+          <div class="daftar-field">
+            <label for="daftarClinic">Poliklinika №</label>
+            <input type="text" id="daftarClinic" class="daftar-inp" maxlength="3" placeholder="7" autocomplete="off">
+          </div>
+          <div class="daftar-field">
+            <label for="daftarType">Tur (masalan OP)</label>
+            <input type="text" id="daftarType" class="daftar-inp" maxlength="3" placeholder="OP" title="Oylaviy poliklinika" autocomplete="off">
+          </div>
+        </div>
+      </div>
+
       <!-- Maxsus so'rov -->
       <div class="card">
         <div class="card-title">💬 Maxsus So'rov (ixtiyoriy)</div>
@@ -334,6 +358,10 @@
           <span id="resultLabIcon">🩸</span>
           <span id="resultLabName">Gematologiya Natijasi</span>
         </div>
+        <div id="resultRegRow" class="result-reg-row hidden" title="Laboratoriya daftariga identifikatsiya raqami">
+          <span class="result-reg-label">Daftar identifikatsiya №</span>
+          <code id="resultRegId" class="result-reg-id"></code>
+        </div>
         <div class="result-meta">
           <span id="resultTs" class="result-ts"></span>
           <button class="btn-small btn-sm-clear" onclick="clearResult()">🗑 Tozalash</button>
@@ -383,6 +411,11 @@
         </div>
       </div>
       <div class="print-header-divider"></div>
+
+      <div id="printRegistrationBar" class="print-registration-bar" style="display:none">
+        <span class="print-reg-bar-label">Daftar identifikatsiya №</span>
+        <span id="printRegistrationId" class="print-reg-bar-value"></span>
+      </div>
 
       <div class="print-doc-info">
         <div class="print-doc-badge" id="printLabBadge">🩸 Gematologiya Tahlili</div>
@@ -494,6 +527,12 @@
         </div>
       </div>
       <div class="print-header-divider print-header-divider--patient"></div>
+
+      <div id="printPatientRegistrationBar" class="print-registration-bar print-registration-bar--patient" style="display:none">
+        <span class="print-reg-bar-label">Daftar identifikatsiya №</span>
+        <span id="printPatientRegistrationId" class="print-reg-bar-value"></span>
+      </div>
+
       <div class="print-doc-info print-doc-info--patient">
         <div class="print-doc-badge" id="printPatientLabBadge">—</div>
         <div class="print-doc-meta print-doc-meta--patient">
