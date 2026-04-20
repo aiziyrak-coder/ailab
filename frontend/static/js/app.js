@@ -1107,13 +1107,43 @@ async function logoutMedlab() {
 
 async function refreshUserPill() {
   const el = document.getElementById('userPill');
-  if (!el) return;
   const data = await api(apiPath('/api/auth/me'));
-  if (data && data.success && data.user && data.user.username) {
-    el.textContent = '👤 ' + data.user.username;
-  } else {
-    el.textContent = '—';
+  if (el) {
+    if (data && data.success && data.user && data.user.username) {
+      el.textContent = '👤 ' + data.user.username;
+    } else {
+      el.textContent = '—';
+    }
   }
+  /** Profildan daftar maydonlari: hudud, poliklinika №, tur (masalan 7 va OP) */
+  if (!data || !data.success || !data.user) return;
+  const u = data.user;
+  let touched = false;
+  const l = document.getElementById('daftarLocality');
+  if (l && u.hudud_code) {
+    let code = String(u.hudud_code).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+    if (code.length >= 2) {
+      l.value = code;
+      touched = true;
+    }
+  }
+  const c = document.getElementById('daftarClinic');
+  if (c && u.clinic_no) {
+    const digits = String(u.clinic_no).replace(/\D/g, '').slice(0, 3);
+    if (digits) {
+      c.value = digits;
+      touched = true;
+    }
+  }
+  const t = document.getElementById('daftarType');
+  if (t && u.visit_type) {
+    let vt = String(u.visit_type).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+    if (vt.length >= 2) {
+      t.value = vt;
+      touched = true;
+    }
+  }
+  if (touched) daftarSaveSettings();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

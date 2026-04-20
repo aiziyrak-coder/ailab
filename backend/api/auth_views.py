@@ -11,9 +11,34 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .models import UserProfile
 from .serializers import LoginSerializer, RegisterSerializer
 from .template_mixins import MedlabPublicTemplateMixin
 from .throttling import AuthThrottle
+
+
+def _profile_fields_for_response(user):
+    """Daftar identifikatsiyasi uchun profil maydonlari (bo‘sh bo‘lsa ham qoidaga mos)."""
+    hudud = clinic_no = visit_type = ""
+    try:
+        p = user.profile
+        hudud = p.hudud_code or ""
+        clinic_no = p.clinic_no or ""
+        visit_type = p.visit_type or ""
+    except UserProfile.DoesNotExist:
+        pass
+    return hudud, clinic_no, visit_type
+
+
+def _user_auth_payload(user):
+    hudud, clinic_no, visit_type = _profile_fields_for_response(user)
+    return {
+        "username": user.username,
+        "email": user.email or "",
+        "hudud_code": hudud,
+        "clinic_no": clinic_no,
+        "visit_type": visit_type,
+    }
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -70,7 +95,7 @@ class LoginApiView(APIView):
             {
                 "success": True,
                 "message": "Xush kelibsiz",
-                "user": {"username": user.username, "email": user.email or ""},
+                "user": _user_auth_payload(user),
             }
         )
 
@@ -96,7 +121,7 @@ class RegisterApiView(APIView):
             {
                 "success": True,
                 "message": "Hisob yaratildi",
-                "user": {"username": user.username, "email": user.email or ""},
+                "user": _user_auth_payload(user),
             },
             status=status.HTTP_201_CREATED,
         )
@@ -118,7 +143,7 @@ class MeApiView(APIView):
         return Response(
             {
                 "success": True,
-                "user": {"username": u.username, "email": getattr(u, "email", "") or ""},
+                "user": _user_auth_payload(u),
             }
         )
 

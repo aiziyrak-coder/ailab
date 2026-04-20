@@ -2170,6 +2170,33 @@ body.auth-page-body {
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
 }
 
+.auth-field select {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.auth-field select:focus {
+  outline: none;
+  border-color: var(--ios-cyan);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+.auth-hudud-custom {
+  display: none;
+  margin-top: 10px;
+}
+
+.auth-hudud-custom.visible {
+  display: block;
+}
+
 .auth-actions {
   margin-top: 20px;
   display: flex;
