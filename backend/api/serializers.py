@@ -22,10 +22,10 @@ class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150, trim_whitespace=True)
     email = serializers.EmailField(required=False, allow_blank=True, default="")
     hudud_code = serializers.CharField(
-        max_length=3,
+        max_length=16,
         min_length=2,
         trim_whitespace=True,
-        help_text="Daftar identifikatsiyasi: hudud kodi (2–3 lotin harfi).",
+        help_text="Daftar identifikatsiyasi: hudud kodi (2–16 lotin harf yoki raqam).",
     )
     clinic_no = serializers.CharField(
         max_length=3,
@@ -62,12 +62,12 @@ class RegisterSerializer(serializers.Serializer):
 
     def validate_hudud_code(self, value):
         raw = (value or "").strip().upper()
-        letters = re.sub(r"[^A-Z]", "", raw)
-        if len(letters) < 2 or len(letters) > 3:
+        cleaned = re.sub(r"[^A-Z0-9]", "", raw)
+        if len(cleaned) < 2 or len(cleaned) > 16:
             raise serializers.ValidationError(
-                "Hudud kodi 2 yoki 3 ta lotin harfidan iborat bo‘lishi kerak."
+                "Hudud kodi 2 dan 16 tagacha lotin harf yoki raqamdan iborat bo‘lishi kerak."
             )
-        return letters
+        return cleaned
 
     def validate_clinic_no(self, value):
         digits = re.sub(r"\D", "", (value or "").strip())

@@ -11,10 +11,10 @@ class UserProfile(models.Model):
         related_name="profile",
     )
     hudud_code = models.CharField(
-        max_length=3,
+        max_length=16,
         blank=True,
         db_index=True,
-        help_text="Hudud qisqartmasi (2–3 lotin harfi, masalan FSH, FT, BT).",
+        help_text="Daftar hudud kodi (2–16 lotin harf yoki raqam, masalan FSH, QOQ, FARMRG).",
     )
     clinic_no = models.CharField(
         max_length=3,

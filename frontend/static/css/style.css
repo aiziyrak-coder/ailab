@@ -59,6 +59,7 @@
   --afb: #0f766e;
   --myco: #7c2d12;
   --effusion: #0369a1;
+  --histology: #9d174d;
 
   /* Responsiv layout — 100% zoomda sig‘ish uchun ixcham */
   --layout-gap: clamp(8px, 0.9vw, 12px);
@@ -511,6 +512,7 @@ body::before {
 .lab-tab[data-lab="afb_microscopy"].active { box-shadow: 0 4px 16px rgba(15, 118, 110, 0.14), inset 0 1px 0 rgba(255,255,255,0.9); border-color: rgba(15, 118, 110, 0.4); color: #115e59; }
 .lab-tab[data-lab="mycology"].active { box-shadow: 0 4px 16px rgba(124, 45, 18, 0.12), inset 0 1px 0 rgba(255,255,255,0.9); border-color: rgba(124, 45, 18, 0.35); color: #431407; }
 .lab-tab[data-lab="effusion_cytology"].active { box-shadow: 0 4px 16px rgba(3, 105, 161, 0.12), inset 0 1px 0 rgba(255,255,255,0.9); border-color: rgba(3, 105, 161, 0.35); color: #0c4a6e; }
+.lab-tab[data-lab="histology"].active { box-shadow: 0 4px 16px rgba(157, 23, 77, 0.14), inset 0 1px 0 rgba(255,255,255,0.9); border-color: rgba(157, 23, 77, 0.38); color: #831843; }
 
 /* ═══ MAIN LAYOUT ═══ */
 .main-layout {
@@ -2118,6 +2120,8 @@ body.auth-page-body {
 .auth-card {
   width: 100%;
   max-width: 420px;
+  max-height: min(92vh, 880px);
+  overflow-y: auto;
   padding: 32px 28px 26px;
   border-radius: var(--radius-xl);
   background: var(--glass-fill-2);

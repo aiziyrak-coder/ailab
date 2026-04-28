@@ -124,6 +124,11 @@
       <span class="tab-name">Effuziya sitologiyasi</span>
       <span class="tab-desc">Pleura, periton, perikard</span>
     </button>
+    <button class="lab-tab" data-lab="histology" onclick="selectLab('histology')">
+      <span class="tab-icon">🧫</span>
+      <span class="tab-name">Gistologiya</span>
+      <span class="tab-desc">H&E, biopsiya morfologiyasi</span>
+    </button>
   </nav>
 
   <!-- ═══ MAIN LAYOUT ═══ -->
@@ -270,8 +275,8 @@
             <input type="text" id="daftarRegion" class="daftar-inp" maxlength="3" placeholder="40" autocomplete="off">
           </div>
           <div class="daftar-field">
-            <label for="daftarLocality">Hudud (2–3 harf)</label>
-            <input type="text" id="daftarLocality" class="daftar-inp" maxlength="3" placeholder="FSH" title="FSH shahar, FT tuman, BT Bog'dod" autocomplete="off">
+            <label for="daftarLocality">Hudud kodi</label>
+            <input type="text" id="daftarLocality" class="daftar-inp" maxlength="16" placeholder="FSH yoki QOQ" title="Roʻyxatdan oʻtishda tanlangan hudud kodi (2–16 belgi)" autocomplete="off">
           </div>
           <div class="daftar-field">
             <label for="daftarClinic">Poliklinika №</label>

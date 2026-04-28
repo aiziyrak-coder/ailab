@@ -22,6 +22,7 @@ const LAB_META = {
   afb_microscopy: { icon:'🔬', name:'KOCH / AFB mikroskopiyasi', color:'var(--afb)' },
   mycology: { icon:'🍄', name:'Mikologiya tahlili', color:'var(--myco)' },
   effusion_cytology: { icon:'💧', name:'Effuziya sitologiyasi', color:'var(--effusion)' },
+  histology:      { icon:'🧫', name:'Gistologiya (patologiya)', color:'var(--histology)' },
 };
 
 const LAB_TITLE = {
@@ -39,6 +40,7 @@ const LAB_TITLE = {
   afb_microscopy: '🔬 KOCH / kislotalik tikanlar (AFB)',
   mycology: '🍄 Chuqur mikologiya (zamburug‘, gifa, maya)',
   effusion_cytology: '💧 Effuziya sitologiyasi (pleura, periton, perikard)',
+  histology:      '🧫 Gistologiya (H&E va maxsus bo\'yoqlar)',
 };
 
 /** Tahlil turi qisqartmasi (identifikatsiya: 2–3 harf) */
@@ -57,6 +59,7 @@ const LAB_ID_CODES = {
   afb_microscopy:  'AFB',
   mycology:        'MIK',
   effusion_cytology: 'EFZ',
+  histology:       'GST',
 };
 
 const DAFTAR_LS = {
@@ -85,7 +88,10 @@ function daftarSaveSettings() {
   const t = document.getElementById('daftarType');
   if (!r || !l || !c || !t) return;
   localStorage.setItem(DAFTAR_LS.region, (r.value || '40').trim().slice(0, 3));
-  localStorage.setItem(DAFTAR_LS.locality, (l.value || 'FSH').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) || 'FSH');
+  localStorage.setItem(
+    DAFTAR_LS.locality,
+    (l.value || 'FSH').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16) || 'FSH'
+  );
   localStorage.setItem(DAFTAR_LS.clinic, (c.value || '7').replace(/\D/g, '').slice(0, 3) || '7');
   localStorage.setItem(DAFTAR_LS.type, (t.value || 'OP').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) || 'OP');
 }
@@ -109,7 +115,7 @@ function nextDaftarSequence(d) {
  */
 function buildRegistrationId(labKey) {
   const region = (localStorage.getItem(DAFTAR_LS.region) || '40').replace(/\D/g, '').slice(0, 3) || '40';
-  let loc = (localStorage.getItem(DAFTAR_LS.locality) || 'FSH').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+  let loc = (localStorage.getItem(DAFTAR_LS.locality) || 'FSH').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
   if (!loc) loc = 'FSH';
   const clinic = (localStorage.getItem(DAFTAR_LS.clinic) || '7').replace(/\D/g, '').slice(0, 3) || '7';
   let ctype = (localStorage.getItem(DAFTAR_LS.type) || 'OP').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
@@ -1121,7 +1127,7 @@ async function refreshUserPill() {
   let touched = false;
   const l = document.getElementById('daftarLocality');
   if (l && u.hudud_code) {
-    let code = String(u.hudud_code).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+      let code = String(u.hudud_code).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
     if (code.length >= 2) {
       l.value = code;
       touched = true;

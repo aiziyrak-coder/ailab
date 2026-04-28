@@ -34,16 +34,13 @@
         <input id="username" name="username" type="text" required maxlength="150" placeholder="tanlang" autocapitalize="off" spellcheck="false" autocomplete="username">
       </div>
       <div class="auth-field">
-        <label for="hududSelect">Hudud (daftar identifikatsiyasi)</label>
-        <select id="hududSelect" name="hudud_select" required>
-          <option value="" disabled selected>Hududni tanlang</option>
-          <option value="FSH">FSH — Farg‘ona shahri</option>
-          <option value="FT">FT — Farg‘ona tumani</option>
-          <option value="BT">BT — Bog‘dod tumani</option>
-          <option value="QOQ">QOQ — Qo‘qon shahri</option>
-          <option value="__custom__">Boshqa (o‘zingiz yozing)</option>
-        </select>
-        <input type="text" id="hududCustom" name="hudud_custom" class="auth-hudud-custom" maxlength="3" placeholder="2–3 lotin harf, masalan FSH" autocapitalize="characters" autocomplete="off" aria-label="Boshqa hudud kodi">
+        <label for="viloyatSelect">Viloyat</label>
+        <select id="viloyatSelect" name="viloyat" required aria-label="Viloyat"></select>
+      </div>
+      <div class="auth-field">
+        <label for="localitySelect">Tuman yoki shahar</label>
+        <select id="localitySelect" name="locality" required aria-label="Tuman yoki shahar"></select>
+        <input type="text" id="hududCustom" name="hudud_custom" class="auth-hudud-custom" maxlength="16" placeholder="Kodni qoʻlda kiriting (2–16 harf yoki raqam)" autocapitalize="characters" autocomplete="off" aria-label="Qo‘lda hudud kodi">
       </div>
       <div class="auth-field">
         <label for="clinicNo">Poliklinika № (daftar)</label>
@@ -77,40 +74,87 @@
   </div>
 </div>
 
+<script src="/static/js/uz_localities.js"></script>
 <script src="/static/js/auth.js"></script>
 <script>
 (function() {
   const form = document.getElementById('regForm');
   const msg = document.getElementById('msg');
   const btn = document.getElementById('submitBtn');
+  const locApi = window.MEDLAB_UZ_LOCALITIES;
 
   function show(text, ok) {
     msg.textContent = text || '';
     msg.className = 'auth-msg' + (ok ? ' ok' : text ? ' err' : '');
   }
 
-  const hududSel = document.getElementById('hududSelect');
+  const viloyatSel = document.getElementById('viloyatSelect');
+  const localitySel = document.getElementById('localitySelect');
   const hududCustom = document.getElementById('hududCustom');
 
   function normalizeHududCode(raw) {
-    var s = String(raw || '').toUpperCase().replace(/[^A-Z]/g, '');
-    return s.slice(0, 3);
+    return String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
+  }
+
+  function fillViloyat() {
+    viloyatSel.innerHTML = '';
+    locApi.getTopLevel().forEach(function(r) {
+      var o = document.createElement('option');
+      o.value = r.key;
+      o.textContent = r.label;
+      viloyatSel.appendChild(o);
+    });
+    viloyatSel.value = locApi.DEFAULT_REGION_KEY;
+  }
+
+  function fillLocality(regionKey) {
+    localitySel.innerHTML = '';
+    var reg = locApi.findRegion(regionKey);
+    if (!reg || !reg.places) return;
+    reg.places.forEach(function(p) {
+      var o = document.createElement('option');
+      o.value = p.code;
+      o.textContent = p.name + ' · ' + p.code;
+      localitySel.appendChild(o);
+    });
+    var oC = document.createElement('option');
+    oC.value = '__custom__';
+    oC.textContent = 'Boshqa — kodni qoʻlda kiriting';
+    localitySel.appendChild(oC);
+    var want = regionKey === locApi.DEFAULT_REGION_KEY ? locApi.DEFAULT_PLACE_CODE : '';
+    var ok = false;
+    if (want) {
+      for (var i = 0; i < localitySel.options.length; i++) {
+        if (localitySel.options[i].value === want) {
+          localitySel.selectedIndex = i;
+          ok = true;
+          break;
+        }
+      }
+    }
+    if (!ok) localitySel.selectedIndex = 0;
   }
 
   function getHududCodeForSubmit() {
-    var sel = hududSel.value;
-    if (sel === '__custom__') return normalizeHududCode(hududCustom.value);
-    return normalizeHududCode(sel);
+    if (localitySel.value === '__custom__') return normalizeHududCode(hududCustom.value);
+    return normalizeHududCode(localitySel.value);
   }
 
   function syncHududCustomVisibility() {
-    var show = hududSel.value === '__custom__';
+    var show = localitySel.value === '__custom__';
     hududCustom.classList.toggle('visible', show);
     hududCustom.required = show;
     hududCustom.setAttribute('aria-hidden', show ? 'false' : 'true');
   }
 
-  hududSel.addEventListener('change', syncHududCustomVisibility);
+  viloyatSel.addEventListener('change', function() {
+    fillLocality(viloyatSel.value);
+    syncHududCustomVisibility();
+  });
+  localitySel.addEventListener('change', syncHududCustomVisibility);
+
+  fillViloyat();
+  fillLocality(locApi.DEFAULT_REGION_KEY);
   syncHududCustomVisibility();
 
   form.addEventListener('submit', async function(e) {
@@ -123,9 +167,9 @@
     const clinicRaw = document.getElementById('clinicNo').value.trim();
     const clinicDigits = clinicRaw.replace(/\D/g, '');
     const visit_type = document.getElementById('visitTypeSelect').value.trim().toUpperCase() || 'OP';
-    if (!hududSel.value) { show('Hududni tanlang', false); return; }
-    if (hududSel.value === '__custom__' && (hudud_code.length < 2 || hudud_code.length > 3)) {
-      show('Hudud kodi 2–3 ta lotin harf bo‘lishi kerak', false);
+    if (!viloyatSel.value || !localitySel.value) { show('Viloyat va tuman/shaharni tanlang', false); return; }
+    if (localitySel.value === '__custom__' && (hudud_code.length < 2 || hudud_code.length > 16)) {
+      show('Hudud kodi 2 dan 16 tagacha harf yoki raqam bo‘lishi kerak', false);
       return;
     }
     if (!clinicDigits || clinicDigits.length > 3) {
