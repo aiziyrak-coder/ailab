@@ -897,18 +897,20 @@ function clearFile() {
   _previewIndex = 0;
   _revokePreviewUrl();
   _revokeThumbUrls();
-  document.getElementById('fileInput').value           = '';
+  const inp = document.getElementById('fileInput');
+  if (inp) inp.value = '';
   syncUploadPane();
   updateAnalyzeBtn();
-  document.getElementById('uploadedContent').innerHTML = '';
+  const content = document.getElementById('uploadedContent');
+  if (content) {
+    content.innerHTML = '';
+    if (!cameraRunning) content.style.display = 'none';
+  }
   const thumbs = document.getElementById('mediaThumbs');
   if (thumbs) { thumbs.innerHTML = ''; thumbs.classList.add('hidden'); }
   const badge = document.getElementById('mediaCount');
   if (badge) { badge.textContent = ''; badge.classList.add('hidden'); }
-  if (!cameraRunning) {
-    document.getElementById('uploadedContent').style.display = 'none';
-    updateOverlay();
-  }
+  if (!cameraRunning) updateOverlay();
   refreshLabPlatform();
 }
 
@@ -947,26 +949,83 @@ function _stopBrowserStream() {
   }
 }
 
-async function listBrowserCameras() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return [];
-  try {
-    const tmp = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    tmp.getTracks().forEach(t => t.stop());
-  } catch (e) {
-    const err = new Error(e && e.name === 'NotAllowedError'
-      ? 'Brauzer kameraga ruxsat bermadi. Chrome sozlamasida kamera ruxsatini yoqing.'
-      : 'Brauzer kamerani ocholmadi.');
-    err.code = (e && e.name) || 'media';
-    throw err;
+function _mediaCamMsg(e) {
+  const name = (e && e.name) || '';
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+    return 'Brauzer kameraga ruxsat bermadi. Manzil yonidagi kamera belgisidan ruxsatni yoqing.';
   }
-  const all = await navigator.mediaDevices.enumerateDevices();
-  return all.filter(d => d.kind === 'videoinput').map((d, i) => ({
+  if (name === 'NotReadableError' || name === 'TrackStartError') {
+    return 'Kamera band yoki dreyver ochilmadi. ToupView / Windows Camera ni yoping, USB ni qayta ulang.';
+  }
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+    return 'Brauzer kamera topilmadi. USB mikroskopni ulang.';
+  }
+  if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+    return 'Tanlangan kamera hozir ochilmadi. Ro‘yxatdan boshqa qurilmani tanlang.';
+  }
+  if (name === 'SecurityError') {
+    return 'Brauzer kamera ruxsatini blokladi. Sahifani https://lab.fermi.uz da oching.';
+  }
+  return (e && e.message) || 'Brauzer kamerani ocholmadi.';
+}
+
+async function _gUMUnlock(constraints) {
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  stream.getTracks().forEach(t => t.stop());
+  await new Promise(r => setTimeout(r, 120));
+}
+
+function _mapVideoInputs(all) {
+  return (all || []).filter(d => d.kind === 'videoinput').map((d, i) => ({
     index: i,
     deviceId: d.deviceId,
     name: (d.label || ('Kamera ' + (i + 1))).trim(),
     kind: _camNameIsMicro(d.label) ? 'microscope' : 'webcam',
     resolution: '—',
   }));
+}
+
+async function listBrowserCameras() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return [];
+  const labeled = (cams) => cams.some(c => c.name && !/^Kamera \d+$/i.test(c.name));
+  let lastErr = null;
+  let cams = _mapVideoInputs(await navigator.mediaDevices.enumerateDevices().catch(e => {
+    lastErr = e;
+    return [];
+  }));
+  if (labeled(cams)) return cams;
+
+  const tries = [];
+  cams.forEach(c => {
+    if (c.deviceId && !_camNameIsUsbVideo(c.name)) {
+      tries.push({ audio: false, video: { deviceId: { exact: c.deviceId } } });
+    }
+  });
+  cams.forEach(c => {
+    if (c.deviceId) tries.push({ audio: false, video: { deviceId: { exact: c.deviceId } } });
+  });
+  tries.push({ audio: false, video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
+  tries.push({ audio: false, video: true });
+
+  for (const constraints of tries) {
+    try {
+      await _gUMUnlock(constraints);
+      lastErr = null;
+      break;
+    } catch (e) {
+      lastErr = e;
+      if (e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError')) break;
+    }
+  }
+
+  cams = _mapVideoInputs(await navigator.mediaDevices.enumerateDevices().catch(() => []));
+  if (cams.length) return cams;
+  if (lastErr) {
+    const err = new Error(_mediaCamMsg(lastErr));
+    err.code = lastErr.name || 'media';
+    throw err;
+  }
+  return cams;
 }
 
 async function setSource(src) {
@@ -1116,7 +1175,10 @@ async function scanCameras() {
       box.innerHTML = '';
     } else if (browserErr) {
       box.style.display = '';
-      box.innerHTML = `<strong>Kamera ruxsati kerak.</strong><br>${esc(browserErr)}`;
+      const perm = /ruxsat/i.test(browserErr);
+      box.innerHTML = perm
+        ? `<strong>Kamera ruxsati kerak.</strong><br>${esc(browserErr)}`
+        : `<strong>Kamera ochilmadi.</strong><br>${esc(browserErr)}`;
     } else {
       box.style.display = '';
       box.innerHTML = `Mikroskop topilmadi. USB ni ulang, ToupTek/Euromex ni tanlang, keyin ⟳ bosing.`;
@@ -1134,6 +1196,41 @@ async function scanCameras() {
   }
 }
 
+async function _openBrowserCam(deviceId) {
+  const attempts = [];
+  if (deviceId) {
+    attempts.push({
+      audio: false,
+      video: { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    });
+    attempts.push({ audio: false, video: { deviceId: { exact: deviceId } } });
+    attempts.push({ audio: false, video: { deviceId: { ideal: deviceId } } });
+  }
+  let lastErr = null;
+  for (const c of attempts) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(c);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  const cams = await listBrowserCameras().catch(() => []);
+  const pick = cams.find(c => c.deviceId && _camNameIsMicro(c.name) && !_camNameIsUsbVideo(c.name))
+    || cams.find(c => c.deviceId && !_camNameIsUsbVideo(c.name) && !_camNameIsLaptop(c.name))
+    || cams.find(c => c.deviceId && !_camNameIsUsbVideo(c.name));
+  if (pick && pick.deviceId !== deviceId) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { deviceId: { exact: pick.deviceId } },
+      });
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('Kamera ochilmadi');
+}
+
 async function startLive(kind) {
   const sel = document.getElementById(kind === 'scope' ? 'scopeSelect' : 'phoneSelect');
   const startBtn = document.getElementById(kind === 'scope' ? 'scopeStartBtn' : 'phoneStartBtn');
@@ -1147,15 +1244,7 @@ async function startLive(kind) {
     const deviceId = val.slice(2);
     try {
       _stopBrowserStream();
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          deviceId: { exact: deviceId },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 25 },
-        },
-      });
+      const stream = await _openBrowserCam(deviceId);
       _browserStream = stream;
       _liveMode = 'browser';
       cameraRunning = true;
@@ -1176,9 +1265,7 @@ async function startLive(kind) {
       return;
     } catch (e) {
       if (startBtn) startBtn.disabled = false;
-      const m = (e && e.name === 'NotAllowedError')
-        ? 'Brauzer kameraga ruxsat bermadi'
-        : ((e && e.message) || 'Kamera ochilmadi');
+      const m = _mediaCamMsg(e);
       msg(msgId, m, 'red');
       toast(m, 'red');
       return;
