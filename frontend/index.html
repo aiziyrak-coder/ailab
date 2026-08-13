@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off31">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off31">
+  <link rel="stylesheet" href="/static/css/style.css?v=off32">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off32">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -318,13 +318,18 @@
           </div>
         </div>
         <div class="analyzing-overlay hidden" id="analyzeOv">
-          <div class="lab-scope-anim" aria-hidden="true">
-            <span class="scope-ring r1"></span>
-            <span class="scope-ring r2"></span>
-            <span class="scope-ring r3"></span>
-            <span class="scope-core"></span>
+          <div class="az-card">
+            <div class="az-scope" aria-hidden="true">
+              <span class="az-halo"></span>
+              <span class="az-ring"></span>
+              <span class="az-scan"></span>
+              <span class="az-core"></span>
+            </div>
+            <div class="az-kicker">MedLab</div>
+            <p class="az-title">Tahlil qilinmoqda</p>
+            <span class="az-hint">Preparat o‘qilmoqda — biroz kuting</span>
+            <div class="az-bar" aria-hidden="true"><i></i></div>
           </div>
-          <span>Tahlil qilinmoqda...</span>
         </div>
       </div>
       <div class="media-thumbs hidden" id="mediaThumbs" aria-label="Yuklangan rasmlar"></div>
@@ -509,8 +514,8 @@
 </div>
 
 <div id="toast"></div>
-<script src="/static/js/uz_localities.js?v=off31"></script>
+<script src="/static/js/uz_localities.js?v=off32"></script>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=off31"></script>
+<script src="/static/js/app.js?v=off32"></script>
 </body>
 </html>
