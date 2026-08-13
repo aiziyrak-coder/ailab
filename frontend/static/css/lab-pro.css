@@ -1283,15 +1283,29 @@ body::after { display: none !important; }
   bottom: 0;
   z-index: 12;
   margin-top: auto !important;
-  background: #fff !important;
-  box-shadow: 0 -10px 18px rgba(27, 58, 92, 0.08);
+  flex: 0 0 auto !important;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 0 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
 }
-.analyze-card.hidden { display: block !important; }
+.analyze-card.hidden { display: flex !important; }
 .analyze-card .btn-ziyrakai {
   width: 100%;
   min-height: 46px;
   font-size: 0.95rem !important;
   font-weight: 800 !important;
+}
+.analyze-status {
+  min-height: 0 !important;
+}
+.analyze-status:empty {
+  display: none;
 }
 
 .media-box.has-upload .opt-scale,
@@ -1688,8 +1702,8 @@ body::before {
   border-radius: 10px !important;
 }
 .analyze-card {
-  border-radius: 20px !important;
-  box-shadow: 0 -12px 28px rgba(27, 58, 92, 0.06) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 .media-box {
   border-radius: 24px !important;
@@ -2476,7 +2490,9 @@ body::before {
   color: #7dd3fc !important;
 }
 .left-panel .analyze-card {
-  padding: 6px !important;
+  padding: 2px 0 0 !important;
+  background: transparent !important;
+  border: 0 !important;
   box-shadow: none !important;
 }
 .left-panel .analyze-card .btn-ziyrakai,
