@@ -1012,21 +1012,19 @@ body::after {
   .opt-lamp, .btn-ziyrakai::after { animation: none !important; }
 }
 
-/* ═══ Rasmiy klinik palitra: oq / yashil ═══ */
+/* ═══ Rasmiy klinik palitra: oq / po‘lat / institut ko‘ki ═══ */
 :root {
-  --ink: #166534;
-  --ink-2: #14532d;
-  --leaf: #16a34a;
-  --mint: #4ade80;
-  --paper: #f1f7f2;
-  --line: #cfe3d4;
-  --muted: #4d6a57;
+  --ink: #1b3a5c;
+  --ink-2: #24364d;
+  --paper: #eef1f4;
+  --line: #d4dbe3;
+  --muted: #5a6a7a;
 }
 body {
-  background: #e8f3ea !important;
+  background: #e8ecf0 !important;
 }
 body::before {
-  background: #f1f7f2 !important;
+  background: #eef1f4 !important;
 }
 body::after { display: none !important; }
 .lab-bench { display: none !important; }
@@ -2544,115 +2542,4 @@ body::before {
   background: #166534 !important;
   color: #fff !important;
   box-shadow: 0 14px 36px rgba(22, 101, 52, 0.32) !important;
-}
-
-/* ═══ Klinik yashil — sokin, bir palitra, gradient yo‘q ═══ */
-body {
-  background: #eef6f0 !important;
-}
-body::before {
-  background: #f4faf6 !important;
-}
-.official-bar {
-  display: none !important;
-  height: 0 !important;
-  background: transparent !important;
-  animation: none !important;
-}
-.header {
-  border-color: rgba(22, 101, 52, 0.10) !important;
-  box-shadow: 0 10px 28px rgba(22, 101, 52, 0.06) !important;
-}
-.header-logo-wrap,
-.btn-ziyrakai,
-.header-id-search button,
-.hist-search button,
-.report-banner,
-.auth-page .auth-btn,
-.st-btn,
-.prio.on,
-.obj-turret span.on,
-.left-panel .micro-total-mini,
-.auth-logo-mark,
-.auth-card::before {
-  background: #166534 !important;
-  background-image: none !important;
-  animation: none !important;
-  color: #fff !important;
-}
-.btn-ziyrakai:hover:not(:disabled) {
-  background: #14532d !important;
-  filter: none;
-}
-.workbar {
-  background: #166534 !important;
-  box-shadow: 0 8px 22px rgba(22, 101, 52, 0.16) !important;
-  color: #e8f5ec !important;
-}
-.wb-clock strong { color: #fff !important; }
-.wb-clock span { color: #b7e0c4 !important; }
-.wb-flow li { color: #c5e6d0 !important; }
-.wb-flow li + li::before { color: #8fc9a3 !important; }
-.wb-flow li.on {
-  background: #fff !important;
-  color: #166534 !important;
-  animation: none !important;
-  background-image: none !important;
-}
-.wb-flow li.done { color: #d8f0e0 !important; }
-.wb-inst {
-  background: #14532d !important;
-  color: #e8f5ec !important;
-}
-.wb-bsl { color: #d8f0e0 !important; }
-.src-tab.active {
-  border-color: #166534 !important;
-  color: #166534 !important;
-  box-shadow: none !important;
-}
-.az-kicker,
-.ov-kicker,
-.header-kicker,
-.header-title,
-.left-panel .upload-main,
-.st-live.on {
-  color: #166534 !important;
-}
-.az-ring { border-top-color: #16a34a !important; }
-.az-core {
-  background: #166534 !important;
-}
-.az-bar i {
-  background: #16a34a !important;
-  animation: azBar 1.35s linear infinite;
-}
-.az-halo {
-  background: radial-gradient(circle, rgba(22, 163, 74, 0.18), transparent 70%) !important;
-}
-.left-panel .upload-zone {
-  border: 2px dashed rgba(22, 101, 52, 0.32) !important;
-  background: #f4fbf6 !important;
-}
-.left-panel .lab-select {
-  border-color: rgba(22, 101, 52, 0.18) !important;
-}
-.left-panel .file-item.is-on,
-.hist-id {
-  color: #166534 !important;
-  border-color: #166534 !important;
-  background: #eef8f1 !important;
-}
-.left-panel .micro-total-mini .micro-total-value { color: #fff !important; }
-.left-panel .micro-total-mini .micro-total-label { color: #bbf7d0 !important; }
-.status-pill { border-color: #c9e9d3 !important; }
-.pill-connected {
-  background: #dcfce7 !important;
-  color: #166534 !important;
-}
-.card,
-.center-panel,
-.right-panel,
-.left-panel .card {
-  border-color: rgba(22, 101, 52, 0.08) !important;
-  box-shadow: 0 8px 22px rgba(22, 101, 52, 0.05) !important;
 }
