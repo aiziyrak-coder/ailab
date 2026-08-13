@@ -267,7 +267,7 @@ function labSpec(lab) {
   return LAB_SPEC[lab] || LAB_SPEC.hematology;
 }
 
-const DAFTAR_LS = 'medlab_daftar_v1';
+const DAFTAR_LS = 'medlab_daftar_v2';
 const LAB_ID_CODES = {
   hematology: 'HEMA', urine: 'URIN', coprology: 'COPR', spermogram: 'SPRM', smear: 'SMEA',
   csf: 'CSF', lymph: 'LYMP', le_cell: 'LE', prostata_sok: 'SOK', myelogram: 'MYEL',
@@ -275,14 +275,59 @@ const LAB_ID_CODES = {
   derm_microscopy: 'KOH', effusion_cytology: 'EFF', histology: 'HIST',
 };
 
+let _sampleSeq = 0;
+
+function locApi() {
+  return window.MEDLAB_UZ_LOCALITIES || null;
+}
+
+function fillViloyatSelect() {
+  const sel = document.getElementById('daftarViloyat');
+  const api = locApi();
+  if (!sel || !api) return;
+  const keep = sel.value;
+  sel.innerHTML = '';
+  api.getTopLevel().forEach((r) => {
+    const o = document.createElement('option');
+    o.value = r.key;
+    o.textContent = r.label;
+    sel.appendChild(o);
+  });
+  sel.value = keep || api.DEFAULT_REGION_KEY;
+  if (!sel.value) sel.value = api.DEFAULT_REGION_KEY;
+}
+
+function fillLocalitySelect(regionKey, preferredCode) {
+  const sel = document.getElementById('daftarLocality');
+  const api = locApi();
+  if (!sel || !api) return;
+  const reg = api.findRegion(regionKey || api.DEFAULT_REGION_KEY);
+  sel.innerHTML = '';
+  if (!reg || !reg.places) return;
+  reg.places.forEach((p) => {
+    const o = document.createElement('option');
+    o.value = p.code;
+    o.textContent = `${p.name} (${p.code})`;
+    sel.appendChild(o);
+  });
+  const want = preferredCode || api.DEFAULT_PLACE_CODE;
+  if (want && [...sel.options].some((o) => o.value === want)) sel.value = want;
+  else if (sel.options.length) sel.selectedIndex = 0;
+}
+
 function daftarGet() {
-  const g = (id, d) => (document.getElementById(id)?.value || d).trim().toUpperCase();
-  return {
-    region: g('daftarRegion', '40').replace(/\D/g, '').slice(0, 3) || '40',
-    locality: g('daftarLocality', 'FSH').replace(/[^A-Z0-9]/g, '').slice(0, 16) || 'FSH',
-    clinic: g('daftarClinic', '7').replace(/\D/g, '').slice(0, 3) || '7',
-    type: g('daftarType', 'OP').replace(/[^A-Z]/g, '').slice(0, 3) || 'OP',
-  };
+  const api = locApi();
+  const vilEl = document.getElementById('daftarViloyat');
+  const locEl = document.getElementById('daftarLocality');
+  const cliEl = document.getElementById('daftarClinic');
+  const typEl = document.getElementById('daftarType');
+  const regionKey = (vilEl && vilEl.value) || (api && api.DEFAULT_REGION_KEY) || 'FAR';
+  const region = (api && api.getRegionNum(regionKey)) || '40';
+  const locality = String((locEl && locEl.value) || (api && api.DEFAULT_PLACE_CODE) || 'FSH')
+    .toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16) || 'FSH';
+  const clinic = String((cliEl && cliEl.value) || '7').replace(/\D/g, '').slice(0, 3) || '7';
+  const type = String((typEl && typEl.value) || 'OP').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) || 'OP';
+  return { regionKey, region, locality, clinic, type };
 }
 
 function daftarSave() {
@@ -290,13 +335,43 @@ function daftarSave() {
 }
 
 function daftarLoadSettings() {
+  fillViloyatSelect();
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(DAFTAR_LS) || '{}'); } catch (_) {}
-  const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
-  set('daftarRegion', saved.region || '40');
-  set('daftarLocality', saved.locality || 'FSH');
-  set('daftarClinic', saved.clinic || '7');
-  set('daftarType', saved.type || 'OP');
+  const api = locApi();
+  const regionKey = saved.regionKey || (api && api.DEFAULT_REGION_KEY) || 'FAR';
+  const vil = document.getElementById('daftarViloyat');
+  if (vil && regionKey) vil.value = regionKey;
+  fillLocalitySelect(vil ? vil.value : regionKey, saved.locality || (api && api.DEFAULT_PLACE_CODE) || 'FSH');
+  const clinic = document.getElementById('daftarClinic');
+  const type = document.getElementById('daftarType');
+  if (clinic) clinic.value = saved.clinic || '7';
+  if (type && saved.type) type.value = saved.type;
+}
+
+function seqStorageKey() {
+  const d = daftarGet();
+  const now = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  const day = `${String(now.getFullYear()).slice(-2)}${p(now.getMonth() + 1)}${p(now.getDate())}`;
+  return `medlab_id_seq_${d.region}_${d.locality}_${d.clinic}_${d.type}_${day}`;
+}
+
+function peekSampleSeq() {
+  if (_sampleSeq) return _sampleSeq;
+  try {
+    return (parseInt(localStorage.getItem(seqStorageKey()) || '0', 10) || 0) + 1;
+  } catch (_) {
+    return 1;
+  }
+}
+
+function allocateSampleSeq() {
+  if (_sampleSeq) return _sampleSeq;
+  const n = peekSampleSeq();
+  try { localStorage.setItem(seqStorageKey(), String(n)); } catch (_) {}
+  _sampleSeq = n;
+  return n;
 }
 
 function buildRegistrationId(lab, seq) {
@@ -306,16 +381,27 @@ function buildRegistrationId(lab, seq) {
   return `${d.region}${d.locality}${d.clinic}${d.type}${code}${n}`;
 }
 
+function currentNamunaId() {
+  return buildRegistrationId(currentLab, peekSampleSeq());
+}
+
+function refreshSampleId() {
+  const el = document.getElementById('accSample');
+  if (el) el.value = currentNamunaId();
+  updateResultRegistrationId();
+}
+
 function updateResultRegistrationId() {
+  const id = valOf('accSample') || currentNamunaId();
   const row = document.getElementById('resultRegRow');
   const el = document.getElementById('resultRegId');
-  if (!row || !el) return;
-  const pid = currentPublicId || '';
-  let seq = 1;
-  const m = String(pid).match(/(\d{4})$/);
-  if (m) seq = parseInt(m[1], 10) || 1;
-  el.textContent = buildRegistrationId(currentLab, seq);
-  row.classList.toggle('hidden', !pid);
+  if (el) el.textContent = id;
+  if (row) row.classList.toggle('hidden', !currentPublicId);
+  const badge = document.getElementById('resultPublicId');
+  if (badge && currentPublicId) {
+    badge.textContent = id;
+    badge.classList.remove('hidden');
+  }
 }
 
 function emptyResultHtml() {
@@ -365,6 +451,7 @@ function selectLab(lab) {
 
   updateOverlay();
   updateAnalyzeBtn();
+  refreshSampleId();
 }
 
 function syncLabChrome(m, s) {
@@ -392,22 +479,11 @@ function syncLabChrome(m, s) {
   refreshLabPlatform();
 }
 
-const PATIENT_FIELDS = ['accName', 'accAge', 'accSex', 'accWard'];
-
-function nextSampleNo() {
-  const d = new Date();
-  const p = n => String(n).padStart(2, '0');
-  const day = `${String(d.getFullYear()).slice(-2)}${p(d.getMonth() + 1)}${p(d.getDate())}`;
-  const key = 'medlab_sample_seq_' + day;
-  let n = 1;
-  try { n = (parseInt(localStorage.getItem(key) || '0', 10) || 0) + 1; } catch (_) {}
-  try { localStorage.setItem(key, String(n)); } catch (_) {}
-  return `NP-${day}-${String(n).padStart(4, '0')}`;
-}
+const PATIENT_FIELDS = ['accName', 'accAge', 'accSex', 'accWard', 'daftarViloyat', 'daftarLocality', 'daftarClinic', 'daftarType'];
 
 function ensureSampleNo() {
-  const el = document.getElementById('accSample');
-  if (el && !String(el.value || '').trim()) el.value = nextSampleNo();
+  allocateSampleSeq();
+  refreshSampleId();
 }
 
 function patientFieldsComplete() {
@@ -972,7 +1048,7 @@ async function analyze() {
   if (_analyzeBusy) return;
   if (!patientFieldsComplete()) {
     markPatientFields(true);
-    toast('Bemor ma’lumotlarini to‘ldiring: F.I.Sh., yosh, jins, bo‘lim.', 'red');
+    toast('Bemor ma’lumotlarini to‘ldiring: F.I.Sh., yosh, jins, bo‘lim, viloyat, tuman, klinika.', 'red');
     document.getElementById('accName')?.focus();
     return;
   }
@@ -1376,6 +1452,7 @@ function clearResult() {
   document.getElementById('resultBody').innerHTML = emptyResultHtml();
   document.getElementById('resultTs').textContent = '';
   document.getElementById('resultBody').removeAttribute('data-raw-text');
+  _sampleSeq = 0;
   setPublicId('');
   setExportButtonsEnabled(false);
   _hasResult = false;
@@ -1462,7 +1539,7 @@ function _fillPrintArea(mode) {
     if (html) el.innerHTML = html; else el.textContent = txt;
   };
   setEl('printLabBadge', `${lab.icon} ${lab.name}`);
-  setEl('printPublicId', currentPublicId || '—');
+  setEl('printPublicId', valOf('accSample') || currentPublicId || '—');
   setEl('printDate', dateStr);
   setEl('printTime', timeStr);
   setEl('printPageDate', '', `<strong>${dateStr}</strong> &nbsp; ${timeStr}`);
@@ -1689,10 +1766,12 @@ function toast(text, color = 'gray') {
 
 function setPublicId(id) {
   currentPublicId = String(id || '').trim();
+  refreshSampleId();
   const el = document.getElementById('resultPublicId');
   if (!el) return;
-  if (currentPublicId) {
-    el.textContent = currentPublicId;
+  const shown = valOf('accSample') || currentPublicId;
+  if (shown && currentPublicId) {
+    el.textContent = shown;
     el.classList.remove('hidden');
   } else {
     el.textContent = '';
@@ -1701,13 +1780,14 @@ function setPublicId(id) {
 }
 
 async function copyPublicId() {
-  if (!currentPublicId) return;
+  const id = valOf('accSample') || currentPublicId;
+  if (!id) return;
   try {
     if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(currentPublicId);
+      await navigator.clipboard.writeText(id);
     } else {
       const ta = document.createElement('textarea');
-      ta.value = currentPublicId;
+      ta.value = id;
       ta.setAttribute('readonly', '');
       ta.style.position = 'fixed';
       ta.style.left = '-9999px';
@@ -1716,9 +1796,9 @@ async function copyPublicId() {
       document.execCommand('copy');
       document.body.removeChild(ta);
     }
-    toast('ID nusxalandi: ' + currentPublicId, 'green');
+    toast('ID nusxalandi: ' + id, 'green');
   } catch (_) {
-    toast(currentPublicId, 'blue');
+    toast(id, 'blue');
   }
 }
 
@@ -1886,7 +1966,7 @@ async function refreshUserPill() {
 document.addEventListener('DOMContentLoaded', () => {
   refreshUserPill();
   daftarLoadSettings();
-  ensureSampleNo();
+  refreshSampleId();
   selectLab('hematology');
   onMicroChange();
   setSource('upload');
@@ -1894,11 +1974,28 @@ document.addEventListener('DOMContentLoaded', () => {
   tickLabClock();
   setInterval(tickLabClock, 1000);
   refreshLabPlatform();
-  ['daftarRegion', 'daftarLocality', 'daftarClinic', 'daftarType'].forEach(id => {
+  const vil = document.getElementById('daftarViloyat');
+  if (vil) {
+    vil.addEventListener('change', () => {
+      fillLocalitySelect(vil.value);
+      daftarSave();
+      refreshSampleId();
+      updateAnalyzeBtn();
+    });
+  }
+  ['daftarLocality', 'daftarClinic', 'daftarType'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('change', () => { daftarSave(); updateResultRegistrationId(); });
+    if (!el) return;
+    const onDaftar = () => {
+      if (valOf(id)) el.classList.remove('missing');
+      daftarSave();
+      refreshSampleId();
+      updateAnalyzeBtn();
+    };
+    el.addEventListener('change', onDaftar);
+    el.addEventListener('input', onDaftar);
   });
-  ['accName', 'accSample', 'accAge', 'accSex', 'accWard'].forEach(id => {
+  ['accName', 'accAge', 'accSex', 'accWard'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const onAcc = () => {

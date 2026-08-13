@@ -1265,6 +1265,13 @@ body::after { display: none !important; }
   text-transform: uppercase;
   color: #64748b;
 }
+.sample-id-field input {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+  color: #1b3a5c !important;
+  background: #f1f5f9 !important;
+}
 .lab-hud[hidden] { display: none !important; }
 .left-panel .acc-form {
   padding: 8px 0 0 !important;

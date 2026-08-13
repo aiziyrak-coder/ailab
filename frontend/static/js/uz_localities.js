@@ -296,6 +296,13 @@
   var DEFAULT_REGION_KEY = 'FAR';
   var DEFAULT_PLACE_CODE = 'FSH';
 
+  /** Daftar ID boshidagi viloyat raqami: 40FSH7OPHEMA0001 dagi 40. */
+  var REGION_NUM = {
+    TSH: '26', KKR: '35', AND: '17', BUX: '20', FAR: '40', JIZ: '13',
+    KAS: '10', NAV: '21', NAM: '16', SAM: '18', SIR: '24', SUR: '22',
+    TVL: '27', XOR: '33',
+  };
+
   function getTopLevel() {
     return TOP_LEVEL;
   }
@@ -308,9 +315,15 @@
     return null;
   }
 
+  function getRegionNum(key) {
+    return REGION_NUM[key] || REGION_NUM[DEFAULT_REGION_KEY] || '40';
+  }
+
   global.MEDLAB_UZ_LOCALITIES = {
     getTopLevel: getTopLevel,
     findRegion: findRegion,
+    getRegionNum: getRegionNum,
+    REGION_NUM: REGION_NUM,
     DEFAULT_REGION_KEY: DEFAULT_REGION_KEY,
     DEFAULT_PLACE_CODE: DEFAULT_PLACE_CODE,
   };

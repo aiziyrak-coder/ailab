@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off10">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off10">
+  <link rel="stylesheet" href="/static/css/style.css?v=off11">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off11">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -80,7 +80,6 @@
         <div class="card-title"><span class="step-num">1</span> Bemor</div>
         <form class="acc-form" autocomplete="off" onsubmit="return false;">
           <label class="req"><span>F.I.Sh.</span> <input id="accName" maxlength="120" required placeholder="Bemor familiyasi, ismi"></label>
-          <label><span>Namuna №</span> <input id="accSample" maxlength="32" readonly placeholder="Avtomatik"></label>
           <label class="req"><span>Yosh</span> <input id="accAge" type="number" min="0" max="120" required placeholder="—"></label>
           <label class="req"><span>Jins</span>
             <select id="accSex" required>
@@ -90,15 +89,25 @@
             </select>
           </label>
           <label class="req acc-span"><span>Bo‘lim / manzil</span> <input id="accWard" maxlength="80" required placeholder="Masalan: terapiya"></label>
-          <details class="daftar-more acc-span">
-            <summary>Daftar raqami</summary>
-            <div class="daftar-grid">
-              <label><span>Viloyat</span> <input id="daftarRegion" maxlength="3" placeholder="40"></label>
-              <label><span>Hudud</span> <input id="daftarLocality" maxlength="16" placeholder="FSH"></label>
-              <label><span>Pol. №</span> <input id="daftarClinic" maxlength="3" placeholder="7"></label>
-              <label><span>Tur</span> <input id="daftarType" maxlength="3" placeholder="OP"></label>
-            </div>
-          </details>
+          <label class="req acc-span"><span>Viloyat</span>
+            <select id="daftarViloyat" required aria-label="Viloyat"></select>
+          </label>
+          <label class="req acc-span"><span>Tuman / shahar</span>
+            <select id="daftarLocality" required aria-label="Tuman yoki shahar"></select>
+          </label>
+          <label class="req"><span>Klinika №</span>
+            <input id="daftarClinic" inputmode="numeric" maxlength="3" required placeholder="7" pattern="[0-9]{1,3}" title="Poliklinika yoki klinika raqami">
+          </label>
+          <label class="req"><span>Muassasa</span>
+            <select id="daftarType" required aria-label="Muassasa turi">
+              <option value="OP" selected>OP — Oylaviy pol.</option>
+              <option value="ST">ST — Statsionar</option>
+              <option value="DM">DM — Diagnostika</option>
+            </select>
+          </label>
+          <label class="acc-span sample-id-field"><span>Namuna № / ID</span>
+            <input id="accSample" maxlength="40" readonly placeholder="Viloyat + tuman + klinika">
+          </label>
           <div class="prio-row acc-span">
             <button type="button" class="prio on" data-prio="routine" onclick="setPriority('routine')">Oddiy</button>
             <button type="button" class="prio prio-stat" data-prio="stat" onclick="setPriority('stat')">STAT</button>
@@ -291,10 +300,10 @@
         <div class="result-title">
           <span id="resultLabIcon">🩸</span>
           <span id="resultLabName">Gematologiya Natijasi</span>
-          <button type="button" id="resultPublicId" class="result-id hidden" title="ID ni nusxalash" onclick="copyPublicId()"></button>
+          <button type="button" id="resultPublicId" class="result-id hidden" title="Namuna ID ni nusxalash" onclick="copyPublicId()"></button>
         </div>
-        <div id="resultRegRow" class="result-reg-row hidden" title="Daftar identifikatsiya raqami">
-          <span class="result-reg-label">Daftar №</span>
+        <div id="resultRegRow" class="result-reg-row hidden" title="Namuna identifikatsiya raqami">
+          <span class="result-reg-label">Namuna №</span>
           <code id="resultRegId" class="result-reg-id"></code>
         </div>
         <div class="result-meta">
@@ -462,7 +471,8 @@
 </div>
 
 <div id="toast"></div>
+<script src="/static/js/uz_localities.js?v=off11"></script>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=off8"></script>
+<script src="/static/js/app.js?v=off11"></script>
 </body>
 </html>
