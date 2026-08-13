@@ -2057,11 +2057,30 @@ body::before {
   gap: 6px !important;
   overflow-y: auto;
   scrollbar-width: thin;
+  height: 100%;
+  min-height: 0;
 }
 .left-panel > .card {
   padding: 6px 8px !important;
   gap: 5px !important;
   border-radius: 14px !important;
+}
+.left-panel > .card.card-grow {
+  flex: 1 1 auto !important;
+  min-height: 140px;
+  display: flex !important;
+  flex-direction: column;
+}
+.left-panel #paneUpload,
+.left-panel #panePhone,
+.left-panel #paneScope {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.left-panel #filePreview {
+  flex: 1 1 auto;
 }
 .left-panel .card:hover {
   transform: none !important;
@@ -2117,8 +2136,10 @@ body::before {
   border-radius: 8px !important;
 }
 .left-panel .upload-zone {
-  min-height: 72px !important;
-  padding: 10px 12px !important;
+  flex: 1 1 auto;
+  min-height: 96px !important;
+  height: 100%;
+  padding: 14px 12px !important;
   display: flex !important;
   flex-direction: row !important;
   align-items: center;
