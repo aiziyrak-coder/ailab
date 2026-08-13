@@ -5,6 +5,8 @@ let currentLab   = 'hematology';
 let currentSource = 'upload'; // upload | phone | scope
 let uploadedFiles = [];
 let cameraRunning = false;
+let _browserStream = null;
+let _liveMode = '';
 let currentPublicId = '';
 let _histPage = 1;
 let _histQuery = '';
@@ -888,13 +890,57 @@ function fillSelect(sel, items, placeholder) {
   sel.innerHTML = `<option value="">${placeholder}</option>`;
   items.forEach(c => {
     const opt = document.createElement('option');
-    opt.value = c.index;
-    opt.textContent = `[${c.index}] ${c.name} (${c.resolution || '—'})`;
+    opt.value = c.deviceId ? ('b:' + c.deviceId) : ('s:' + String(c.index));
+    opt.textContent = c.name || ('Kamera ' + c.index);
     sel.appendChild(opt);
   });
-  const prefer = items.findIndex(c => /toup/i.test(c.name || ''));
+  const prefer = items.findIndex(c => /toup|microskop|microscope|cmex|euromex|usb2\.0/i.test(c.name || ''));
   if (prefer >= 0) sel.selectedIndex = prefer + 1;
   else if (items.length === 1) sel.selectedIndex = 1;
+}
+
+function _camNameIsUsbVideo(name) {
+  return /^usb video device/i.test(name || '');
+}
+function _camNameIsMicro(name) {
+  return /toup|microskop|microscope|cmex|euromex|bioblue|tucsen|usb2\.0\s*cam|amcam/i.test(name || '');
+}
+function _camNameIsLaptop(name) {
+  return /integrated|facetime|hd webcam|laptop|built-?in|realtek|lenovo|dell webcam|obs virtual/i.test(name || '');
+}
+
+function _stopBrowserStream() {
+  if (_browserStream) {
+    try { _browserStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+    _browserStream = null;
+  }
+  const lv = document.getElementById('liveVideo');
+  if (lv) {
+    lv.srcObject = null;
+    lv.style.display = 'none';
+  }
+}
+
+async function listBrowserCameras() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return [];
+  try {
+    const tmp = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    tmp.getTracks().forEach(t => t.stop());
+  } catch (e) {
+    const err = new Error(e && e.name === 'NotAllowedError'
+      ? 'Brauzer kameraga ruxsat bermadi. Chrome sozlamasida kamera ruxsatini yoqing.'
+      : 'Brauzer kamerani ocholmadi.');
+    err.code = (e && e.name) || 'media';
+    throw err;
+  }
+  const all = await navigator.mediaDevices.enumerateDevices();
+  return all.filter(d => d.kind === 'videoinput').map((d, i) => ({
+    index: i,
+    deviceId: d.deviceId,
+    name: (d.label || ('Kamera ' + (i + 1))).trim(),
+    kind: _camNameIsMicro(d.label) ? 'microscope' : 'webcam',
+    resolution: '—',
+  }));
 }
 
 async function setSource(src) {
@@ -951,21 +997,35 @@ function updateOverlay() {
 
 function showLivePreview(live) {
   const vf = document.getElementById('videoFeed');
+  const lv = document.getElementById('liveVideo');
   const up = document.getElementById('uploadedContent');
-  if (live) {
-    vf.style.display = '';
-    up.style.display = 'none';
-    vf.onerror = () => {
-      if (cameraRunning) toast('Jonli tasvir uzildi. Qayta Yoqish ni bosing.', 'red');
-    };
-    const p = vf.getAttribute('data-stream-path') || '/video_feed';
-    vf.src = apiPath(p) + '?t=' + Date.now();
+  if (live && _liveMode === 'browser' && _browserStream) {
+    if (vf) { vf.style.display = 'none'; vf.removeAttribute('src'); }
+    if (up) up.style.display = 'none';
+    if (lv) {
+      lv.style.display = '';
+      if (lv.srcObject !== _browserStream) lv.srcObject = _browserStream;
+      lv.play().catch(() => {});
+    }
+  } else if (live) {
+    if (lv) { lv.style.display = 'none'; lv.srcObject = null; }
+    if (up) up.style.display = 'none';
+    if (vf) {
+      vf.style.display = '';
+      vf.onerror = () => {
+        if (cameraRunning) toast('Jonli tasvir uzildi. Qayta Yoqish ni bosing.', 'red');
+      };
+      const p = vf.getAttribute('data-stream-path') || '/video_feed';
+      vf.src = apiPath(p) + '?t=' + Date.now();
+    }
   } else if (uploadedFiles.length && currentSource === 'upload') {
-    vf.style.display = 'none';
-    up.style.display = '';
+    if (vf) { vf.style.display = 'none'; vf.removeAttribute('src'); }
+    if (lv) { lv.style.display = 'none'; lv.srcObject = null; }
+    if (up) up.style.display = '';
   } else {
-    vf.style.display = 'none';
-    up.style.display = 'none';
+    if (vf) { vf.style.display = 'none'; vf.removeAttribute('src'); }
+    if (lv) { lv.style.display = 'none'; lv.srcObject = null; }
+    if (up) up.style.display = 'none';
   }
   updateOverlay();
   const box = document.getElementById('mediaBox');
@@ -987,23 +1047,35 @@ async function scanCameras() {
   if (phoneSel) phoneSel.innerHTML = '<option>Qidirilmoqda...</option>';
   if (scopeSel) scopeSel.innerHTML = '<option>Qidirilmoqda...</option>';
 
-  const res = await api(apiPath('/api/scan_cameras'));
-  if (my !== _scanGen) return;
-  if (!res || res._httpStatus === 0 || (res.success === false && !res.cameras)) {
-    if (phoneSel) fillSelect(phoneSel, [], '— Telefon / webcam tanlang —');
-    if (scopeSel) fillSelect(scopeSel, [], '— Mikroskop tanlang —');
-    toast((res && res.message) || 'Kameralar ro‘yxati olinmadi', 'red');
-    return;
+  let cams = [];
+  let usb = {};
+  let browserErr = '';
+  try {
+    cams = await listBrowserCameras();
+  } catch (e) {
+    browserErr = (e && e.message) || '';
   }
-  const cams = Array.isArray(res.cameras) ? res.cameras : [];
-  const usb  = res.microscope_usb || {};
-  const remote = !/^(localhost|127\.0\.0\.1)$/i.test(location.hostname);
+  if (my !== _scanGen) return;
+
+  if (!cams.length) {
+    const res = await api(apiPath('/api/scan_cameras'));
+    if (my !== _scanGen) return;
+    if (res && Array.isArray(res.cameras)) cams = res.cameras;
+    usb = (res && res.microscope_usb) || {};
+  }
 
   let scopes = cams.filter(c =>
-    c.kind === 'microscope' || /toup|microskop|microscope|cmex|euromex|usb2\.0\s*cam/i.test(c.name || '')
-  ).filter(c => !/^usb video device/i.test(c.name || ''));
-  const phones = cams.filter(c => c.kind !== 'microscope' && !scopes.includes(c));
-
+    (c.kind === 'microscope' || _camNameIsMicro(c.name)) && !_camNameIsUsbVideo(c.name)
+  );
+  let phones = cams.filter(c => !scopes.includes(c));
+  if (!scopes.length) {
+    scopes = cams.filter(c => !_camNameIsUsbVideo(c.name) && !_camNameIsLaptop(c.name));
+    phones = cams.filter(c => !scopes.includes(c));
+  }
+  if (!scopes.length) {
+    scopes = cams.filter(c => !_camNameIsLaptop(c.name));
+    phones = cams.filter(c => !scopes.includes(c));
+  }
   if (!scopes.length && usb.found) {
     scopes = [{ index: 16, name: usb.name || 'ToupcamMicro', resolution: '—' }];
   }
@@ -1016,17 +1088,12 @@ async function scanCameras() {
     if (scopes.length) {
       box.style.display = 'none';
       box.innerHTML = '';
-    } else if (remote) {
+    } else if (browserErr) {
       box.style.display = '';
-      box.innerHTML = `<strong>Jonli mikroskop serverda ko‘rinmaydi.</strong><br>
-        USB mikroskop shu kompyuterda ishlashi uchun MedLab ni <b>http://127.0.0.1:8000</b> da oching.`;
-    } else if (usb.found) {
-      box.style.display = '';
-      box.innerHTML = `<strong>Mikroskop USB da ulangan</strong> (${esc(usb.name || 'ToupcamMicro')}).<br>
-        Ro‘yxatdan tanlab <b>Yoqish</b> ni bosing.`;
+      box.innerHTML = `<strong>Kamera ruxsati kerak.</strong><br>${esc(browserErr)}`;
     } else {
       box.style.display = '';
-      box.innerHTML = `Mikroskop topilmadi. USB ni ulang, ToupTek/Euromex drajverini tekshiring, keyin ⟳ bosing.`;
+      box.innerHTML = `Mikroskop topilmadi. USB ni ulang, ToupTek/Euromex ni tanlang, keyin ⟳ bosing.`;
     }
   }
 
@@ -1036,10 +1103,8 @@ async function scanCameras() {
     toast(`${phones.length} ta kamera topildi`, 'green');
   } else if (currentSource === 'scope' && usb.found) {
     toast('Mikroskop ulangan — Yoqish ni bosing', 'green');
-  } else if (currentSource === 'scope' && remote) {
-    toast('Jonli mikroskop lokal kompyuterda ishlaydi: http://127.0.0.1:8000', 'red');
   } else if (currentSource !== 'upload') {
-    toast('Mos kamera topilmadi', 'red');
+    toast(browserErr || 'Mos kamera topilmadi', 'red');
   }
 }
 
@@ -1048,9 +1113,56 @@ async function startLive(kind) {
   const startBtn = document.getElementById(kind === 'scope' ? 'scopeStartBtn' : 'phoneStartBtn');
   const stopBtn  = document.getElementById(kind === 'scope' ? 'scopeStopBtn' : 'phoneStopBtn');
   const msgId    = kind === 'scope' ? 'scopeMsg' : 'phoneMsg';
-  const idx = parseInt(sel && sel.value, 10);
-  if (isNaN(idx)) { toast('Avval qurilmani tanlang', 'red'); return; }
+  const val = (sel && sel.value) || '';
+  if (!val) { toast('Avval qurilmani tanlang', 'red'); return; }
   if (startBtn) startBtn.disabled = true;
+
+  if (val.startsWith('b:')) {
+    const deviceId = val.slice(2);
+    try {
+      _stopBrowserStream();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          deviceId: { exact: deviceId },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 25 },
+        },
+      });
+      _browserStream = stream;
+      _liveMode = 'browser';
+      cameraRunning = true;
+      if (stopBtn) stopBtn.disabled = false;
+      document.getElementById('connPill').textContent = kind === 'scope' ? '● Mikroskop ulangan' : '● Telefon ulangan';
+      document.getElementById('connPill').classList.add('pill-connected');
+      msg(msgId, 'Jonli tasvir ochildi', 'green');
+      toast(kind === 'scope' ? 'Mikroskop yoqildi' : 'Telefon yoqildi', 'green');
+      updateAnalyzeBtn();
+      showLivePreview(true);
+      const lv = document.getElementById('liveVideo');
+      if (lv && !lv.videoWidth) {
+        await Promise.race([
+          new Promise(r => { lv.onloadedmetadata = () => r(); }),
+          new Promise(r => setTimeout(r, 2000)),
+        ]);
+      }
+      return;
+    } catch (e) {
+      if (startBtn) startBtn.disabled = false;
+      const m = (e && e.name === 'NotAllowedError')
+        ? 'Brauzer kameraga ruxsat bermadi'
+        : ((e && e.message) || 'Kamera ochilmadi');
+      msg(msgId, m, 'red');
+      toast(m, 'red');
+      return;
+    }
+  }
+
+  const idx = parseInt(val.replace(/^s:/, ''), 10);
+  if (isNaN(idx)) { if (startBtn) startBtn.disabled = false; toast('Avval qurilmani tanlang', 'red'); return; }
+  _stopBrowserStream();
+  _liveMode = 'server';
   const res = await api(apiPath('/api/start_camera'), 'POST', { index: idx });
   if (res.success) {
     cameraRunning = true;
@@ -1069,7 +1181,12 @@ async function startLive(kind) {
 }
 
 async function stopCamera(silent) {
-  await api(apiPath('/api/stop_camera'), 'POST');
+  const wasBrowser = _liveMode === 'browser';
+  _stopBrowserStream();
+  _liveMode = '';
+  if (!wasBrowser) {
+    await api(apiPath('/api/stop_camera'), 'POST');
+  }
   cameraRunning = false;
   ['phoneStartBtn', 'scopeStartBtn'].forEach(id => {
     const el = document.getElementById(id);
@@ -1105,10 +1222,51 @@ async function analyze() {
   }
   if (cameraRunning) {
     _analyzeBusy = true;
-    try { await analyzeCamera(); } finally { _analyzeBusy = false; }
+    try {
+      if (_liveMode === 'browser') await analyzeBrowserLive();
+      else await analyzeCamera();
+    } finally { _analyzeBusy = false; }
     return;
   }
   toast('Avval rasm yuklang yoki qurilmani yoqing', 'red');
+}
+
+async function captureLiveBlobs(n) {
+  const vid = document.getElementById('liveVideo');
+  if (!vid || !vid.videoWidth) throw new Error('Jonli tasvir hali ochilmadi');
+  const out = [];
+  const count = Math.max(1, Math.min(n || 3, 6));
+  for (let i = 0; i < count; i++) {
+    if (i) await new Promise(r => setTimeout(r, 160));
+    const c = document.createElement('canvas');
+    c.width = vid.videoWidth;
+    c.height = vid.videoHeight;
+    c.getContext('2d').drawImage(vid, 0, 0);
+    const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.93));
+    if (blob) out.push(new File([blob], `live_${i + 1}.jpg`, { type: 'image/jpeg' }));
+  }
+  if (!out.length) throw new Error('Kadr olinmadi');
+  return out;
+}
+
+async function analyzeBrowserLive() {
+  startAnalyzing(false);
+  let files;
+  try {
+    files = await captureLiveBlobs(3);
+  } catch (e) {
+    stopAnalyzing();
+    toast((e && e.message) || 'Kadr olinmadi', 'red');
+    return;
+  }
+  const formData = new FormData();
+  files.forEach(f => formData.append('files[]', f));
+  formData.append('lab_type', currentLab);
+  formData.append('source', currentSource === 'phone' ? 'phone' : 'upload');
+  formData.append('patient_name', valOf('accName'));
+  formData.append('sample_id', valOf('accSample') || currentNamunaId());
+  appendMicroscopeToFormData(formData);
+  await postAnalyzeForm(formData);
 }
 
 async function analyzeFile() {
@@ -1122,7 +1280,10 @@ async function analyzeFile() {
   formData.append('patient_name', valOf('accName'));
   formData.append('sample_id', valOf('accSample') || currentNamunaId());
   appendMicroscopeToFormData(formData);
+  await postAnalyzeForm(formData);
+}
 
+async function postAnalyzeForm(formData) {
   try {
     if (typeof ensureCsrfCookie === 'function') await ensureCsrfCookie();
     let r = await fetch(apiPath('/api/analyze'), {
