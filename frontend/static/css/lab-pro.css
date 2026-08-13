@@ -2183,7 +2183,9 @@ body::before {
 }
 .left-panel > .card.card-grow {
   flex: 1 1 auto !important;
-  min-height: 140px;
+  flex-shrink: 1 !important;
+  min-height: 0 !important;
+  overflow: hidden;
   display: flex !important;
   flex-direction: column;
 }
@@ -2192,11 +2194,16 @@ body::before {
 .left-panel #paneScope {
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 .left-panel #filePreview {
   flex: 1 1 auto;
+  min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden;
 }
 .left-panel .card:hover {
   transform: none !important;
@@ -2258,8 +2265,7 @@ body::before {
 }
 .left-panel .upload-zone {
   flex: 1 1 auto;
-  min-height: 96px !important;
-  height: 100%;
+  min-height: 72px !important;
   padding: 14px 12px !important;
   display: flex !important;
   flex-direction: column !important;
@@ -2268,6 +2274,13 @@ body::before {
   gap: 4px;
   border-width: 2px !important;
   text-align: center;
+}
+.left-panel #paneUpload.has-files .upload-zone,
+.left-panel .upload-zone.is-compact {
+  flex: 0 0 auto !important;
+  min-height: 38px !important;
+  height: auto !important;
+  padding: 6px 8px !important;
 }
 .left-panel .upload-ico { display: none !important; }
 .left-panel .upload-copy {
@@ -2351,11 +2364,39 @@ body::before {
   height: 30px !important;
 }
 .left-panel .file-preview {
-  padding: 4px !important;
+  padding: 0 !important;
+  border-radius: 12px !important;
+}
+.left-panel .preview-header {
+  flex: 0 0 auto;
+  padding: 5px 8px !important;
 }
 .left-panel .file-list {
-  max-height: 52px;
-  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 6px;
+  align-content: start;
+}
+.left-panel .file-item {
+  padding: 5px 6px !important;
+  min-width: 0;
+  gap: 4px !important;
+}
+.left-panel .file-item.is-on {
+  border-color: #1b3a5c !important;
+  background: #eef4fa !important;
+}
+.left-panel .file-item-name {
+  font-size: 0.62rem;
+}
+.left-panel .file-item-size {
+  display: none;
 }
 
 #toast {

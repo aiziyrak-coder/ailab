@@ -715,8 +715,7 @@ function loadFiles(files) {
     }
   }
   renderFileList();
-  document.getElementById('uploadZone').style.display  = uploadedFiles.length ? 'none' : '';
-  document.getElementById('filePreview').style.display = uploadedFiles.length ? '' : 'none';
+  syncUploadPane();
   updateAnalyzeBtn();
   if (_previewIndex >= uploadedFiles.length) _previewIndex = 0;
   renderMediaThumbs();
@@ -726,20 +725,38 @@ function loadFiles(files) {
   else toast('Bu fayllar allaqachon qo‘shilgan', 'gray');
 }
 
+function syncUploadPane() {
+  const zone = document.getElementById('uploadZone');
+  const prev = document.getElementById('filePreview');
+  const pane = document.getElementById('paneUpload');
+  const main = document.getElementById('uploadMain');
+  const hint = document.querySelector('#uploadZone .upload-hint-line');
+  const n = uploadedFiles.length;
+  if (zone) {
+    zone.style.display = '';
+    zone.classList.toggle('is-compact', n > 0);
+  }
+  if (main) main.textContent = n ? 'Yana rasm qo‘shish' : 'Rasm yuklang';
+  if (hint) hint.style.display = n ? 'none' : '';
+  if (prev) prev.style.display = n ? '' : 'none';
+  if (pane) pane.classList.toggle('has-files', n > 0);
+}
+
 function renderFileList() {
   const list = document.getElementById('fileList');
   const cnt  = document.getElementById('previewCount');
-  cnt.textContent = `${uploadedFiles.length} ta fayl`;
+  if (cnt) cnt.textContent = `${uploadedFiles.length} ta fayl`;
+  if (!list) return;
   list.innerHTML  = '';
   uploadedFiles.forEach((f, i) => {
     const isVid = isVideoFile(f);
     const div   = document.createElement('div');
-    div.className = 'file-item';
+    div.className = 'file-item' + (i === _previewIndex ? ' is-on' : '');
     div.innerHTML = `
       <span class="file-item-ico">${isVid ? '🎬' : '🖼'}</span>
       <span class="file-item-name" title="${esc(f.name)}">${esc(f.name)}</span>
       <span class="file-item-size">${fmtSize(f.size)}</span>
-      <button class="file-item-del" onclick="removeFile(${i})" title="O'chirish">✕</button>
+      <button class="file-item-del" onclick="event.stopPropagation(); removeFile(${i})" title="O'chirish">✕</button>
     `;
     div.addEventListener('click', (e) => {
       if (!e.target.classList.contains('file-item-del')) showMainPreview(i);
@@ -838,6 +855,7 @@ function showMainPreview(fileOrIndex) {
     content.appendChild(img);
   }
   document.querySelectorAll('.media-thumb').forEach((b, i) => b.classList.toggle('on', i === _previewIndex));
+  document.querySelectorAll('.file-item').forEach((el, i) => el.classList.toggle('is-on', i === _previewIndex));
   const badge = document.getElementById('mediaCount');
   if (badge) {
     badge.textContent = uploadedFiles.length > 1 ? `${_previewIndex + 1} / ${uploadedFiles.length}` : '';
@@ -851,9 +869,8 @@ function clearFile() {
   _previewIndex = 0;
   _revokePreviewUrl();
   _revokeThumbUrls();
-  document.getElementById('uploadZone').style.display  = '';
-  document.getElementById('filePreview').style.display = 'none';
   document.getElementById('fileInput').value           = '';
+  syncUploadPane();
   updateAnalyzeBtn();
   document.getElementById('uploadedContent').innerHTML = '';
   const thumbs = document.getElementById('mediaThumbs');
