@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off4">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off4">
+  <link rel="stylesheet" href="/static/css/style.css?v=off5">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off5">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -77,7 +77,38 @@
     <aside class="left-panel">
 
       <div class="card">
-        <div class="card-title"><span class="step-num">1</span> Tahlil turi</div>
+        <div class="card-title"><span class="step-num">1</span> Bemor</div>
+        <form class="acc-form" autocomplete="off" onsubmit="return false;">
+          <label class="req"><span>F.I.Sh.</span> <input id="accName" maxlength="120" required placeholder="Bemor familiyasi, ismi"></label>
+          <label class="req"><span>Namuna №</span> <input id="accSample" maxlength="32" required placeholder="NP-001"></label>
+          <label class="req"><span>Yosh</span> <input id="accAge" type="number" min="0" max="120" required placeholder="—"></label>
+          <label class="req"><span>Jins</span>
+            <select id="accSex" required>
+              <option value="">—</option>
+              <option value="Erkak">Erkak</option>
+              <option value="Ayol">Ayol</option>
+            </select>
+          </label>
+          <label class="req acc-span"><span>Bo‘lim / manzil</span> <input id="accWard" maxlength="80" required placeholder="Masalan: terapiya"></label>
+          <details class="daftar-more acc-span">
+            <summary>Daftar raqami</summary>
+            <div class="daftar-grid">
+              <label><span>Viloyat</span> <input id="daftarRegion" maxlength="3" placeholder="40"></label>
+              <label><span>Hudud</span> <input id="daftarLocality" maxlength="16" placeholder="FSH"></label>
+              <label><span>Pol. №</span> <input id="daftarClinic" maxlength="3" placeholder="7"></label>
+              <label><span>Tur</span> <input id="daftarType" maxlength="3" placeholder="OP"></label>
+            </div>
+          </details>
+          <div class="prio-row acc-span">
+            <button type="button" class="prio on" data-prio="routine" onclick="setPriority('routine')">Oddiy</button>
+            <button type="button" class="prio prio-stat" data-prio="stat" onclick="setPriority('stat')">STAT</button>
+            <span class="case-pill" id="caseStatus">KUTILMOQDA</span>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="step-num">2</span> Tahlil turi</div>
         <select id="labSelect" class="lab-select" onchange="selectLab(this.value)" aria-label="Tahlil turi">
           <option value="hematology">Gematologiya</option>
           <option value="urine">Siydik</option>
@@ -100,7 +131,7 @@
       </div>
 
       <div class="card">
-        <div class="card-title"><span class="step-num">2</span> Rasm</div>
+        <div class="card-title"><span class="step-num">3</span> Rasm</div>
 
         <div class="src-tabs" role="tablist" aria-label="Rasm manbasi">
           <button type="button" class="src-tab active" data-src="upload" role="tab" aria-selected="true" onclick="setSource('upload')">Rasm</button>
@@ -161,7 +192,7 @@
       </div>
 
       <div class="card micro-card">
-        <div class="card-title" id="microCardTitle"><span class="step-num">3</span> Kattalashtirish</div>
+        <div class="card-title" id="microCardTitle"><span class="step-num">4</span> Kattalashtirish</div>
         <div class="micro-grid micro-grid-2">
           <div class="micro-field">
             <label for="microOcularSel">Okulyar</label>
@@ -189,7 +220,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card analyze-card hidden" id="analyzeCard">
         <button class="btn btn-ziyrakai" id="analyzeBtn" onclick="analyze()" disabled>
           Tahlil qil
         </button>
@@ -248,33 +279,6 @@
 
     <div class="right-panel report-sheet">
       <div class="report-banner">Laboratoriya hisoboti</div>
-      <form class="acc-form" autocomplete="off" onsubmit="return false;">
-        <label class="req"><span>F.I.Sh.</span> <input id="accName" maxlength="120" required placeholder="Bemor familiyasi, ismi"></label>
-        <label class="req"><span>Namuna №</span> <input id="accSample" maxlength="32" required placeholder="NP-001"></label>
-        <label class="req"><span>Yosh</span> <input id="accAge" type="number" min="0" max="120" required placeholder="—"></label>
-        <label class="req"><span>Jins</span>
-          <select id="accSex" required>
-            <option value="">—</option>
-            <option value="Erkak">Erkak</option>
-            <option value="Ayol">Ayol</option>
-          </select>
-        </label>
-        <label class="req acc-span"><span>Bo‘lim / manzil</span> <input id="accWard" maxlength="80" required placeholder="Masalan: terapiya"></label>
-        <details class="daftar-more acc-span">
-          <summary>Daftar raqami</summary>
-          <div class="daftar-grid">
-            <label><span>Viloyat</span> <input id="daftarRegion" maxlength="3" placeholder="40"></label>
-            <label><span>Hudud</span> <input id="daftarLocality" maxlength="16" placeholder="FSH"></label>
-            <label><span>Pol. №</span> <input id="daftarClinic" maxlength="3" placeholder="7"></label>
-            <label><span>Tur</span> <input id="daftarType" maxlength="3" placeholder="OP"></label>
-          </div>
-        </details>
-        <div class="prio-row acc-span">
-          <button type="button" class="prio on" data-prio="routine" onclick="setPriority('routine')">Oddiy</button>
-          <button type="button" class="prio prio-stat" data-prio="stat" onclick="setPriority('stat')">STAT</button>
-          <span class="case-pill" id="caseStatus">KUTILMOQDA</span>
-        </div>
-      </form>
       <div class="report-meta-grid">
         <div><span>Bo‘lim</span><b id="reportDept">Gematologiya</b></div>
         <div><span>Preparat</span><b id="reportSpecimen">Qon yoqmasi</b></div>
@@ -457,6 +461,6 @@
 
 <div id="toast"></div>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=off4"></script>
+<script src="/static/js/app.js?v=off5"></script>
 </body>
 </html>

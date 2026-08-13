@@ -1266,3 +1266,12 @@ body::after { display: none !important; }
   color: #64748b;
 }
 .lab-hud[hidden] { display: none !important; }
+.left-panel .acc-form {
+  padding: 8px 0 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+.analyze-card.hidden { display: none !important; }
+.analyze-card .btn-ziyrakai {
+  width: 100%;
+}

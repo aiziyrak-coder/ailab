@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import UserProfile
-from .serializers import LoginSerializer, RegisterSerializer
+from .serializers import LoginSerializer
 from .template_mixins import MedlabPublicTemplateMixin
 from .throttling import AuthThrottle
 
@@ -60,9 +60,7 @@ class RegisterPageView(MedlabPublicTemplateMixin, TemplateView):
     template_name = "register.html"
 
     def get(self, request, *args, **kwargs):
-        if request.user.is_authenticated:
-            return redirect("/")
-        return super().get(request, *args, **kwargs)
+        return redirect("/login")
 
 
 class LoginApiView(APIView):
@@ -111,26 +109,9 @@ class RegisterApiView(APIView):
     throttle_classes = [AuthThrottle]
 
     def post(self, request):
-        ser = RegisterSerializer(data=request.data)
-        if not ser.is_valid():
-            return Response(
-                {
-                    "success": False,
-                    "message": "Ro'yxatdan o'tish ma'lumotlari noto‘g‘ri",
-                    "errors": ser.errors,
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        user = ser.save()
-        login(request._request, user)
-        auth_log.info("register_ok user=%s", user.username)
         return Response(
-            {
-                "success": True,
-                "message": "Hisob yaratildi",
-                "user": _user_auth_payload(user),
-            },
-            status=status.HTTP_201_CREATED,
+            {"success": False, "message": "Ro‘yxatdan o‘tish yopiq. Asosiy hisob orqali kiring."},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
 

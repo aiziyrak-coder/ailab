@@ -8,12 +8,12 @@
 1. `backend/.env.example` ni `backend/.env` ga nusxalang, `OPENAI_API_KEY` va `DJANGO_SECRET_KEY` kiriting.
 2. `pip install -r backend/requirements.txt`
 3. `cd backend && python manage.py migrate`
-4. **Demo foydalanuvchi**: `python manage.py create_demo_user` (`DJANGO_DEBUG=0` bo‘lsa faqat `create_demo_user --force` — tavsiya etilmaydi)  
-   - **Login:** `demo`  
-   - **Parol:** `MedLabDemo2026!`
+4. Asosiy foydalanuvchi: `python manage.py create_demo_user`  
+   - **Login:** `12345`  
+   - **Parol:** `1234512345`
 5. `python manage.py runserver 0.0.0.0:8000` yoki loyiha ildizidagi `start.bat`
 
-Brauzer: **http://127.0.0.1:8000** — avtomatik `/login` ga yo‘naltiriladi. Yangi hisob: **http://127.0.0.1:8000/register**
+Brauzer: **http://127.0.0.1:8000** — avtomatik `/login` ga yo‘naltiriladi.
 
 API va brauzer **Django sessiyasi** + **CSRF** (`X-CSRFToken`) orqali bog‘langan; kamera oqimi (`/video_feed`) cookie bilan ishlaydi. Alohida domen/portda frontend bo‘lsa, `CORS_ALLOWED_ORIGINS` va kerak bo‘lsa `CSRF_TRUSTED_ORIGINS` ni to‘g‘ri yozing.
 
@@ -83,5 +83,5 @@ GitHub Actions: `.github/workflows/ci.yml` — har push/PR da `check` + `test`.
 - **Statik fayllar (prod)**: `cd backend && python manage.py collectstatic --noinput` — `WhiteNoise` `staticfiles/` dan beradi.
 - **Sessiya**: `SESSION_COOKIE_AGE` (sekund, standart 8 soat).
 - **Admin**: `DJANGO_ADMIN_ENABLED=1` — `https://<API-domen>/admin/` (masalan `ailabapi`). `0` bo‘lsa marshrutlar umuman yo‘q — 404. Kuchli parol + kerak bo‘lsa nginx da IP cheklovi.
-- **Kirish (prod)**: brauzer **https://ailab.ziyrak.org** — `MEDLAB_PUBLIC_API_BASE` bo‘sh (bir xil origin). Har deployda `create_demo_user --force`: login **`demo`**, parol **`MedLabDemo2026!`** (keyin o‘chirib yoki parolni o‘zgartiring).
+- **Kirish (prod)**: brauzer **https://lab.fermi.uz** — login **`12345`**.
 - **ZiyrakAi (texnik)**: `OPENAI_MAX_RETRIES`, `OPENAI_RETRY_DELAY_SEC` — vaqtinchalik API xatolarida qayta urinish.

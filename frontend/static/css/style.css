@@ -66,8 +66,8 @@
   /* Responsiv layout — 100% zoomda sig‘ish uchun ixcham */
   --layout-gap: clamp(8px, 0.9vw, 12px);
   --layout-pad: clamp(6px, 0.65vw, 10px);
-  --col-left: clamp(200px, 18vw, 272px);
-  --col-right: clamp(200px, 20vw, 360px);
+  --col-left: clamp(300px, 28vw, 420px);
+  --col-right: clamp(220px, 22vw, 340px);
 }
 
 ::selection {

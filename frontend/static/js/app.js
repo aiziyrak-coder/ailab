@@ -321,7 +321,7 @@ function emptyResultHtml() {
   return `<div class="result-empty">
       <div class="re-icon">${m.icon}</div>
       <p>Natija shu yerda chiqadi</p>
-      <p class="re-hint">O‘ngda bemor ma’lumotini to‘ldiring, chapda rasm yuklang, keyin «Tahlil qil» ni bosing.</p>
+      <p class="re-hint">Chapda bemor ma’lumotini to‘ldiring va rasm yuklang — keyin «Tahlil qil» chiqadi.</p>
     </div>`;
 }
 
@@ -406,9 +406,11 @@ function markPatientFields(highlight) {
 
 function updateAnalyzeBtn() {
   const btn = document.getElementById('analyzeBtn');
-  if (!btn) return;
+  const card = document.getElementById('analyzeCard');
+  const readyPatient = patientFieldsComplete();
   const hasSample = uploadedFiles.length > 0 || cameraRunning;
-  btn.disabled = !hasSample || !patientFieldsComplete();
+  if (card) card.classList.toggle('hidden', !readyPatient);
+  if (btn) btn.disabled = !readyPatient || !hasSample;
 }
 
 let _priority = 'routine';
