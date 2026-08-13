@@ -464,9 +464,6 @@ function syncLabChrome(m, s) {
   setTxt('slideName', s.specimen);
   setTxt('slideStain', s.stain);
   setTxt('frostCode', s.code);
-  setTxt('reportDept', s.dept);
-  setTxt('reportStain', s.stain);
-  setTxt('reportSpecimen', s.specimen);
   setTxt('protoProtocol', s.protocol);
   setTxt('protoFields', s.fields);
   setTxt('protoIllum', s.illum);
@@ -659,8 +656,6 @@ function onMicroChange() {
   if (hudMag) hudMag.textContent = totalStr || '—';
   const slideMag = document.getElementById('slideMag');
   if (slideMag) slideMag.textContent = totalStr || '—';
-  const reportMag = document.getElementById('reportMag');
-  if (reportMag) reportMag.textContent = totalStr || '—';
 
   const objN = parseMagNum(bStr);
   document.querySelectorAll('#objTurret [data-obj]').forEach(el => {
