@@ -931,11 +931,21 @@ function fillSelect(sel, items, placeholder) {
 function _camNameIsUsbVideo(name) {
   return /^usb video device/i.test(name || '');
 }
+function _camNameIsDummy(name) {
+  return /usb video device|camera plug-?in|virtual cam|many ?cam|droidcam|obs virtual|nvidia broadcast|iriun|splitcam/i.test(name || '');
+}
 function _camNameIsMicro(name) {
   return /toup|microskop|microscope|cmex|euromex|bioblue|tucsen|usb2\.0\s*cam|amcam/i.test(name || '');
 }
 function _camNameIsLaptop(name) {
   return /integrated|facetime|hd webcam|laptop|built-?in|realtek|lenovo|dell webcam|obs virtual/i.test(name || '');
+}
+function _camRank(c) {
+  const n = c && c.name || '';
+  if (_camNameIsMicro(n) && !_camNameIsDummy(n)) return 0;
+  if (!_camNameIsDummy(n) && !_camNameIsLaptop(n)) return 1;
+  if (!_camNameIsDummy(n)) return 2;
+  return 3;
 }
 
 function _stopBrowserStream() {
@@ -973,7 +983,7 @@ function _mediaCamMsg(e) {
 async function _gUMUnlock(constraints) {
   const stream = await navigator.mediaDevices.getUserMedia(constraints);
   stream.getTracks().forEach(t => t.stop());
-  await new Promise(r => setTimeout(r, 120));
+  await new Promise(r => setTimeout(r, 280));
 }
 
 function _mapVideoInputs(all) {
@@ -996,26 +1006,28 @@ async function listBrowserCameras() {
   }));
   if (labeled(cams)) return cams;
 
-  const tries = [];
-  cams.forEach(c => {
-    if (c.deviceId && !_camNameIsUsbVideo(c.name)) {
-      tries.push({ audio: false, video: { deviceId: { exact: c.deviceId } } });
+  let perm = '';
+  try {
+    if (navigator.permissions && navigator.permissions.query) {
+      perm = (await navigator.permissions.query({ name: 'camera' })).state || '';
     }
-  });
-  cams.forEach(c => {
-    if (c.deviceId) tries.push({ audio: false, video: { deviceId: { exact: c.deviceId } } });
-  });
-  tries.push({ audio: false, video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
-  tries.push({ audio: false, video: true });
+  } catch (_) {}
 
-  for (const constraints of tries) {
-    try {
-      await _gUMUnlock(constraints);
-      lastErr = null;
-      break;
-    } catch (e) {
-      lastErr = e;
-      if (e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError')) break;
+  if (perm !== 'granted') {
+    const unlocks = [];
+    cams.filter(c => c.deviceId && _camRank(c) < 3).forEach(c => {
+      unlocks.push({ audio: false, video: { deviceId: { exact: c.deviceId } } });
+    });
+    unlocks.push({ audio: false, video: true });
+    for (const constraints of unlocks) {
+      try {
+        await _gUMUnlock(constraints);
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        if (e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError')) break;
+      }
     }
   }
 
@@ -1150,17 +1162,16 @@ async function scanCameras() {
     usb = (res && res.microscope_usb) || {};
   }
 
-  let scopes = cams.filter(c =>
-    (c.kind === 'microscope' || _camNameIsMicro(c.name)) && !_camNameIsUsbVideo(c.name)
-  );
-  let phones = cams.filter(c => !scopes.includes(c));
+  const ranked = cams.slice().sort((a, b) => _camRank(a) - _camRank(b));
+  let scopes = ranked.filter(c => _camRank(c) <= 1);
+  let phones = ranked.filter(c => _camRank(c) > 1);
   if (!scopes.length) {
-    scopes = cams.filter(c => !_camNameIsUsbVideo(c.name) && !_camNameIsLaptop(c.name));
-    phones = cams.filter(c => !scopes.includes(c));
+    scopes = ranked.filter(c => !_camNameIsDummy(c.name));
+    phones = ranked.filter(c => !scopes.includes(c));
   }
   if (!scopes.length) {
-    scopes = cams.filter(c => !_camNameIsLaptop(c.name));
-    phones = cams.filter(c => !scopes.includes(c));
+    scopes = ranked.slice();
+    phones = [];
   }
   if (!scopes.length && usb.found) {
     scopes = [{ index: 16, name: usb.name || 'ToupcamMicro', resolution: '—' }];
@@ -1197,36 +1208,42 @@ async function scanCameras() {
   }
 }
 
+function _gumSets(deviceId) {
+  if (!deviceId) return [{ audio: false, video: true }];
+  return [
+    { audio: false, video: { deviceId: { exact: deviceId } } },
+    { audio: false, video: { deviceId: { exact: deviceId }, width: { max: 1920 }, height: { max: 1080 } } },
+    { audio: false, video: { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } } },
+    { audio: false, video: { deviceId: { ideal: deviceId } } },
+  ];
+}
+
 async function _openBrowserCam(deviceId) {
-  const attempts = [];
-  if (deviceId) {
-    attempts.push({
-      audio: false,
-      video: { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } },
-    });
-    attempts.push({ audio: false, video: { deviceId: { exact: deviceId } } });
-    attempts.push({ audio: false, video: { deviceId: { ideal: deviceId } } });
-  }
+  const cams = _mapVideoInputs(await navigator.mediaDevices.enumerateDevices().catch(() => []));
+  const order = [];
+  const seen = new Set();
+  const push = (c) => {
+    if (!c || !c.deviceId || seen.has(c.deviceId)) return;
+    seen.add(c.deviceId);
+    order.push(c);
+  };
+  push(cams.find(c => c.deviceId === deviceId));
+  cams.slice().sort((a, b) => _camRank(a) - _camRank(b)).forEach(push);
+
   let lastErr = null;
-  for (const c of attempts) {
-    try {
-      return await navigator.mediaDevices.getUserMedia(c);
-    } catch (e) {
-      lastErr = e;
-    }
-  }
-  const cams = await listBrowserCameras().catch(() => []);
-  const pick = cams.find(c => c.deviceId && _camNameIsMicro(c.name) && !_camNameIsUsbVideo(c.name))
-    || cams.find(c => c.deviceId && !_camNameIsUsbVideo(c.name) && !_camNameIsLaptop(c.name))
-    || cams.find(c => c.deviceId && !_camNameIsUsbVideo(c.name));
-  if (pick && pick.deviceId !== deviceId) {
-    try {
-      return await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { deviceId: { exact: pick.deviceId } },
-      });
-    } catch (e) {
-      lastErr = e;
+  for (const cam of order) {
+    for (const constraints of _gumSets(cam.deviceId)) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        const track = stream.getVideoTracks()[0];
+        if (!track || track.readyState === 'ended') {
+          stream.getTracks().forEach(t => t.stop());
+          continue;
+        }
+        return { stream, cam };
+      } catch (e) {
+        lastErr = e;
+      }
     }
   }
   throw lastErr || new Error('Kamera ochilmadi');
@@ -1245,7 +1262,14 @@ async function startLive(kind) {
     const deviceId = val.slice(2);
     try {
       _stopBrowserStream();
-      const stream = await _openBrowserCam(deviceId);
+      await new Promise(r => setTimeout(r, 220));
+      const opened = await _openBrowserCam(deviceId);
+      const stream = opened.stream || opened;
+      const openedCam = opened.cam;
+      if (openedCam && openedCam.deviceId && sel) {
+        const want = 'b:' + openedCam.deviceId;
+        if ([...sel.options].some(o => o.value === want)) sel.value = want;
+      }
       _browserStream = stream;
       _liveMode = 'browser';
       cameraRunning = true;

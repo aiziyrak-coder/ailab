@@ -2554,8 +2554,9 @@ body::before {
   background: #f4faf6 !important;
 }
 .official-bar {
-  height: 3px !important;
-  background: #166534 !important;
+  display: none !important;
+  height: 0 !important;
+  background: transparent !important;
   animation: none !important;
 }
 .header {
