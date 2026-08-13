@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""lab.fermi.uz ga deploy. Faqat shu vhost + ailab-gunicorn (8011). Boshqa nginx saytlar o'zgarmaydi."""
+"""lab.fermi.uz ga deploy. Faqat shu vhost + lab-fermi-gunicorn (8011). Boshqa nginx saytlar o'zgarmaydi."""
 from __future__ import annotations
 
 import os
@@ -49,7 +49,7 @@ def main() -> int:
     openai_key = local_openai_key()
     key_py = (
         "import pathlib,re\n"
-        "p=pathlib.Path('/opt/ailab/backend/.env')\n"
+        "p=pathlib.Path('/opt/lab-fermi/backend/.env')\n"
         "t=p.read_text(encoding='utf-8') if p.exists() else ''\n"
         f"k={openai_key!r}\n"
         "if k:\n"
@@ -66,7 +66,7 @@ def main() -> int:
     remote = rf"""
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
-APP=/opt/ailab
+APP=/opt/lab-fermi
 REPO={shlex.quote(REPO)}
 mkdir -p /var/www/certbot
 
@@ -157,17 +157,18 @@ chmod 640 .env
 
 . .venv/bin/activate
 python manage.py migrate --noinput
+find "$APP/backend" -maxdepth 1 -name 'db.sqlite3*' -exec chown www-data:www-data {{}} \;
 sudo -u www-data .venv/bin/python manage.py create_demo_user --force || true
 python manage.py collectstatic --noinput --clear
 find "$APP/backend" -maxdepth 1 -name 'db.sqlite3*' -exec chown www-data:www-data {{}} \;
 
-cp "$APP/deploy/ailab-gunicorn.service" /etc/systemd/system/ailab-gunicorn.service
+cp "$APP/deploy/lab-fermi-gunicorn.service" /etc/systemd/system/lab-fermi-gunicorn.service
 cp "$APP/deploy/nginx-ailab.conf" /etc/nginx/sites-available/lab.fermi.uz.conf
 ln -sfn /etc/nginx/sites-available/lab.fermi.uz.conf /etc/nginx/sites-enabled/lab.fermi.uz.conf
 
 systemctl daemon-reload
-systemctl enable ailab-gunicorn
-systemctl restart ailab-gunicorn
+systemctl enable lab-fermi-gunicorn
+systemctl restart lab-fermi-gunicorn
 nginx -t
 systemctl reload nginx
 sleep 2
