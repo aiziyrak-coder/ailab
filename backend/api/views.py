@@ -4,6 +4,7 @@ Flask loyihadagi marshrutlar bilan mos keladi (/api/*, /video_feed).
 """
 import io
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -11,8 +12,12 @@ from pathlib import Path
 import cv2
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db import connection
+from django.db import close_old_connections, connection
+from django.db.models.functions import Substr
 from django.http import FileResponse, HttpResponse, StreamingHttpResponse
+from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.generic import TemplateView
 from PIL import Image
 from rest_framework import status
@@ -22,10 +27,179 @@ from rest_framework.views import APIView
 
 from lab_core import engine as eng
 
-from .serializers import AnalyzeJsonSerializer, StartCameraSerializer
+from .models import AnalysisRecord
+from .serializers import (
+    AnalysisListSerializer,
+    AnalysisRecordSerializer,
+    AnalysisSearchSerializer,
+    AnalyzeJsonSerializer,
+    StartCameraSerializer,
+)
 from .template_mixins import MedlabPublicTemplateMixin
 from .throttling import AnalyzeThrottle, CameraThrottle
 from .version import MEDLAB_VERSION
+
+_ID_EXACT_RE = re.compile(r"^(?:ML)?(\d{6})(\d{4})$", re.IGNORECASE)
+_EMPTY_ANALYSIS = {
+    "text": "",
+    "lines": [],
+    "timestamp": "",
+    "status": "kutilmoqda",
+    "loading": False,
+    "lab_type": "",
+    "job_id": "",
+    "public_id": "",
+}
+
+
+def _normalize_analysis_query(q):
+    return re.sub(r"[^A-Za-z0-9]", "", (q or "").strip()).upper()
+
+
+def _canonical_public_id(value):
+    compact = _normalize_analysis_query(value)
+    m = _ID_EXACT_RE.fullmatch(compact)
+    if not m:
+        return None
+    return f"ML-{m.group(1)}-{m.group(2)}"
+
+
+def _filter_analyses(qs, q):
+    raw = (q or "").strip()
+    if not raw:
+        return qs
+    exact = _canonical_public_id(raw)
+    if exact:
+        return qs.filter(public_id__iexact=exact)
+    cleaned = re.sub(r"[%_\\]", "", raw).strip()
+    if not cleaned:
+        return qs.none()
+    return qs.filter(public_id__icontains=cleaned)
+
+
+def _record_to_analysis_payload(rec):
+    pending = rec.status in ("tahlil_qilinmoqda", "video_tahlil_qilinmoqda")
+    ts = ""
+    if rec.updated_at:
+        ts = timezone.localtime(rec.updated_at).strftime("%H:%M:%S")
+    return {
+        "text": rec.text or "",
+        "lines": [l.strip() for l in (rec.text or "").split("\n") if l.strip()],
+        "timestamp": ts,
+        "status": rec.status,
+        "loading": pending,
+        "lab_type": rec.lab_type,
+        "job_id": rec.job_id,
+        "public_id": rec.public_id,
+        "img_count": rec.img_count,
+    }
+
+
+def _analysis_snapshot_for(request):
+    with eng.analysis_lock:
+        snap = eng.latest_analysis.copy()
+    owner = snap.get("user_id")
+    if owner is not None and owner != request.user.id:
+        return dict(_EMPTY_ANALYSIS)
+    snap.pop("user_id", None)
+    return snap
+
+
+def _busy_response(request):
+    with eng.analysis_lock:
+        snap = eng.latest_analysis.copy()
+    payload = {
+        "success": False,
+        "busy": True,
+        "job_id": "",
+        "public_id": "",
+        "message": (
+            "Boshqa tahlil hali bajarilmoqda. Natija chiqishini kuting "
+            "yoki birozdan keyin qayta urining."
+        ),
+    }
+    if snap.get("user_id") == request.user.id:
+        payload["job_id"] = snap.get("job_id") or ""
+        payload["public_id"] = snap.get("public_id") or ""
+    return Response(payload, status=status.HTTP_409_CONFLICT)
+
+
+def _attach_analysis_record(request, lab_type, source, job_id, img_count=0, status="tahlil_qilinmoqda"):
+    rec = None
+    try:
+        rec = AnalysisRecord.create_pending(
+            user=request.user,
+            lab_type=lab_type,
+            source=source,
+            job_id=job_id or "",
+            img_count=img_count,
+            status=status,
+        )
+        with eng.analysis_lock:
+            if eng.latest_analysis.get("job_id") == job_id:
+                eng.latest_analysis["public_id"] = rec.public_id
+    except Exception:
+        eng.log.exception("Tahlil ID yaratilmadi")
+    return rec
+
+
+def _persist_analysis_record(record_pk, job_id=""):
+    close_old_connections()
+    if not record_pk:
+        return
+    try:
+        rec = AnalysisRecord.objects.filter(pk=record_pk).first()
+        if not rec:
+            return
+        snap = eng.take_completed_job(job_id) if job_id else None
+        if snap is None:
+            with eng.analysis_lock:
+                snap = eng.latest_analysis.copy()
+            if job_id and snap.get("job_id") and snap.get("job_id") != job_id:
+                return
+        rec.text = snap.get("text") or ""
+        rec.status = snap.get("status") or rec.status
+        try:
+            rec.img_count = max(0, min(int(snap.get("img_count") or rec.img_count or 0), 32767))
+        except (TypeError, ValueError):
+            pass
+        rec.save(update_fields=["text", "status", "img_count", "updated_at"])
+    except Exception:
+        eng.log.exception("Tahlil tarixga yozilmadi")
+    finally:
+        close_old_connections()
+
+
+def _spawn_analyze(target, args, record_pk, job_id=""):
+    def runner():
+        close_old_connections()
+        try:
+            target(*args)
+        finally:
+            _persist_analysis_record(record_pk, job_id=job_id)
+            close_old_connections()
+
+    threading.Thread(target=runner, daemon=True).start()
+
+
+def _abort_started_job(job_id, rec, message):
+    if job_id:
+        with eng.analysis_lock:
+            if eng.latest_analysis.get("job_id") == job_id:
+                eng._publish_analysis({
+                    "loading": False,
+                    "status": "xato",
+                    "text": message,
+                    "lines": [message],
+                    "timestamp": time.strftime("%H:%M:%S"),
+                })
+    if rec is not None:
+        try:
+            rec.status = "xato"
+            rec.text = message
+            rec.save(update_fields=["status", "text", "updated_at"])
+        except Exception:
+            eng.log.exception("Tahlil xato holatiga yozilmadi")
 
 
 def favicon_view(_request):
@@ -43,12 +217,17 @@ def favicon_view(_request):
 def video_feed_view(request):
     if not request.user.is_authenticated:
         return HttpResponse("Kirish kerak", status=401, content_type="text/plain; charset=utf-8")
-    return StreamingHttpResponse(
+    resp = StreamingHttpResponse(
         eng.generate_mjpeg(),
         content_type="multipart/x-mixed-replace; boundary=frame",
     )
+    resp["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp["Pragma"] = "no-cache"
+    resp["X-Accel-Buffering"] = "no"
+    return resp
 
 
+@method_decorator(ensure_csrf_cookie, name="dispatch")
 class IndexView(MedlabPublicTemplateMixin, LoginRequiredMixin, TemplateView):
     login_url = "/login"
     template_name = "index.html"
@@ -80,13 +259,14 @@ class HealthView(APIView):
         except OSError:
             snap_ok = False
 
-        eng.ensure_gemini_from_env()
-        ziyrakai_ready = eng.gemini_model is not None
+        eng.ensure_openai_from_env()
+        ziyrakai_ready = eng.openai_client is not None
         overall = db_ok and snap_ok
         payload = {
             "ok": overall,
             "service": "medlab-ai",
             "version": MEDLAB_VERSION,
+            "env": getattr(settings, "DJANGO_ENV", ""),
             "database": db_ok,
             "snapshot_dir_writable": snap_ok,
             "ziyrakai_ready": ziyrakai_ready,
@@ -102,7 +282,10 @@ class ScanCamerasView(APIView):
     throttle_classes = [CameraThrottle]
 
     def get(self, request):
-        return Response({"cameras": eng.scan_cameras()})
+        data = eng.scan_cameras()
+        if isinstance(data, dict) and "cameras" in data:
+            return Response(data)
+        return Response({"cameras": data})
 
 
 class StartCameraView(APIView):
@@ -124,12 +307,21 @@ class StartCameraView(APIView):
                 eng.camera.release()
                 eng.camera = None
             eng.stream_active = False
+            with eng.frame_lock:
+                eng.latest_frame = None
+                eng.preview_jpeg = None
             time.sleep(0.35)
 
             cam = eng.open_camera(idx)
             if cam is None:
+                usb = eng._probe_windows_microscope_usb()
+                extra = ""
+                if usb.get("found"):
+                    extra = (
+                        " Mikroskop USB da bor. Ro‘yxatdan ToupcamMicro ni tanlab qayta Yoqish ni bosing."
+                    )
                 return Response(
-                    {"success": False, "message": f"Kamera {idx} ochilmadi."},
+                    {"success": False, "message": f"Kamera {idx} ochilmadi." + extra},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -138,13 +330,39 @@ class StartCameraView(APIView):
             eng.stream_active = True
             threading.Thread(target=eng.capture_thread, daemon=True).start()
 
-            w = int(cam.get(cv2.CAP_PROP_FRAME_WIDTH))
-            h = int(cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            deadline = time.time() + 6.0
+            got = False
+            while time.time() < deadline:
+                with eng.frame_lock:
+                    got = eng.latest_frame is not None
+                if got:
+                    break
+                time.sleep(0.05)
+
+            w = int(cam.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+            h = int(cam.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+
+            if not got:
+                eng.stream_active = False
+                time.sleep(0.2)
+                if eng.camera:
+                    eng.camera.release()
+                    eng.camera = None
+                return Response(
+                    {
+                        "success": False,
+                        "message": (
+                            "Kamera ochildi, lekin tasvir kelmadi. "
+                            "Boshqa USB portga ulab qayta Yoqish ni bosing."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         return Response(
             {
                 "success": True,
-                "message": f"Kamera {idx} ulandi ({w}×{h})",
+                "message": f"Ulandi ({w}×{h})" if w and h else "Ulandi",
             }
         )
 
@@ -163,6 +381,7 @@ class StopCameraView(APIView):
                 eng.camera = None
             with eng.frame_lock:
                 eng.latest_frame = None
+                eng.preview_jpeg = None
         return Response({"success": True, "message": "Kamera to'xtatildi"})
 
 
@@ -196,7 +415,7 @@ class AnalyzeView(APIView):
             source = request.POST.get("source", "upload")
             micro_d = eng.microscope_dict_from_input(form_get=request.POST.get)
 
-        if source not in ("camera", "upload"):
+        if source not in ("camera", "upload", "phone"):
             source = "upload"
 
         lab_type = eng._normalize_lab_type(lab_type)
@@ -206,21 +425,23 @@ class AnalyzeView(APIView):
             else None
         )
 
-        eng.ensure_gemini_from_env()
-        if eng.gemini_model is None:
+        eng.ensure_openai_from_env()
+        if eng.openai_client is None:
             return Response(
                 {
                     "success": False,
                     "message": (
-                        "ZiyrakAi ishlamayapti: GEMINI_API_KEY backend/.env faylida yo‘q yoki bo‘sh. "
-                        "Serverda: nano /opt/ailab/backend/.env — GEMINI_API_KEY=... qo‘shing, "
-                        "keyin: sudo systemctl restart ailab-gunicorn"
+                        "MedLab tahlil ishlamayapti: OPENAI_API_KEY backend/.env faylida yo‘q yoki bo‘sh. "
+                        "Kalitni qo‘shib serverni qayta ishga tushiring."
                     ),
                 },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
         micro_pfx = eng._microscope_prompt_prefix(micro_d)
+        job_id = ""
+        rec = None
+        spawned = False
 
         try:
             if source == "camera":
@@ -238,36 +459,34 @@ class AnalyzeView(APIView):
                 bgr = eng._ensure_bgr_frame(frame)
                 rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
                 pil_img = Image.fromarray(rgb)
-                with eng.analysis_lock:
-                    if eng.latest_analysis.get("loading"):
-                        return Response(
-                            {
-                                "success": False,
-                                "busy": True,
-                                "message": (
-                                    "Boshqa tahlil hali bajarilmoqda. Natija chiqishini kuting "
-                                    "yoki birozdan keyin qayta urining."
-                                ),
-                            },
-                            status=status.HTTP_409_CONFLICT,
-                        )
-                    eng.latest_analysis.update(
-                        {
-                            "loading": True,
-                            "status": "tahlil_qilinmoqda",
-                            "lab_type": lab_type,
-                            "text": "",
-                            "lines": [],
-                        }
-                    )
-                threading.Thread(
-                    target=eng.do_analyze,
-                    args=([pil_img], lab_type, custom_prompt, micro_pfx),
-                    daemon=True,
-                ).start()
+                job_id = eng.begin_analysis_job(
+                    lab_type, "tahlil_qilinmoqda", user_id=request.user.id
+                )
+                if not job_id:
+                    return _busy_response(request)
+                rec = _attach_analysis_record(
+                    request, lab_type, source, job_id, img_count=1, status="tahlil_qilinmoqda"
+                )
+                eng.log.info(
+                    "analyze_start user=%s lab=%s source=%s job=%s id=%s",
+                    getattr(request.user, "username", ""),
+                    lab_type,
+                    source,
+                    job_id,
+                    rec.public_id if rec else "",
+                )
+                _spawn_analyze(
+                    eng.do_analyze,
+                    ([pil_img], lab_type, custom_prompt, micro_pfx),
+                    rec.pk if rec else None,
+                    job_id=job_id,
+                )
+                spawned = True
                 return Response(
                     {
                         "success": True,
+                        "job_id": job_id,
+                        "public_id": rec.public_id if rec else "",
                         "message": "Kamera kadri tahlil qilinmoqda...",
                     }
                 )
@@ -336,32 +555,24 @@ class AnalyzeView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            with eng.analysis_lock:
-                if eng.latest_analysis.get("loading"):
-                    return Response(
-                        {
-                            "success": False,
-                            "busy": True,
-                            "message": (
-                                "Boshqa tahlil hali bajarilmoqda. Natija chiqishini kuting "
-                                "yoki birozdan keyin qayta urining."
-                            ),
-                        },
-                        status=status.HTTP_409_CONFLICT,
-                    )
-                eng.latest_analysis.update(
-                    {
-                        "loading": True,
-                        "status": (
-                            "video_tahlil_qilinmoqda"
-                            if video_files
-                            else "tahlil_qilinmoqda"
-                        ),
-                        "lab_type": lab_type,
-                        "text": "",
-                        "lines": [],
-                    }
-                )
+            job_status = (
+                "video_tahlil_qilinmoqda" if video_files else "tahlil_qilinmoqda"
+            )
+            job_id = eng.begin_analysis_job(lab_type, job_status, user_id=request.user.id)
+            if not job_id:
+                return _busy_response(request)
+
+            rec = _attach_analysis_record(
+                request, lab_type, source, job_id, img_count=total, status=job_status
+            )
+            eng.log.info(
+                "analyze_start user=%s lab=%s source=%s job=%s id=%s",
+                getattr(request.user, "username", ""),
+                lab_type,
+                source,
+                job_id,
+                rec.public_id if rec else "",
+            )
 
             if video_files:
                 vdata, vname = video_files[0]
@@ -370,9 +581,9 @@ class AnalyzeView(APIView):
                         "Bir vaqtda faqat bitta video tahlil qilinadi (birinchi tanlangan: "
                         f"{vname})."
                     )
-                threading.Thread(
-                    target=eng.do_analyze_video,
-                    args=(
+                _spawn_analyze(
+                    eng.do_analyze_video,
+                    (
                         vdata,
                         lab_type,
                         custom_prompt,
@@ -380,33 +591,43 @@ class AnalyzeView(APIView):
                         micro_pfx,
                         vname,
                     ),
-                    daemon=True,
-                ).start()
+                    rec.pk if rec else None,
+                    job_id=job_id,
+                )
+                spawned = True
                 if pil_images:
                     msg = f"Video ({vname}) va {len(pil_images)} ta rasm tahlil qilinmoqda..."
                 else:
                     msg = f"Video tahlil qilinmoqda: {vname}"
             else:
-                threading.Thread(
-                    target=eng.do_analyze,
-                    args=(pil_images, lab_type, custom_prompt, micro_pfx),
-                    daemon=True,
-                ).start()
+                _spawn_analyze(
+                    eng.do_analyze,
+                    (pil_images, lab_type, custom_prompt, micro_pfx),
+                    rec.pk if rec else None,
+                    job_id=job_id,
+                )
+                spawned = True
                 msg = f"{len(pil_images)} ta rasm tahlil qilinmoqda..."
 
-            out = {"success": True, "message": msg, "count": total}
+            out = {
+                "success": True,
+                "message": msg,
+                "count": total,
+                "job_id": job_id,
+                "public_id": rec.public_id if rec else "",
+            }
             if upload_notes:
                 out["warnings"] = upload_notes
             return Response(out)
 
         except Exception as e:
-            with eng.analysis_lock:
-                eng.latest_analysis.update({"loading": False})
             eng.log.exception("api/analyze: %s", e)
             if settings.DEBUG:
                 err_msg = str(e)
             else:
                 err_msg = "Serverda ichki xato. Administratorga murojaat qiling yoki keyinroq qayta urining."
+            if not spawned:
+                _abort_started_job(job_id, rec, err_msg)
             return Response(
                 {"success": False, "message": err_msg},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -414,11 +635,85 @@ class AnalyzeView(APIView):
 
 
 class AnalysisResultView(APIView):
-    """GET /api/analysis_result"""
+    """GET /api/analysis_result — xotira, yo'q bo'lsa DB (ko'p worker)."""
 
     def get(self, request):
-        with eng.analysis_lock:
-            return Response(eng.latest_analysis.copy())
+        job_id = (request.query_params.get("job_id") or "").strip()
+        snap = _analysis_snapshot_for(request)
+        mem_job = snap.get("job_id") or ""
+        if snap.get("loading") or snap.get("status") in ("tayyor", "xato"):
+            if not job_id or not mem_job or mem_job == job_id:
+                return Response(snap)
+        qs = AnalysisRecord.objects.filter(user=request.user)
+        rec = qs.filter(job_id=job_id).first() if job_id else None
+        if rec is None and not job_id:
+            rec = qs.first()
+        if rec is None:
+            return Response(dict(_EMPTY_ANALYSIS))
+        return Response(_record_to_analysis_payload(rec))
+
+
+class AnalysisListView(APIView):
+    """GET /api/analyses?q=&lab_type=&page="""
+
+    def get(self, request):
+        ser = AnalysisSearchSerializer(data=request.query_params)
+        if not ser.is_valid():
+            return Response(
+                {"success": False, "message": "Noto‘g‘ri qidiruv", "errors": ser.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        q = ser.validated_data.get("q") or ""
+        lab_type = (ser.validated_data.get("lab_type") or "").strip()
+        try:
+            page = max(1, int(request.query_params.get("page") or 1))
+        except (TypeError, ValueError):
+            page = 1
+        page_size = 25
+
+        qs = AnalysisRecord.objects.filter(user=request.user)
+        lab_key = lab_type.strip().lower()
+        if lab_key:
+            if lab_key in eng.ALLOWED_LAB_TYPES:
+                qs = qs.filter(lab_type=lab_key)
+            else:
+                qs = qs.none()
+        qs = _filter_analyses(qs, q)
+        total = qs.count()
+        start = (page - 1) * page_size
+        items = list(
+            qs.annotate(_preview_src=Substr("text", 1, 180)).defer("text")[start : start + page_size]
+        )
+        exact = None
+        canon = _canonical_public_id(q)
+        if canon and items:
+            exact = items[0].public_id
+        return Response(
+            {
+                "success": True,
+                "count": total,
+                "page": page,
+                "page_size": page_size,
+                "has_more": start + len(items) < total,
+                "exact_id": exact,
+                "results": AnalysisListSerializer(items, many=True).data,
+            }
+        )
+
+
+class AnalysisDetailView(APIView):
+    """GET /api/analyses/<public_id>"""
+
+    def get(self, request, public_id):
+        lookup = _canonical_public_id(public_id) or (public_id or "").strip()
+        rec = AnalysisRecord.objects.filter(user=request.user, public_id__iexact=lookup).first()
+        if rec is None:
+            return Response(
+                {"success": False, "message": f"Tahlil topilmadi: {public_id}"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        data = AnalysisRecordSerializer(rec).data
+        return Response({"success": True, "analysis": data})
 
 
 class CaptureView(APIView):
@@ -475,13 +770,13 @@ class StatusView(APIView):
     """GET /api/status"""
 
     def get(self, request):
-        eng.ensure_gemini_from_env()
+        eng.ensure_openai_from_env()
         return Response(
             {
                 "stream_active": eng.stream_active,
                 "has_frame": eng.latest_frame is not None,
-                "ziyrakai_ready": eng.gemini_model is not None,
+                "ziyrakai_ready": eng.openai_client is not None,
                 "product": eng.ZIYRAKAI_DISPLAY_NAME,
-                "analysis": eng.latest_analysis.copy(),
+                "analysis": _analysis_snapshot_for(request),
             }
         )

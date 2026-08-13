@@ -1,5 +1,9 @@
 .env
 backend/.env
+backend/logs/
+backend/backups/
+logs/
+backups/
 .venv/
 venv/
 __pycache__/
@@ -29,3 +33,10 @@ test_usb.py
 *.pt
 test_*.jpg
 open_device_manager.bat
+vendor-drivers/
+uvc-driver/
+scripts/_*.py
+scripts/_*.js
+scripts/_*.html
+scripts/_*.txt
+test_openai.py

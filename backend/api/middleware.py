@@ -3,7 +3,19 @@
 from django.conf import settings
 from django.core.exceptions import RequestDataTooBig
 from django.http import JsonResponse
+from django.middleware.gzip import GZipMiddleware as DjangoGZipMiddleware
 from django.shortcuts import redirect
+
+
+class GZipMiddleware(DjangoGZipMiddleware):
+    """MJPEG oqimini gzip qilmaslik (chegaralar buziladi)."""
+
+    def process_response(self, request, response):
+        path = (request.path or "").rstrip("/") or "/"
+        ct = (response.get("Content-Type") or "").lower()
+        if path == "/video_feed" or ct.startswith("multipart/"):
+            return response
+        return super().process_response(request, response)
 
 
 class ApiHostUiRedirectMiddleware:
@@ -70,4 +82,22 @@ class SecurityHeadersMiddleware:
         if p == "/video_feed":
             response.setdefault("Cache-Control", "no-cache, no-store, must-revalidate")
             response.setdefault("Pragma", "no-cache")
+        if not response.has_header("Content-Security-Policy"):
+            connect = ["'self'"]
+            api_base = getattr(settings, "MEDLAB_PUBLIC_API_BASE", "") or ""
+            if api_base:
+                connect.append(api_base)
+            csp = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                "font-src 'self' https://fonts.gstatic.com data:; "
+                "img-src 'self' data: blob:; "
+                "media-src 'self' blob:; "
+                "connect-src " + " ".join(connect) + "; "
+                "frame-ancestors 'self'; "
+                "base-uri 'self'; "
+                "form-action 'self'"
+            )
+            response["Content-Security-Policy"] = csp
         return response

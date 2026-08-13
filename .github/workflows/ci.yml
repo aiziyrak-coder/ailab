@@ -43,3 +43,15 @@ jobs:
           DJANGO_DEBUG: "1"
           DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,testserver
         run: python manage.py test api.tests -v 2
+
+      - name: Production-like system check
+        env:
+          DJANGO_SECRET_KEY: ci-test-key-not-for-production-min-40-chars-xxxxxxxx
+          DJANGO_DEBUG: "0"
+          DJANGO_ENV: production
+          DJANGO_ALLOWED_HOSTS: ailab.example.com
+          SESSION_COOKIE_SECURE: "1"
+          DJANGO_SECURE_SSL_REDIRECT: "1"
+          SECURE_HSTS_SECONDS: "31536000"
+          SECURE_PROXY_SSL_HEADER: "X-Forwarded-Proto,https"
+        run: python manage.py check --deploy

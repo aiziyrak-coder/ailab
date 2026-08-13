@@ -2,36 +2,42 @@
 <html lang="uz">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0a1628">
-  <title>Kirish — MedLab AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f6f9">
+  <title>Kirish — MedLab</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/style.css?v=off1">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off1">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body class="auth-page-body">
 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
-  <symbol id="icon-microscope" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-    <circle cx="12" cy="12" r="3"/>
-    <path d="M12 2v3M12 19v3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M2 12h3M19 12h3"/>
+  <symbol id="icon-microscope" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 21h10"/>
+    <path d="M7 21V15h5l2 6"/>
+    <path d="M8.5 15V8.5"/>
+    <path d="M6 12.5h9"/>
+    <circle cx="15.2" cy="7.2" r="2.6"/>
+    <path d="M15.2 4.6V3.4a1.4 1.4 0 0 1 2.8 0V4.6"/>
+    <path d="M13.1 9.1 9.2 12.2"/>
   </symbol>
 </svg>
 
 <div class="auth-page">
   <div class="auth-card">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-      <svg width="28" height="28" aria-hidden="true" style="opacity:.9"><use href="#icon-microscope"/></svg>
-      <h1 style="margin:0">MedLab AI</h1>
+    <div class="auth-brand">
+      <svg width="28" height="28" aria-hidden="true"><use href="#icon-microscope"/></svg>
+      <h1>MedLab</h1>
     </div>
-    <p class="auth-sub">Tizimga kiring (laboratoriya tahlil)</p>
+    <p class="auth-sub">Klinik laboratoriya diagnostikasi · mikroskopiya stansiyasi</p>
 
     <form id="loginForm" autocomplete="username">
       <div class="auth-field">
         <label for="username">Login</label>
-        <input id="username" name="username" type="text" required maxlength="150" placeholder="masalan: demo" autocapitalize="off" spellcheck="false">
+        <input id="username" name="username" type="text" required maxlength="150" placeholder="masalan: demo" autocapitalize="off" spellcheck="false" autocomplete="username">
       </div>
       <div class="auth-field">
         <label for="password">Parol</label>
@@ -65,8 +71,11 @@
     const password = document.getElementById('password').value;
     if (!username || !password) { show('Login va parol kiriting', false); return; }
     btn.disabled = true;
+    var prev = btn.textContent;
+    btn.textContent = 'Kutilmoqda...';
     show('');
     try {
+      if (typeof ensureCsrfCookie === 'function') await ensureCsrfCookie();
       const r = await fetch(apiPath('/api/auth/login'), {
         ...apiFetchInit('POST', { username, password }),
       });
@@ -78,11 +87,16 @@
         window.location.href = dest;
         return;
       }
-      show(data.message || data.detail || 'Kirish muvaffaqiyatsiz', false);
+      if (r.status === 403) {
+        show(data.message || 'Sahifani yangilang (F5) va qayta urining', false);
+      } else {
+        show(data.message || data.detail || 'Kirish muvaffaqiyatsiz', false);
+      }
     } catch (err) {
       show("Server bilan aloqa yo'q", false);
     }
     btn.disabled = false;
+    btn.textContent = prev || 'Kirish';
   });
 })();
 </script>

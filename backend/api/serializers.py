@@ -6,11 +6,31 @@ import re
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 from rest_framework import serializers
 
+from api.models import AnalysisRecord, UserProfile
 from lab_core.engine import _normalize_lab_type
 
-from .models import UserProfile
+LAB_LABELS = {
+    "hematology": "Gematologiya",
+    "urine": "Siydik tahlili",
+    "coprology": "Koprologiya",
+    "spermogram": "Sperma tahlili",
+    "smear": "Mazok",
+    "csf": "Likvor (OMS)",
+    "lymph": "Limfa suyuqligi",
+    "le_cell": "LE-hujayra",
+    "prostata_sok": "Prostata SOK",
+    "myelogram": "Miyelogramma",
+    "blood_parasites": "Qon parazitlari",
+    "afb_microscopy": "KOCH / AFB",
+    "mycology": "Mikologiya",
+    "dermatology": "Dermatologiya",
+    "derm_microscopy": "Teri qirindisi",
+    "effusion_cytology": "Effuziya sitologiyasi",
+    "histology": "Gistologiya",
+}
 
 
 class LoginSerializer(serializers.Serializer):
@@ -134,4 +154,52 @@ class AnalyzeJsonSerializer(serializers.Serializer):
 
 
 class StartCameraSerializer(serializers.Serializer):
-    index = serializers.IntegerField(min_value=0, max_value=16, default=0)
+    index = serializers.IntegerField(min_value=0, max_value=32, default=0)
+
+
+class AnalysisRecordSerializer(serializers.ModelSerializer):
+    lab_label = serializers.SerializerMethodField()
+    created_label = serializers.SerializerMethodField()
+    preview = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AnalysisRecord
+        fields = (
+            "public_id",
+            "lab_type",
+            "lab_label",
+            "source",
+            "status",
+            "text",
+            "img_count",
+            "created_at",
+            "created_label",
+            "preview",
+        )
+
+    def get_lab_label(self, obj):
+        return LAB_LABELS.get(obj.lab_type, obj.lab_type)
+
+    def get_created_label(self, obj):
+        dt = timezone.localtime(obj.created_at)
+        return dt.strftime("%d.%m.%Y %H:%M")
+
+    def get_preview(self, obj):
+        raw = getattr(obj, "_preview_src", None)
+        if raw is None:
+            raw = obj.text or ""
+        raw = re.sub(r"[|#*`]+", " ", raw)
+        raw = re.sub(r"\s+", " ", raw).strip()
+        if len(raw) > 140:
+            return raw[:140] + "…"
+        return raw
+
+
+class AnalysisListSerializer(AnalysisRecordSerializer):
+    class Meta(AnalysisRecordSerializer.Meta):
+        fields = tuple(f for f in AnalysisRecordSerializer.Meta.fields if f != "text")
+
+
+class AnalysisSearchSerializer(serializers.Serializer):
+    q = serializers.CharField(required=False, allow_blank=True, max_length=64, default="")
+    lab_type = serializers.CharField(required=False, allow_blank=True, max_length=48, default="")

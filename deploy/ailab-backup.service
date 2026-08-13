@@ -1,0 +1,11 @@
+[Unit]
+Description=AILab MedLab kunlik DB zaxira
+After=network.target ailab-gunicorn.service
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/ailab/backend
+EnvironmentFile=-/opt/ailab/backend/.env
+ExecStart=/opt/ailab/backend/.venv/bin/python manage.py backup_db

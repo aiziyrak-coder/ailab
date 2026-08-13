@@ -1,7 +1,12 @@
+import logging
+
+from django.conf import settings
 from django.core.exceptions import RequestDataTooBig
 from rest_framework.exceptions import Throttled
 from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_exception_handler
+
+log = logging.getLogger("medlab")
 
 
 def medlab_exception_handler(exc, context):
@@ -24,4 +29,11 @@ def medlab_exception_handler(exc, context):
             {"success": False, "message": msg, "throttled": True},
             status=429,
         )
-    return drf_exception_handler(exc, context)
+    response = drf_exception_handler(exc, context)
+    if response is None:
+        log.exception("Kutilmagan API xato: %s", exc)
+        msg = str(exc) if settings.DEBUG else (
+            "Serverda ichki xato. Administratorga murojaat qiling yoki keyinroq qayta urining."
+        )
+        return Response({"success": False, "message": msg}, status=500)
+    return response

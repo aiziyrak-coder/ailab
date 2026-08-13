@@ -1,11 +1,11 @@
 # MedLab AI
 
 - **`frontend/`** — barcha UI: `index.html`, `static/css`, `static/js`, logo.
-- **`backend/`** — Django + Django REST Framework: kamera, ZiyrakAi tahlil (Google Generative AI orqali), API.
+- **`backend/`** — Django + Django REST Framework: kamera, ZiyrakAi tahlil (OpenAI orqali), API.
 
 ## Ishga tushirish
 
-1. `backend/.env.example` ni `backend/.env` ga nusxalang, `GEMINI_API_KEY` va `DJANGO_SECRET_KEY` kiriting.
+1. `backend/.env.example` ni `backend/.env` ga nusxalang, `OPENAI_API_KEY` va `DJANGO_SECRET_KEY` kiriting.
 2. `pip install -r backend/requirements.txt`
 3. `cd backend && python manage.py migrate`
 4. **Demo foydalanuvchi**: `python manage.py create_demo_user` (`DJANGO_DEBUG=0` bo‘lsa faqat `create_demo_user --force` — tavsiya etilmaydi)  
@@ -33,14 +33,22 @@ Alohida frontend server (masalan Live Server) ishlatsangiz, `frontend/index.html
 | POST | `/api/start_camera` | JSON: `{"index": 0}` |
 | POST | `/api/stop_camera` | Kamerani to‘xtatish |
 | POST | `/api/analyze` | JSON yoki `multipart/form-data` (fayllar) |
-| GET | `/api/analysis_result` | Oxirgi tahlil |
+| GET | `/api/analysis_result` | Oxirgi tahlil (faqat joriy foydalanuvchi) |
+| GET | `/api/analyses?q=&lab_type=&page=` | Tahlillar tarixi (ID qidiruv, sahifalash) |
+| GET | `/api/analyses/<public_id>` | Bitta tahlil (`ML-YYMMDD-NNNN`) |
 | POST | `/api/capture` | Snapshot |
 | GET | `/api/status` | Oqim + tahlil holati |
 | GET | `/video_feed` | MJPEG oqim |
 
 Ishlab chiqarish: `gunicorn` (Linux) yoki `waitress-serve` (Windows) — `config.wsgi:application`.
 
-**Docker (PostgreSQL bilan namuna):** loyiha ildizidan `docker compose up --build`. `DJANGO_SECRET_KEY` va `GEMINI_API_KEY` ni `.env` yoki `docker compose` muhitida bering. Ma’lumotlar bazasi: `DATABASE_URL` (bo‘sh bo‘lsa SQLite).
+**Production runbook** (deploy, backup, rollback, health): [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
+
+Linux server: `sudo bash deploy/deploy.sh` — migrate + collectstatic + gunicorn restart. Qaytarish: `sudo bash deploy/rollback.sh`.
+
+Health (auth yo‘q): `GET /health` yoki `GET /api/health`.
+
+**Docker (PostgreSQL bilan namuna):** loyiha ildizidan `docker compose up --build`. `DJANGO_SECRET_KEY` va `OPENAI_API_KEY` ni `.env` yoki `docker compose` muhitida bering. Ma’lumotlar bazasi: `DATABASE_URL` (bo‘sh bo‘lsa SQLite).
 
 **PostgreSQL:** `DATABASE_URL=postgresql://...` va `pip install` (requirements da `psycopg` bor). `DB_CONN_MAX_AGE` — ulanish pool (sekund).
 
@@ -76,4 +84,4 @@ GitHub Actions: `.github/workflows/ci.yml` — har push/PR da `check` + `test`.
 - **Sessiya**: `SESSION_COOKIE_AGE` (sekund, standart 8 soat).
 - **Admin**: `DJANGO_ADMIN_ENABLED=1` — `https://<API-domen>/admin/` (masalan `ailabapi`). `0` bo‘lsa marshrutlar umuman yo‘q — 404. Kuchli parol + kerak bo‘lsa nginx da IP cheklovi.
 - **Kirish (prod)**: brauzer **https://ailab.ziyrak.org** — `MEDLAB_PUBLIC_API_BASE` bo‘sh (bir xil origin). Har deployda `create_demo_user --force`: login **`demo`**, parol **`MedLabDemo2026!`** (keyin o‘chirib yoki parolni o‘zgartiring).
-- **ZiyrakAi (texnik)**: `GEMINI_MAX_RETRIES`, `GEMINI_RETRY_DELAY_SEC` — vaqtinchalik API xatolarida qayta urinish.
+- **ZiyrakAi (texnik)**: `OPENAI_MAX_RETRIES`, `OPENAI_RETRY_DELAY_SEC` — vaqtinchalik API xatolarida qayta urinish.

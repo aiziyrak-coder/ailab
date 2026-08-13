@@ -1,169 +1,528 @@
 /* MedLab AI – Laboratoriya Tahlil Tizimi */
 /* apiPath, getCookie, csrfHeaders — auth.js (index.html da oldin yuklanadi) */
 
-// ─── State ───────────────────────────────────────────────────────────────────
 let currentLab   = 'hematology';
-let currentView  = 'camera';
-let uploadedFiles = [];   // ko'p fayl
+let currentSource = 'upload'; // upload | phone | scope
+let uploadedFiles = [];
 let cameraRunning = false;
+let currentPublicId = '';
+let _histPage = 1;
+let _histQuery = '';
+let _histAutoOpen = false;
+let _analyzeBusy = false;
+let _scanGen = 0;
+let _previewObjectUrl = '';
 
 const LAB_META = {
-  hematology: { icon:'🩸', name:'Gematologiya Natijasi',  color:'var(--hema)'  },
-  urine:      { icon:'🧪', name:'Siydik Tahlili Natijasi', color:'var(--urine)' },
-  coprology:  { icon:'🦠', name:'Koprologiya Natijasi',   color:'var(--copro)' },
-  spermogram: { icon:'🔵', name:'Sperma Analiz Natijasi', color:'var(--sperm)' },
-  smear:      { icon:'🌸', name:'Mazok: sitologiya + flora', color:'var(--smear)' },
-  csf:        { icon:'🧠', name:'Likvor (OMS) natijasi',     color:'var(--csf)'   },
-  lymph:      { icon:'💠', name:'Limfa suyuqligi natijasi',  color:'var(--lymph)' },
-  le_cell:    { icon:'✴️', name:'LE-hujayra tahlili',        color:'var(--le)'    },
-  prostata_sok: { icon:'🔷', name:'Prostata SOK natijasi',   color:'var(--prost)' },
-  myelogram: { icon:'🦴', name:'Miyelogramma natijasi', color:'var(--myelo)' },
-  blood_parasites: { icon:'🦟', name:'Qon parazitlari tahlili', color:'var(--parasite)' },
-  afb_microscopy: { icon:'🔬', name:'KOCH / AFB mikroskopiyasi', color:'var(--afb)' },
-  mycology: { icon:'🍄', name:'Mikologiya tahlili', color:'var(--myco)' },
-  effusion_cytology: { icon:'💧', name:'Effuziya sitologiyasi', color:'var(--effusion)' },
-  histology:      { icon:'🧫', name:'Gistologiya (patologiya)', color:'var(--histology)' },
+  hematology: {
+    icon:'🩸', name:'Gematologiya Natijasi', color:'var(--hema)',
+    brief:'Bo‘yalgan qon yoqmasi: eritrotsit, leykosit formulasi, trombotsit.',
+    checks:['Eritrotsitlar','Leykosit %','Trombotsit','Inklyuziya'],
+    uploadMain:'Qon yoqmasi rasmini yuklang', uploadHint:'Giemsa / Romanovskiy · 40× yoki 100× immersiya',
+    overlayUpload:'Qon yoqmasini yuklang', overlayPhone:'Telefonni yoqma ustiga tuting', overlayScope:'Yorug‘ maydon, immersiya moyi',
+    emptyTitle:'Gematologiya kutilmoqda', emptyHint:'Bo‘yalgan qon yoqmasi. Tavsiya: 100× immersiya.',
+    analyze:'🔬 Yoqmani tahlil qil', loading:'Yoqma o‘qilmoqda...',
+    phoneHint:'Telefonni mikroskop okulyariga mahkam tuting — yoqma kadr.',
+    scopeHint:'Yorug‘ maydon + immersiya moyi. 100× obyektiv tavsiya.',
+    srcUpload:'📎 Yoqma rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'100× (immersion)', microTitle:'Kattalashtirish · immersiya',
+  },
+  urine: {
+    icon:'🧪', name:'Siydik Tahlili Natijasi', color:'var(--urine)',
+    brief:'Siydik cho‘kmasi: hujayra, silindr, tuz, bakteriya.',
+    checks:['Leykosit/eritrosit','Silindrlar','Kristallar','Bakteriya'],
+    uploadMain:'Siydik mikroskopiyasi rasmini yuklang', uploadHint:'Cho‘kma, yorug‘ maydon · 40×',
+    overlayUpload:'Siydik cho‘kmasi kadri', overlayPhone:'Cho‘kmani telefonda oling', overlayScope:'Siydik preparatini yoqing',
+    emptyTitle:'Siydik tahlili kutilmoqda', emptyHint:'Markazdan qochirma cho‘kmasi, 40× obyektiv.',
+    analyze:'🔬 Cho‘kmani tahlil qil', loading:'Cho‘kma o‘qilmoqda...',
+    phoneHint:'Preparatni yorug‘ fonda, 40× atrofida oling.',
+    scopeHint:'Qoplama oyna, yorug‘ maydon. Silindrlarni chetda qidiring.',
+    srcUpload:'📎 Cho‘kma rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · cho‘kma',
+  },
+  coprology: {
+    icon:'🧫', name:'Koprologiya Natijasi', color:'var(--copro)',
+    brief:'Najas: hazm qoldiqlari, gijja tuxumi, sodda hayvonlar.',
+    checks:['Tuxum/parazit','Muskul/yog‘','Leykosit','Shilim'],
+    uploadMain:'Koprologiya preparati rasmini yuklang', uploadHint:'Native yoki Lyugol · 10× va 40×',
+    overlayUpload:'Najas preparatini yuklang', overlayPhone:'Preparatni telefonda oling', overlayScope:'Koprologiya maydonini yoqing',
+    emptyTitle:'Koprologiya kutilmoqda', emptyHint:'Bir nechta maydon: 10× skan, 40× tasdiq.',
+    analyze:'🔬 Preparatni tahlil qil', loading:'Parazit izlanmoqda...',
+    phoneHint:'Yorug‘ maydon, avval 10× butun shisha, keyin 40×.',
+    scopeHint:'Tuxum va sistalar uchun bir nechta maydonni suring.',
+    srcUpload:'📎 Preparat rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'10×', microTitle:'Kattalashtirish · skan',
+  },
+  spermogram: {
+    icon:'🫧', name:'Sperma Analiz Natijasi', color:'var(--sperm)',
+    brief:'Spermogramma: son, harakatlilik (A–D), morfologiya.',
+    checks:['Kontsentratsiya','Harakat A–D','Shakl','Leykosit'],
+    uploadMain:'Native sperma kadri yoki videosini yuklang', uploadHint:'Harakat uchun qisqa video foydali · 40×',
+    overlayUpload:'Native kadr yoki video', overlayPhone:'Harakatni videoga oling', overlayScope:'Makler/native kamerani yoqing',
+    emptyTitle:'Spermogramma kutilmoqda', emptyHint:'Native preparat. Harakat uchun 5–10 s video.',
+    analyze:'🔬 Spermogrammani tahlil qil', loading:'Harakat baholanmoqda...',
+    phoneHint:'Harakat uchun video, morfologiya uchun tiniq kadr.',
+    scopeHint:'37°C yaqin, yupqa native qatlam, 40×.',
+    srcUpload:'📎 Kadr / video', srcPhone:'📱 Telefon video', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · native',
+  },
+  smear: {
+    icon:'🌸', name:'Mazok: sitologiya + flora', color:'var(--smear)',
+    brief:'Ginekologik mazok: epiteliy, flora, leykosit, Trichomonas/Candida.',
+    checks:['Epiteliy','Flora','Leykosit','Qo‘ziqorin/sodda'],
+    uploadMain:'Mazok (Gram/Methylene) rasmini yuklang', uploadHint:'Sitologiya + flora · 40× yoki 100×',
+    overlayUpload:'Mazok rasmini yuklang', overlayPhone:'Mazokni telefonda oling', overlayScope:'Mazok maydonini yoqing',
+    emptyTitle:'Mazok kutilmoqda', emptyHint:'Gram yoki methylene blue. Flora va hujayra.',
+    analyze:'🔬 Mazokni tahlil qil', loading:'Flora o‘qilmoqda...',
+    phoneHint:'Yaxshi yorug‘lik, markaziy maydon, 40–100×.',
+    scopeHint:'Bir nechta maydon: epiteliy, flora, leykosit.',
+    srcUpload:'📎 Mazok rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · mazok',
+  },
+  csf: {
+    icon:'🧠', name:'Likvor (OMS) natijasi', color:'var(--csf)',
+    brief:'Orqa miya suyuqligi: sitologiya, eritrotsit, mikroorganizmlar.',
+    checks:['Hujayra soni','Neytrofil/limfa','Eritrotsit','Mikroflora'],
+    uploadMain:'Likvor sitologiya rasmini yuklang', uploadHint:'Fuchsin/Giemsa · 40×',
+    overlayUpload:'OMS preparatini yuklang', overlayPhone:'Likvor kadri', overlayScope:'Likvor kamerasini yoqing',
+    emptyTitle:'Likvor tahlili kutilmoqda', emptyHint:'Sitoz va differensial. Artefakt qonini ajrating.',
+    analyze:'🔬 Likvorni tahlil qil', loading:'Sitoz hisoblanmoqda...',
+    phoneHint:'Kamera yoki yupqa surtma, 40×.',
+    scopeHint:'Fuch-Rosenthal/surtma. Qon aralashmasini belgilang.',
+    srcUpload:'📎 Likvor rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · OMS',
+  },
+  lymph: {
+    icon:'🟣', name:'Limfa suyuqligi natijasi', color:'var(--lymph)',
+    brief:'Limfa: limfotsit, reaktiv hujayra, yot elementlar.',
+    checks:['Limfotsit','Reaktiv hujayra','Neytrofil','Atipiya'],
+    uploadMain:'Limfa sitologiya rasmini yuklang', uploadHint:'Giemsa/Papanikolau · 40×',
+    overlayUpload:'Limfa preparatini yuklang', overlayPhone:'Limfa kadri', overlayScope:'Limfa maydonini yoqing',
+    emptyTitle:'Limfa tahlili kutilmoqda', emptyHint:'Sitologik surtma. Reaktiv vs atipik.',
+    analyze:'🔬 Limfani tahlil qil', loading:'Hujayralar o‘qilmoqda...',
+    phoneHint:'Yaxshi yorug‘likdagi surtma, 40×.',
+    scopeHint:'Bir nechta maydon: kichik va yirik hujayralar.',
+    srcUpload:'📎 Surtma rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · limfa',
+  },
+  le_cell: {
+    icon:'✴️', name:'LE-hujayra tahlili', color:'var(--le)',
+    brief:'LE-hujayra: neytrofil ichidagi gomogen yadro materiali.',
+    checks:['LE-hujayra','Tart hujayra','Neytrofil','Artefakt'],
+    uploadMain:'LE-hujayra yoqmasi rasmini yuklang', uploadHint:'Maxsus LE preparat · 40–100×',
+    overlayUpload:'LE yoqmasini yuklang', overlayPhone:'LE kadri', overlayScope:'LE maydonini yoqing',
+    emptyTitle:'LE-hujayra kutilmoqda', emptyHint:'Gomogen gematoksilin tana + fagotsitoz.',
+    analyze:'🔬 LE-hujayrani qidir', loading:'LE belgisi izlanmoqda...',
+    phoneHint:'Yirik kattalashtirish, bir nechta maydon.',
+    scopeHint:'LE va Tart hujayrani farqlang. 40–100×.',
+    srcUpload:'📎 LE yoqmasi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · LE',
+  },
+  prostata_sok: {
+    icon:'🟠', name:'Prostata SOK natijasi', color:'var(--prost)',
+    brief:'Prostata sekretsiyasi: leykosit, lesitin, flora, amiloid.',
+    checks:['Leykosit','Lesitin dona','Flora','Amiloid'],
+    uploadMain:'Prostata SOK rasmini yuklang', uploadHint:'Native · 40×',
+    overlayUpload:'SOK preparatini yuklang', overlayPhone:'SOK kadri', overlayScope:'SOK maydonini yoqing',
+    emptyTitle:'Prostata SOK kutilmoqda', emptyHint:'Native sekretsiya. Leykosit / lesitin.',
+    analyze:'🔬 SOK ni tahlil qil', loading:'Sekretsiya o‘qilmoqda...',
+    phoneHint:'Yupqa native qatlam, 40×.',
+    scopeHint:'Lesitin donachalari va leykosit zichligi.',
+    srcUpload:'📎 SOK rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · SOK',
+  },
+  myelogram: {
+    icon:'🦴', name:'Miyelogramma natijasi', color:'var(--myelo)',
+    brief:'Suyak ko‘migi: o‘sma chiziqlari, blast, megakariotsit.',
+    checks:['Blast','Granulotsitar','Eritroid','Megakariotsit'],
+    uploadMain:'Miyelogramma yoqmasi rasmini yuklang', uploadHint:'Giemsa · 100× immersiya',
+    overlayUpload:'Ko‘mik yoqmasini yuklang', overlayPhone:'Miyelogramma kadri', overlayScope:'Ko‘mik maydonini yoqing',
+    emptyTitle:'Miyelogramma kutilmoqda', emptyHint:'Suyak ko‘migi yoqmasi, 100× immersiya.',
+    analyze:'🔬 Miyelogrammani tahlil qil', loading:'Ko‘mik o‘qilmoqda...',
+    phoneHint:'Immersiya kadri, yadro xromatini tiniq bo‘lsin.',
+    scopeHint:'100× immersiya. Blast va megakariotsit maydonlari.',
+    srcUpload:'📎 Ko‘mik yoqmasi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'100× (immersion)', microTitle:'Kattalashtirish · immersiya',
+  },
+  blood_parasites: {
+    icon:'🦟', name:'Qon parazitlari tahlili', color:'var(--parasite)',
+    brief:'Qon paraziti: malyariya, mikrofilariya, Babesia va boshqalar.',
+    checks:['Plasmodium','Mikrofilariya','Babesia','Artefakt'],
+    uploadMain:'Qalin/yupqa qon yoqmasi rasmini yuklang', uploadHint:'Giemsa · 100× immersiya, bir nechta maydon',
+    overlayUpload:'Parazit yoqmasini yuklang', overlayPhone:'Yoqma kadri', overlayScope:'Qalin va yupqa yoqmani yoqing',
+    emptyTitle:'Qon parazitlari kutilmoqda', emptyHint:'Qalin tomchi + yupqa yoqma. 100× immersiya.',
+    analyze:'🔬 Parazitni qidir', loading:'Parazit izlanmoqda...',
+    phoneHint:'Bir nechta maydon. Qalin tomchi ham foydali.',
+    scopeHint:'100× immersiya. Qalin tomchi skan, yupqa tasdiq.',
+    srcUpload:'📎 Yoqma rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'100× (immersion)', microTitle:'Kattalashtirish · immersiya',
+  },
+  afb_microscopy: {
+    icon:'🫁', name:'KOCH / AFB mikroskopiyasi', color:'var(--afb)',
+    brief:'Kislotaga chidamli tayoqchalar: Ziehl–Neelsen / floroxrom.',
+    checks:['AFB tayoqcha','Miqdor 1+–3+','Fon hujayra','Artefakt'],
+    uploadMain:'ZN / floroxrom preparat rasmini yuklang', uploadHint:'Qizil tayoqcha yashil/ko‘k fonda · 100×',
+    overlayUpload:'AFB preparatini yuklang', overlayPhone:'ZN kadri', overlayScope:'ZN/floroxrom maydonini yoqing',
+    emptyTitle:'KOCH / AFB kutilmoqda', emptyHint:'Ziehl–Neelsen yoki floroxrom. 100× immersiya.',
+    analyze:'🔬 AFB ni qidir', loading:'Tayoqchalar izlanmoqda...',
+    phoneHint:'Kontrastli ZN kadr, bir nechta maydon.',
+    scopeHint:'WHO shkalasi uchun 100 maydongacha skan.',
+    srcUpload:'📎 ZN rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'100× (immersion)', microTitle:'Kattalashtirish · ZN',
+  },
+  mycology: {
+    icon:'🍄', name:'Mikologiya tahlili', color:'var(--myco)',
+    brief:'Zamburug‘: gifa, spora, Candida, dermatofit, Malassezia.',
+    checks:['Gifa/spora','Candida','Dermatofit','Artefakt'],
+    uploadMain:'Mikologiya preparati rasmini yuklang', uploadHint:'KOH / Gram / laktofenol · 40×',
+    overlayUpload:'Zamburug‘ preparatini yuklang', overlayPhone:'Gifa kadri', overlayScope:'KOH maydonini yoqing',
+    emptyTitle:'Mikologiya kutilmoqda', emptyHint:'KOH yoki Gram. Gifa va sporani ajrating.',
+    analyze:'🔬 Zamburug‘ni tahlil qil', loading:'Gifa izlanmoqda...',
+    phoneHint:'KOH fonida septali gifa, 40×.',
+    scopeHint:'Paxta tolasidan farqlang. 10× skan, 40× tasdiq.',
+    srcUpload:'📎 KOH / Gram', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · KOH',
+  },
+  dermatology: {
+    icon:'🧴', name:'Dermatologiya natijasi', color:'var(--derm)',
+    brief:'Teri klinik foto yoki dermoskopiya: toshma, xol, yara.',
+    checks:['Element turi','Dermoskop pattern','Pigment','Yallig‘lanish'],
+    uploadMain:'Teri yoki dermoskop fotosini yuklang', uploadHint:'Klinik foto · dermoskop · yaxshi yorug‘lik',
+    overlayUpload:'Teri / dermoskop fotosini yuklang', overlayPhone:'Toshmani telefonda oling', overlayScope:'Dermoskop kamerasini yoqing',
+    emptyTitle:'Dermatologiya kutilmoqda', emptyHint:'Yaqindan, fokuslangan foto. Dermoskop bo‘lsa — yaxshi.',
+    analyze:'🔬 Teri fotosini tahlil qil', loading:'Toshma o‘qilmoqda...',
+    phoneHint:'Yorug‘ xona, masshtab uchun milimetr qog‘oz ixtiyoriy.',
+    scopeHint:'Dermoskop/USB kamera. Immersiya suyuqligi ixtiyoriy.',
+    srcUpload:'📎 Teri fotosi', srcPhone:'📱 Telefon foto', srcScope:'🔍 Dermoskop',
+    ocular:'10×', objective:'10×', microTitle:'Kattalashtirish · dermoskop',
+  },
+  derm_microscopy: {
+    icon:'🕷️', name:'Teri qirindisi mikroskopiyasi', color:'var(--derm-micro)',
+    brief:'KOH, kanal, Demodex, Tzanck, soch/tirnoq qirindisi.',
+    checks:['Gifa (KOH)','Kanal','Demodex','Tzanck'],
+    uploadMain:'Teri qirindisi mikroskop rasmini yuklang', uploadHint:'KOH / yog‘ / Tzanck · 10× va 40×',
+    overlayUpload:'Qirindi preparatini yuklang', overlayPhone:'Qirindi kadri', overlayScope:'KOH/kanal maydonini yoqing',
+    emptyTitle:'Teri qirindisi kutilmoqda', emptyHint:'KOH, kanal yoki Tzanck. 10× skan, 40× tasdiq.',
+    analyze:'🔬 Qirindini tahlil qil', loading:'Kanal / gifa izlanmoqda...',
+    phoneHint:'KOH pufakchalarini gifa bilan aralashtirmang.',
+    scopeHint:'Kanal uchini qirindi chetida qidiring.',
+    srcUpload:'📎 Qirindi rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'10×', microTitle:'Kattalashtirish · qirindi',
+  },
+  effusion_cytology: {
+    icon:'💧', name:'Effuziya sitologiyasi', color:'var(--effusion)',
+    brief:'Pleura/periton suyuqligi: mesotelial, yallig‘lanish, atipiya.',
+    checks:['Mesotelial','Yallig‘lanish','Atipiya','Ikkinchi populyatsiya'],
+    uploadMain:'Effuziya sitologiya rasmini yuklang', uploadHint:'Pap / Giemsa · 40×',
+    overlayUpload:'Effuziya surtmasini yuklang', overlayPhone:'Surtma kadri', overlayScope:'Sitologiya maydonini yoqing',
+    emptyTitle:'Effuziya sitologiyasi kutilmoqda', emptyHint:'Pap yoki Giemsa. Reaktiv vs yomon hujayra.',
+    analyze:'🔬 Effuziyani tahlil qil', loading:'Hujayra guruhlari o‘qilmoqda...',
+    phoneHint:'Yaxshi yoyilgan surtma, 40×.',
+    scopeHint:'Guruhlar va yakka hujayralar. Cell-block eslatmasi.',
+    srcUpload:'📎 Surtma rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · sito',
+  },
+  histology: {
+    icon:'🧬', name:'Gistologiya natijasi', color:'var(--histo)',
+    brief:'To‘qima kesmasi: H&E arxitektura, yallig‘lanish, atipiya.',
+    checks:['Arxitektura','Yallig‘lanish','Nekroz/fibroz','Atipiya'],
+    uploadMain:'H&E (yoki maxsus bo‘yoq) kesma rasmini yuklang', uploadHint:'Avval 4–10× landshaft, keyin 40× hujayra',
+    overlayUpload:'Gistologik kesmani yuklang', overlayPhone:'Kesma kadri', overlayScope:'Gistostol kamerasini yoqing',
+    emptyTitle:'Gistologiya kutilmoqda', emptyHint:'H&E kesma. 10× arxitektura, 40× hujayra.',
+    analyze:'🔬 Kesmani tahlil qil', loading:'To‘qima o‘qilmoqda...',
+    phoneHint:'Butun kesma landshafti + yaqin hujayra kadri.',
+    scopeHint:'4–10× tuzilish, 40× yadro. Immersiya odatda kerak emas.',
+    srcUpload:'📎 Kesma rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
+    ocular:'10×', objective:'10×', microTitle:'Kattalashtirish · H&E',
+  },
 };
 
-const LAB_TITLE = {
-  hematology: '🩸 Gematologiya Tahlili',
-  urine:      '🧪 Siydik Analizi Tahlili',
-  coprology:  '🦠 Koprologiya Tahlili',
-  spermogram: '🔵 Sperma Analiz',
-  smear:      '🌸 Mazok: sitologiya va flora (alohida)',
-  csf:        '🧠 Likvor: orqa miya suyuqligi tahlili',
-  lymph:      '💠 Limfa suyuqligi mikroskopiyasi',
-  le_cell:    '✴️ LE-hujayra (lupus hujayrasi) tahlili',
-  prostata_sok: '🔷 Prostata SOK (suyuqlik) mikroskopiyasi',
-  myelogram: '🦴 Miyelogramma (suyak mozgi qoni)',
-  blood_parasites: '🦟 Qon parazitlari (malariya, mikrofilariya, boshqalar)',
-  afb_microscopy: '🔬 KOCH / kislotalik tikanlar (AFB)',
-  mycology: '🍄 Chuqur mikologiya (zamburug‘, gifa, maya)',
-  effusion_cytology: '💧 Effuziya sitologiyasi (pleura, periton, perikard)',
-  histology:      '🧫 Gistologiya (H&E va maxsus bo\'yoqlar)',
+function labMeta(lab) {
+  return LAB_META[lab] || LAB_META.hematology;
+}
+
+const LAB_SPEC = {
+  hematology:       { dept:'Gematologiya',     stain:'Giemsa / Romanovskiy', code:'HEMA', specimen:'Qon yoqmasi',           protocol:'Giemsa 15–20 daq',     fields:'10–20 maydon',  illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
+  urine:            { dept:'Siydik tahlili',   stain:'Native cho‘kma',       code:'URIN', specimen:'Siydik cho‘kmasi',      protocol:'Cho‘kma, native',      fields:'10 maydon',     illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
+  coprology:        { dept:'Koprologiya',      stain:'Native / Lyugol',      code:'COPR', specimen:'Najas preparati',       protocol:'Native / Lyugol',      fields:'10× skan',      illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:true },
+  spermogram:       { dept:'Spermogramma',     stain:'Native',               code:'SPRM', specimen:'Native preparat',       protocol:'Native 37°C',          fields:'Makler / 40×',  illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
+  smear:            { dept:'Sitologiya',       stain:'Gram / Methylene',     code:'SMEA', specimen:'Mazok',                 protocol:'Gram / methylene',     fields:'10 maydon',     illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
+  csf:              { dept:'Likvor (OMS)',     stain:'Giemsa / Fuchsin',     code:'CSF',  specimen:'OMS surtmasi',          protocol:'Sitoz hisobi',         fields:'Kamera / 40×',  illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
+  lymph:            { dept:'Limfa',            stain:'Giemsa / Pap',         code:'LYMP', specimen:'Limfa surtmasi',        protocol:'Giemsa / Pap',         fields:'10 maydon',     illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
+  le_cell:          { dept:'Immunologiya',     stain:'LE-preparat',          code:'LE',   specimen:'LE yoqmasi',            protocol:'LE maxsus',            fields:'50–100 maydon', illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
+  prostata_sok:     { dept:'Prostata SOK',     stain:'Native',               code:'SOK',  specimen:'Prostata sekretsiyasi', protocol:'Native 40×',           fields:'10 maydon',     illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
+  myelogram:        { dept:'Miyelogramma',     stain:'Giemsa',               code:'MYEL', specimen:'Ko‘mik yoqmasi',        protocol:'Giemsa immersiya',     fields:'500 hujayra',   illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
+  blood_parasites:  { dept:'Parazitologiya',   stain:'Giemsa',               code:'PARA', specimen:'Qalin / yupqa yoqma',   protocol:'Qalin+yupqa Giemsa',   fields:'100 maydon',    illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:true },
+  afb_microscopy:   { dept:'Mikobakteriya',    stain:'Ziehl–Neelsen',        code:'AFB',  specimen:'ZN preparati',          protocol:'ZN / floroxrom',       fields:'100 maydon',    illum:'Yorug‘ maydon', bsl:'BSL-3', hazard:true },
+  mycology:         { dept:'Mikologiya',       stain:'KOH / laktofenol',     code:'MYCO', specimen:'Zamburug‘ preparati',   protocol:'KOH 10–20 daq',        fields:'10×/40×',       illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:true },
+  dermatology:      { dept:'Dermatologiya',    stain:'Klinik / dermoskop',   code:'DERM', specimen:'Teri fotosi',           protocol:'Klinik foto',          fields:'1–3 kadr',      illum:'Dermoskop',     bsl:'BSL-1', hazard:false },
+  derm_microscopy:  { dept:'Teri qirindisi',   stain:'KOH / Tzanck',         code:'KOH',  specimen:'Qirindi preparati',     protocol:'KOH / Tzanck',         fields:'10× skan',      illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
+  effusion_cytology:{ dept:'Effuziya sito.',   stain:'Pap / Giemsa',         code:'EFF',  specimen:'Effuziya surtmasi',     protocol:'Pap / Giemsa',         fields:'10 maydon',     illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
+  histology:        { dept:'Gistologiya',      stain:'H&E',                  code:'HIST', specimen:'To‘qima kesmasi',       protocol:'H&E kesma',            fields:'4–10× → 40×',   illum:'Yorug‘ maydon', bsl:'BSL-1', hazard:false },
 };
 
-/** Tahlil turi qisqartmasi (identifikatsiya: 2–3 harf) */
+function labSpec(lab) {
+  return LAB_SPEC[lab] || LAB_SPEC.hematology;
+}
+
+const DAFTAR_LS = 'medlab_daftar_v1';
 const LAB_ID_CODES = {
-  hematology:      'GEM',
-  urine:           'SYD',
-  coprology:       'KOP',
-  spermogram:      'SPM',
-  smear:           'MAZ',
-  csf:             'LIK',
-  lymph:           'LIM',
-  le_cell:         'LEH',
-  prostata_sok:    'PRO',
-  myelogram:       'MIY',
-  blood_parasites: 'PRZ',
-  afb_microscopy:  'AFB',
-  mycology:        'MIK',
-  effusion_cytology: 'EFZ',
-  histology:       'GST',
+  hematology: 'HEMA', urine: 'URIN', coprology: 'COPR', spermogram: 'SPRM', smear: 'SMEA',
+  csf: 'CSF', lymph: 'LYMP', le_cell: 'LE', prostata_sok: 'SOK', myelogram: 'MYEL',
+  blood_parasites: 'PARA', afb_microscopy: 'AFB', mycology: 'MYCO', dermatology: 'DERM',
+  derm_microscopy: 'KOH', effusion_cytology: 'EFF', histology: 'HIST',
 };
 
-const DAFTAR_LS = {
-  region: 'medlab_daftar_region',
-  locality: 'medlab_daftar_locality',
-  clinic: 'medlab_daftar_clinic',
-  type: 'medlab_daftar_type',
-};
+function daftarGet() {
+  const g = (id, d) => (document.getElementById(id)?.value || d).trim().toUpperCase();
+  return {
+    region: g('daftarRegion', '40').replace(/\D/g, '').slice(0, 3) || '40',
+    locality: g('daftarLocality', 'FSH').replace(/[^A-Z0-9]/g, '').slice(0, 16) || 'FSH',
+    clinic: g('daftarClinic', '7').replace(/\D/g, '').slice(0, 3) || '7',
+    type: g('daftarType', 'OP').replace(/[^A-Z]/g, '').slice(0, 3) || 'OP',
+  };
+}
+
+function daftarSave() {
+  try { localStorage.setItem(DAFTAR_LS, JSON.stringify(daftarGet())); } catch (_) {}
+}
 
 function daftarLoadSettings() {
-  const r = document.getElementById('daftarRegion');
-  const l = document.getElementById('daftarLocality');
-  const c = document.getElementById('daftarClinic');
-  const t = document.getElementById('daftarType');
-  if (!r || !l || !c || !t) return;
-  r.value = localStorage.getItem(DAFTAR_LS.region) || '40';
-  l.value = localStorage.getItem(DAFTAR_LS.locality) || 'FSH';
-  c.value = localStorage.getItem(DAFTAR_LS.clinic) || '7';
-  t.value = localStorage.getItem(DAFTAR_LS.type) || 'OP';
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(DAFTAR_LS) || '{}'); } catch (_) {}
+  const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+  set('daftarRegion', saved.region || '40');
+  set('daftarLocality', saved.locality || 'FSH');
+  set('daftarClinic', saved.clinic || '7');
+  set('daftarType', saved.type || 'OP');
 }
 
-function daftarSaveSettings() {
-  const r = document.getElementById('daftarRegion');
-  const l = document.getElementById('daftarLocality');
-  const c = document.getElementById('daftarClinic');
-  const t = document.getElementById('daftarType');
-  if (!r || !l || !c || !t) return;
-  localStorage.setItem(DAFTAR_LS.region, (r.value || '40').trim().slice(0, 3));
-  localStorage.setItem(
-    DAFTAR_LS.locality,
-    (l.value || 'FSH').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16) || 'FSH'
-  );
-  localStorage.setItem(DAFTAR_LS.clinic, (c.value || '7').replace(/\D/g, '').slice(0, 3) || '7');
-  localStorage.setItem(DAFTAR_LS.type, (t.value || 'OP').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) || 'OP');
+function buildRegistrationId(lab, seq) {
+  const d = daftarGet();
+  const code = LAB_ID_CODES[lab] || labSpec(lab).code || 'HEMA';
+  const n = String(seq || 1).padStart(4, '0');
+  return `${d.region}${d.locality}${d.clinic}${d.type}${code}${n}`;
 }
 
-/** Kunlik tartib raqami (0001…) */
-function nextDaftarSequence(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const key = `medlab_daftar_seq_${y}${m}${day}`;
-  let n = parseInt(localStorage.getItem(key) || '0', 10);
-  if (Number.isNaN(n)) n = 0;
-  n += 1;
-  localStorage.setItem(key, String(n));
-  return String(n).padStart(4, '0');
-}
-
-/**
- * Format: viloyat + hudud + poliklinika№ + tur + DDMMYY + tahlil + tartib
- * Masalan: 40FSH7OP170426GEM0001
- */
-function buildRegistrationId(labKey) {
-  const region = (localStorage.getItem(DAFTAR_LS.region) || '40').replace(/\D/g, '').slice(0, 3) || '40';
-  let loc = (localStorage.getItem(DAFTAR_LS.locality) || 'FSH').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
-  if (!loc) loc = 'FSH';
-  const clinic = (localStorage.getItem(DAFTAR_LS.clinic) || '7').replace(/\D/g, '').slice(0, 3) || '7';
-  let ctype = (localStorage.getItem(DAFTAR_LS.type) || 'OP').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
-  if (!ctype) ctype = 'OP';
-  const d = new Date();
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yy = String(d.getFullYear()).slice(-2);
-  const labCode = LAB_ID_CODES[labKey] || 'LAB';
-  const seq = nextDaftarSequence(d);
-  return `${region}${loc}${clinic}${ctype}${dd}${mm}${yy}${labCode}${seq}`;
-}
-
-function setRegistrationUi(id) {
+function updateResultRegistrationId() {
   const row = document.getElementById('resultRegRow');
   const el = document.getElementById('resultRegId');
   if (!row || !el) return;
-  if (id) {
-    el.textContent = id;
-    row.classList.remove('hidden');
-  } else {
-    el.textContent = '';
-    row.classList.add('hidden');
-  }
+  const pid = currentPublicId || '';
+  let seq = 1;
+  const m = String(pid).match(/(\d{4})$/);
+  if (m) seq = parseInt(m[1], 10) || 1;
+  el.textContent = buildRegistrationId(currentLab, seq);
+  row.classList.toggle('hidden', !pid);
 }
 
-function clearRegistrationUi() {
-  const body = document.getElementById('resultBody');
-  if (body) body.removeAttribute('data-registration-id');
-  setRegistrationUi(null);
+function emptyResultHtml() {
+  const m = labMeta(currentLab);
+  const s = labSpec(currentLab);
+  const checks = (m.checks || []).map(c => `<li>${esc(c)}</li>`).join('');
+  return `<div class="result-empty">
+      <div class="re-lis">LIS · KLINIK LABORATORIYA</div>
+      <div class="re-icon">${m.icon}</div>
+      <p>${esc(m.emptyTitle)}</p>
+      <p class="re-hint">${esc(s.specimen)} · ${esc(s.stain)}</p>
+      <p class="re-hint">${esc(m.emptyHint)}</p>
+      <ul class="re-checks">${checks}</ul>
+    </div>`;
 }
 
-// ─── Lab tanlash ─────────────────────────────────────────────────────────────
 function selectLab(lab) {
   if (!LAB_META[lab]) lab = 'hematology';
   currentLab = lab;
-  document.querySelectorAll('.lab-tab').forEach(t => t.classList.remove('active'));
-  const tab = document.querySelector('[data-lab="' + lab + '"]');
-  if (tab) tab.classList.add('active');
+  const sel = document.getElementById('labSelect');
+  if (sel && sel.value !== lab) sel.value = lab;
 
   const m = LAB_META[lab];
-  document.getElementById('labTitle').textContent      = LAB_TITLE[lab];
-  document.getElementById('resultLabIcon').textContent = m.icon;
-  document.getElementById('resultLabName').textContent = m.name;
-  document.getElementById('resultLabName').style.color = m.color;
+  const s = labSpec(lab);
+  const root = document.querySelector('.app-root');
+  if (root) {
+    root.style.setProperty('--lab-accent', '#1b3a5c');
+    root.setAttribute('data-lab', lab);
+  }
+  syncLabChrome(m, s);
+
+  const ico = document.getElementById('resultLabIcon');
+  const nm = document.getElementById('resultLabName');
+  if (ico) ico.textContent = m.icon;
+  if (nm) {
+    nm.textContent = m.name;
+    nm.style.color = '';
+  }
+
+  const brief = document.getElementById('labBrief');
+  if (brief) brief.textContent = m.brief;
+  const checks = document.getElementById('labChecks');
+  if (checks) {
+    checks.innerHTML = (m.checks || []).map(t => `<span class="lab-chip">${esc(t)}</span>`).join('');
+  }
+
+  const uploadIco = document.getElementById('uploadIco');
+  const uploadMain = document.getElementById('uploadMain');
+  const uploadHint = document.getElementById('uploadHint');
+  if (uploadIco) uploadIco.textContent = m.icon;
+  if (uploadMain) uploadMain.textContent = m.uploadMain;
+  if (uploadHint) uploadHint.textContent = m.uploadHint;
+
+  const phoneH = document.getElementById('phoneHint');
+  const scopeH = document.getElementById('scopeHint');
+  if (phoneH) phoneH.textContent = m.phoneHint;
+  if (scopeH) scopeH.textContent = m.scopeHint;
+
+  document.querySelectorAll('.src-tab').forEach(t => {
+    const src = t.getAttribute('data-src');
+    if (src === 'upload') t.textContent = m.srcUpload;
+    if (src === 'phone') t.textContent = m.srcPhone;
+    if (src === 'scope') t.textContent = m.srcScope;
+  });
+
+  const microTitle = document.getElementById('microCardTitle');
+  if (microTitle) microTitle.innerHTML = `<span class="step-num">3</span> ${esc(m.microTitle)}`;
+
+  const oc = document.getElementById('microOcularSel');
+  const ob = document.getElementById('microObjSel');
+  if (oc && m.ocular) oc.value = m.ocular;
+  if (ob && m.objective) ob.value = m.objective;
+  onMicroChange();
+
+  const btn = document.getElementById('analyzeBtn');
+  if (btn) btn.textContent = m.analyze;
+
+  if (document.querySelector('#resultBody .result-empty')) {
+    document.getElementById('resultBody').innerHTML = emptyResultHtml();
+  }
+
+  updateOverlay();
+  updateAnalyzeBtn();
 }
 
-// ─── Mikroskop holati ────────────────────────────────────────────────────────
+function syncLabChrome(m, s) {
+  m = m || labMeta(currentLab);
+  s = s || labSpec(currentLab);
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('hudDept', s.dept);
+  setTxt('hudStain', s.stain);
+  setTxt('slideCode', s.code);
+  setTxt('slideName', s.specimen);
+  setTxt('slideStain', s.stain);
+  setTxt('frostCode', s.code);
+  setTxt('reportDept', s.dept);
+  setTxt('reportStain', s.stain);
+  setTxt('reportSpecimen', s.specimen);
+  setTxt('protoProtocol', s.protocol);
+  setTxt('protoFields', s.fields);
+  setTxt('protoIllum', s.illum);
+  setTxt('stIllum', s.illum);
+  setTxt('wbBsl', s.bsl);
+  const frost = document.getElementById('slideFrostCode');
+  if (frost) frost.textContent = s.code;
+  const haz = document.getElementById('wbHaz');
+  if (haz) haz.classList.toggle('hidden', !s.hazard);
+  refreshLabPlatform();
+}
+
+function updateAnalyzeBtn() {
+  const btn = document.getElementById('analyzeBtn');
+  if (btn) btn.disabled = uploadedFiles.length === 0 && !cameraRunning;
+}
+
+let _priority = 'routine';
+let _fieldCount = 0;
+let _validated = false;
+let _hasResult = false;
+
+function valOf(id) {
+  const el = document.getElementById(id);
+  return el ? String(el.value || '').trim() : '';
+}
+
+function setPriority(p) {
+  _priority = p === 'stat' ? 'stat' : 'routine';
+  document.querySelectorAll('.prio').forEach(b => {
+    b.classList.toggle('on', b.getAttribute('data-prio') === _priority);
+  });
+}
+
+function addMicField() {
+  _fieldCount += 1;
+  const n = document.getElementById('fieldN');
+  if (n) n.textContent = String(_fieldCount);
+  toast('Maydon ' + _fieldCount + ' qayd qilindi', 'blue');
+}
+
+function validateReport() {
+  if (!_hasResult) { toast('Avval tahlil natijasi bo‘lsin', 'red'); return; }
+  _validated = true;
+  const btn = document.getElementById('validateBtn');
+  if (btn) {
+    btn.classList.add('is-ok');
+    btn.textContent = 'Tasdiqlangan';
+    btn.disabled = true;
+  }
+  refreshLabPlatform();
+  toast('Laborant tasdiqladi', 'green');
+}
+
+function tickLabClock() {
+  const now = new Date();
+  const p = n => String(n).padStart(2, '0');
+  const t = `${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
+  const d = now.toLocaleDateString('uz-UZ', { day: '2-digit', month: 'short', year: 'numeric' });
+  const timeEl = document.getElementById('wbTime');
+  const dateEl = document.getElementById('wbDate');
+  const ft = document.getElementById('ftClock');
+  if (timeEl) timeEl.textContent = t;
+  if (dateEl) dateEl.textContent = d;
+  if (ft) ft.textContent = t;
+}
+
+function refreshLabPlatform() {
+  let step = 0;
+  if (valOf('accName') || valOf('accSample')) step = 0;
+  if (uploadedFiles.length) step = 1;
+  if (cameraRunning) step = 2;
+  if (_analyzeBusy) step = 3;
+  if (_hasResult) step = 4;
+  if (_validated) step = 4;
+  document.querySelectorAll('#wbFlow li').forEach(li => {
+    const n = Number(li.getAttribute('data-step'));
+    li.classList.toggle('on', n === step);
+    li.classList.toggle('done', n < step);
+  });
+  let inst = 'IDLE';
+  let instCls = '';
+  if (_analyzeBusy) { inst = 'TAHLIL'; instCls = 'busy'; }
+  else if (cameraRunning) { inst = 'LIVE'; instCls = 'live'; }
+  const wbInst = document.getElementById('wbInst');
+  if (wbInst) {
+    wbInst.textContent = inst;
+    wbInst.classList.remove('live', 'busy');
+    if (instCls) wbInst.classList.add(instCls);
+  }
+  const stLive = document.getElementById('stLive');
+  if (stLive) {
+    stLive.textContent = cameraRunning ? 'LIVE' : 'IDLE';
+    stLive.classList.toggle('on', cameraRunning);
+  }
+  const oil = document.getElementById('stOil');
+  if (oil) {
+    const obj = getObjectiveStr();
+    oil.classList.toggle('hidden', !/100/.test(obj));
+  }
+  const cs = document.getElementById('caseStatus');
+  if (cs) {
+    cs.classList.remove('ready', 'ok', 'busy');
+    if (_validated) { cs.textContent = 'TASDIQLANGAN'; cs.classList.add('ok'); }
+    else if (_hasResult) { cs.textContent = 'TAYYOR'; cs.classList.add('ready'); }
+    else if (_analyzeBusy) { cs.textContent = 'TAHLILDA'; cs.classList.add('busy'); }
+    else if (_priority === 'stat') { cs.textContent = 'STAT'; cs.classList.add('busy'); }
+    else cs.textContent = 'KUTILMOQDA';
+  }
+}
+
 function parseMagNum(s) {
   if (!s) return NaN;
   const m = String(s).match(/[\d.]+/);
@@ -171,17 +530,18 @@ function parseMagNum(s) {
 }
 
 function getOcularStr() {
-  const sel = document.getElementById('microOcularSel');
-  if (!sel) return '';
-  if (sel.value === '__custom__') return (document.getElementById('microOcularInp')?.value || '').trim();
-  return (sel.value || '').trim();
+  return (document.getElementById('microOcularSel')?.value || '').trim();
 }
 
 function getObjectiveStr() {
-  const sel = document.getElementById('microObjSel');
-  if (!sel) return '';
-  if (sel.value === '__custom__') return (document.getElementById('microObjInp')?.value || '').trim();
-  return (sel.value || '').trim();
+  return (document.getElementById('microObjSel')?.value || '').trim();
+}
+
+function computeMicroscopeTotalDisplay() {
+  const no = parseMagNum(getOcularStr());
+  const nb = parseMagNum(getObjectiveStr());
+  if (!isNaN(no) && !isNaN(nb) && no > 0 && nb > 0) return Math.round(no * nb) + '×';
+  return '';
 }
 
 function getMicroscopePayload() {
@@ -190,14 +550,7 @@ function getMicroscopePayload() {
   const badge = document.getElementById('microTotalBadge');
   let total_label = '';
   if (badge && badge.textContent && badge.textContent !== '—') total_label = badge.textContent.trim();
-  return {
-    ocular,
-    objective,
-    total_label,
-    condenser:    (document.getElementById('microCondenserSel')?.value || '').trim(),
-    illumination: (document.getElementById('microIllumSel')?.value || '').trim(),
-    notes:        (document.getElementById('microNotes')?.value || '').trim(),
-  };
+  return { ocular, objective, total_label };
 }
 
 function appendMicroscopeToFormData(fd) {
@@ -205,62 +558,38 @@ function appendMicroscopeToFormData(fd) {
   fd.append('micro_ocular', m.ocular);
   fd.append('micro_objective', m.objective);
   fd.append('micro_total_label', m.total_label);
-  fd.append('micro_condenser', m.condenser);
-  fd.append('micro_illumination', m.illumination);
-  fd.append('micro_notes', m.notes);
-}
-
-/** Umumiy masshtab: faqat DOM dagi okulyar va obyektiv matnidan (qattiq 400× yo‘q) */
-function computeMicroscopeTotalDisplay() {
-  const oStr = getOcularStr();
-  const bStr = getObjectiveStr();
-  const no = parseMagNum(oStr);
-  const nb = parseMagNum(bStr);
-  if (!isNaN(no) && !isNaN(nb) && no > 0 && nb > 0) return Math.round(no * nb) + '×';
-  return '';
 }
 
 function onMicroChange() {
-  const ocSel = document.getElementById('microOcularSel');
-  const obSel = document.getElementById('microObjSel');
-  const ocInp = document.getElementById('microOcularInp');
-  const obInp = document.getElementById('microObjInp');
-  if (ocInp) ocInp.style.display = ocSel && ocSel.value === '__custom__' ? 'block' : 'none';
-  if (obInp) obInp.style.display = obSel && obSel.value === '__custom__' ? 'block' : 'none';
-
-  const oStr = getOcularStr();
   const bStr = getObjectiveStr();
   const badge = document.getElementById('microTotalBadge');
   const totalStr = computeMicroscopeTotalDisplay();
   if (badge) badge.textContent = totalStr || '—';
+  const hudMag = document.getElementById('hudMag');
+  if (hudMag) hudMag.textContent = totalStr || '—';
+  const slideMag = document.getElementById('slideMag');
+  if (slideMag) slideMag.textContent = totalStr || '—';
+  const reportMag = document.getElementById('reportMag');
+  if (reportMag) reportMag.textContent = totalStr || '—';
 
-  const txtParts = [];
-  if (oStr || bStr) txtParts.push([oStr, bStr].filter(Boolean).join(' · '));
-  if (totalStr) txtParts.push(totalStr);
-  const chipTxt = txtParts.length ? ('🔬 ' + txtParts.join('  |  ')) : '';
-
-  ['microContextChip', 'microContextChip2'].forEach(id => {
-    const c = document.getElementById(id);
-    if (!c) return;
-    if (chipTxt) { c.textContent = chipTxt; c.classList.remove('hidden'); }
-    else { c.textContent = ''; c.classList.add('hidden'); }
+  const objN = parseMagNum(bStr);
+  document.querySelectorAll('#objTurret [data-obj]').forEach(el => {
+    el.classList.toggle('on', Number(el.getAttribute('data-obj')) === objN);
   });
+  const oil = document.getElementById('stOil');
+  if (oil) oil.classList.toggle('hidden', !/100/.test(bStr || ''));
 }
 
 function buildPrintMicroscopeHtml() {
   const m = getMicroscopePayload();
-  if (!m.ocular && !m.objective && !m.total_label && !m.condenser && !m.illumination && !m.notes) return '';
-  let h = '<strong>🔬 MIKROSKOP HOLATI</strong><br>';
-  if (m.ocular)       h += `Okulyar: ${esc(m.ocular)}<br>`;
-  if (m.objective)    h += `Obyektiv: ${esc(m.objective)}<br>`;
-  if (m.total_label)  h += `Umumiy kattalashtirish: <strong>${esc(m.total_label)}</strong><br>`;
-  if (m.condenser)    h += `Kondensor / diyafragma: ${esc(m.condenser)}<br>`;
-  if (m.illumination) h += `Yoritish: ${esc(m.illumination)}<br>`;
-  if (m.notes)        h += `Izoh: ${esc(m.notes)}<br>`;
+  if (!m.ocular && !m.objective && !m.total_label) return '';
+  let h = '<strong>🔬 MIKROSKOP</strong><br>';
+  if (m.ocular)      h += `Okulyar: ${esc(m.ocular)}<br>`;
+  if (m.objective)   h += `Obyektiv: ${esc(m.objective)}<br>`;
+  if (m.total_label) h += `Umumiy kattalashtirish: <strong>${esc(m.total_label)}</strong><br>`;
   return h;
 }
 
-// ─── Fayl yuklash (Ko'p fayl) ─────────────────────────────────────────────────
 function handleFileSelect(e) {
   const files = Array.from(e.target.files);
   if (files.length) loadFiles(files);
@@ -284,19 +613,21 @@ function isVideoFile(file) {
 }
 
 function loadFiles(files) {
-  // Yangi fayllarni mavjud ro'yxatga qo'shish
+  let added = 0;
   for (const f of files) {
-    if (!uploadedFiles.find(x => x.name === f.name && x.size === f.size))
+    if (!uploadedFiles.find(x => x.name === f.name && x.size === f.size)) {
       uploadedFiles.push(f);
+      added++;
+    }
   }
   renderFileList();
   document.getElementById('uploadZone').style.display  = uploadedFiles.length ? 'none' : '';
   document.getElementById('filePreview').style.display = uploadedFiles.length ? '' : 'none';
-  document.getElementById('analyzeFileBtn').disabled   = uploadedFiles.length === 0;
-
-  // Birinchi faylni markazda ko'rsatish
+  updateAnalyzeBtn();
   if (uploadedFiles.length) showMainPreview(uploadedFiles[0]);
-  toast(`${files.length} ta fayl qo'shildi`, 'green');
+  setSource('upload');
+  if (added) toast(`${added} ta fayl qo‘shildi`, 'green');
+  else toast('Bu fayllar allaqachon qo‘shilgan', 'gray');
 }
 
 function renderFileList() {
@@ -328,131 +659,253 @@ function removeFile(idx) {
   } else {
     renderFileList();
     showMainPreview(uploadedFiles[0]);
+    updateAnalyzeBtn();
+    refreshLabPlatform();
+  }
+}
+
+function _revokePreviewUrl() {
+  if (_previewObjectUrl) {
+    try { URL.revokeObjectURL(_previewObjectUrl); } catch (_) {}
+    _previewObjectUrl = '';
   }
 }
 
 function showMainPreview(file) {
   const content = document.getElementById('uploadedContent');
-  const reader  = new FileReader();
-  const isVid   = isVideoFile(file);
-  reader.onload = ev => {
-    content.innerHTML = '';
-    if (isVid) {
-      document.getElementById('previewImg').style.display   = 'none';
-      document.getElementById('previewVideo').style.display = '';
-      document.getElementById('previewVideo').src            = ev.target.result;
-      const vid = document.createElement('video');
-      vid.src = ev.target.result; vid.controls = true;
-      vid.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain';
-      content.appendChild(vid);
-    } else {
-      document.getElementById('previewImg').src            = ev.target.result;
-      document.getElementById('previewImg').style.display  = '';
-      document.getElementById('previewVideo').style.display = 'none';
-      const img = document.createElement('img');
-      img.src = ev.target.result;
-      img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain';
-      content.appendChild(img);
-    }
-    switchView('uploaded');
-  };
-  reader.readAsDataURL(file);
+  if (!content || !file) return;
+  _revokePreviewUrl();
+  const url = URL.createObjectURL(file);
+  _previewObjectUrl = url;
+  const isVid = isVideoFile(file);
+  content.innerHTML = '';
+  if (isVid) {
+    const vid = document.createElement('video');
+    vid.src = url;
+    vid.controls = true;
+    vid.preload = 'metadata';
+    vid.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain';
+    content.appendChild(vid);
+  } else {
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = file.name || 'Yuklangan rasm';
+    img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain';
+    content.appendChild(img);
+  }
+  showLivePreview(false);
 }
 
 function clearFile() {
   uploadedFiles = [];
+  _revokePreviewUrl();
   document.getElementById('uploadZone').style.display  = '';
   document.getElementById('filePreview').style.display = 'none';
-  document.getElementById('previewImg').style.display  = 'none';
-  document.getElementById('previewVideo').src          = '';
-  document.getElementById('previewVideo').style.display = 'none';
   document.getElementById('fileInput').value           = '';
-  document.getElementById('analyzeFileBtn').disabled   = true;
-  document.getElementById('uploadedContent').innerHTML  = `
-    <div class="overlay-content">
-      <div class="ov-icon">📎</div>
-      <p>Rasm yoki video yuklang</p>
-    </div>`;
-  switchView('camera');
+  updateAnalyzeBtn();
+  document.getElementById('uploadedContent').innerHTML = '';
+  if (!cameraRunning) {
+    document.getElementById('uploadedContent').style.display = 'none';
+    updateOverlay();
+  }
+  refreshLabPlatform();
 }
 
-// ─── View ────────────────────────────────────────────────────────────────────
-function switchView(view) {
-  currentView = view;
-  document.getElementById('boxCamera').style.display   = view === 'camera'   ? '' : 'none';
-  document.getElementById('boxUploaded').style.display = view === 'uploaded' ? '' : 'none';
-  document.getElementById('vswCamera').className   = 'vsw' + (view === 'camera'   ? ' active' : '');
-  document.getElementById('vswUploaded').className = 'vsw' + (view === 'uploaded' ? ' active' : '');
+function fillSelect(sel, items, placeholder) {
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+  items.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.index;
+    opt.textContent = `[${c.index}] ${c.name} (${c.resolution || '—'})`;
+    sel.appendChild(opt);
+  });
+  const prefer = items.findIndex(c => /toup/i.test(c.name || ''));
+  if (prefer >= 0) sel.selectedIndex = prefer + 1;
+  else if (items.length === 1) sel.selectedIndex = 1;
 }
 
-// ─── Kamera ──────────────────────────────────────────────────────────────────
-async function scanCameras() {
-  const sel = document.getElementById('camSelect');
-  sel.innerHTML = '<option>Qidirilmoqda...</option>';
-  const res = await api(apiPath('/api/scan_cameras'));
-  sel.innerHTML = '<option value="">— Kamera tanlang —</option>';
-  if (res.cameras && res.cameras.length > 0) {
-    res.cameras.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.index;
-      opt.textContent = `[${c.index}] ${c.name} (${c.resolution})`;
-      sel.appendChild(opt);
-    });
-    if (res.cameras.length === 1) sel.selectedIndex = 1;
-    toast(`${res.cameras.length} ta kamera topildi`, 'green');
+async function setSource(src) {
+  if (cameraRunning && src !== currentSource) await stopCamera(true);
+  currentSource = src;
+  document.querySelectorAll('.src-tab').forEach(t => {
+    const on = t.getAttribute('data-src') === src;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.getElementById('paneUpload').style.display = src === 'upload' ? '' : 'none';
+  document.getElementById('panePhone').style.display  = src === 'phone'  ? '' : 'none';
+  document.getElementById('paneScope').style.display  = src === 'scope'  ? '' : 'none';
+
+  if (src === 'upload') {
+    if (uploadedFiles.length) showMainPreview(uploadedFiles[0]);
+    else showLivePreview(false);
   } else {
-    toast('Kamera topilmadi', 'gray');
+    showLivePreview(false);
+    scanCameras();
+  }
+  updateOverlay();
+}
+
+function updateOverlay() {
+  const ov = document.getElementById('camOverlay');
+  const icon = document.getElementById('overlayIcon');
+  const text = document.getElementById('overlayText');
+  const showingUpload = uploadedFiles.length && currentSource === 'upload';
+  if (cameraRunning || showingUpload) {
+    ov.classList.add('hidden');
+    return;
+  }
+  ov.classList.remove('hidden');
+  const m = labMeta(currentLab);
+  if (icon) icon.textContent = m.icon;
+  if (!text) return;
+  if (currentSource === 'phone') text.textContent = m.overlayPhone;
+  else if (currentSource === 'scope') text.textContent = m.overlayScope;
+  else text.textContent = m.overlayUpload;
+}
+
+function showLivePreview(live) {
+  const vf = document.getElementById('videoFeed');
+  const up = document.getElementById('uploadedContent');
+  if (live) {
+    vf.style.display = '';
+    up.style.display = 'none';
+    vf.onerror = () => {
+      if (cameraRunning) toast('Jonli tasvir uzildi. Qayta Yoqish ni bosing.', 'red');
+    };
+    const p = vf.getAttribute('data-stream-path') || '/video_feed';
+    vf.src = apiPath(p) + '?t=' + Date.now();
+  } else if (uploadedFiles.length && currentSource === 'upload') {
+    vf.style.display = 'none';
+    up.style.display = '';
+  } else {
+    vf.style.display = 'none';
+    up.style.display = 'none';
+  }
+  updateOverlay();
+  const box = document.getElementById('mediaBox');
+  if (box) box.classList.toggle('is-live', !!live && cameraRunning);
+  refreshLabPlatform();
+}
+
+async function scanCameras() {
+  const my = ++_scanGen;
+  const phoneSel = document.getElementById('phoneSelect');
+  const scopeSel = document.getElementById('scopeSelect');
+  if (phoneSel) phoneSel.innerHTML = '<option>Qidirilmoqda...</option>';
+  if (scopeSel) scopeSel.innerHTML = '<option>Qidirilmoqda...</option>';
+
+  const res = await api(apiPath('/api/scan_cameras'));
+  if (my !== _scanGen) return;
+  if (!res || res._httpStatus === 0 || (res.success === false && !res.cameras)) {
+    if (phoneSel) fillSelect(phoneSel, [], '— Telefon / webcam tanlang —');
+    if (scopeSel) fillSelect(scopeSel, [], '— Mikroskop tanlang —');
+    toast((res && res.message) || 'Kameralar ro‘yxati olinmadi', 'red');
+    return;
+  }
+  const cams = Array.isArray(res.cameras) ? res.cameras : [];
+  const usb  = res.microscope_usb || {};
+
+  const scopes = cams.filter(c => c.kind === 'microscope');
+  const phones = cams.filter(c => c.kind !== 'microscope');
+
+  if (phoneSel) fillSelect(phoneSel, phones, '— Telefon / webcam tanlang —');
+  if (scopeSel) fillSelect(scopeSel, scopes, '— Mikroskop tanlang —');
+
+  const box = document.getElementById('scopeDriverBox');
+  if (box) {
+    if (scopes.length) {
+      box.style.display = 'none';
+      box.innerHTML = '';
+    } else if (usb.found) {
+      box.style.display = '';
+      box.innerHTML = `<strong>Mikroskop USB da ulangan</strong> (${esc(usb.name || 'USB2.0 Camera')}).<br>
+        Ro‘yxatdan tanlab <b>Yoqish</b> ni bosing. Bu kamera oddiy «USB Video» emas — ToupTek/Euromex orqali ochiladi.`;
+    } else {
+      box.style.display = 'none';
+      box.innerHTML = '';
+    }
+  }
+
+  if (currentSource === 'scope' && scopes.length) {
+    toast(`${scopes.length} ta mikroskop topildi`, 'green');
+  } else if (currentSource === 'phone' && phones.length) {
+    toast(`${phones.length} ta kamera topildi`, 'green');
+  } else if (currentSource === 'scope' && usb.found) {
+    toast('Mikroskop ulangan — rasmiy drajver o‘rnatilishi kerak', 'blue');
+  } else if (currentSource !== 'upload') {
+    toast('Mos kamera topilmadi', 'gray');
   }
 }
 
-async function startCamera() {
-  const sel = document.getElementById('camSelect');
-  const idx = parseInt(sel.value);
-  if (isNaN(idx)) { toast('Kamera tanlang!', 'red'); return; }
-  document.getElementById('startBtn').disabled = true;
+async function startLive(kind) {
+  const sel = document.getElementById(kind === 'scope' ? 'scopeSelect' : 'phoneSelect');
+  const startBtn = document.getElementById(kind === 'scope' ? 'scopeStartBtn' : 'phoneStartBtn');
+  const stopBtn  = document.getElementById(kind === 'scope' ? 'scopeStopBtn' : 'phoneStopBtn');
+  const msgId    = kind === 'scope' ? 'scopeMsg' : 'phoneMsg';
+  const idx = parseInt(sel && sel.value, 10);
+  if (isNaN(idx)) { toast('Avval qurilmani tanlang', 'red'); return; }
+  if (startBtn) startBtn.disabled = true;
   const res = await api(apiPath('/api/start_camera'), 'POST', { index: idx });
   if (res.success) {
     cameraRunning = true;
-    document.getElementById('camOverlay').classList.add('hidden');
-    document.getElementById('stopBtn').disabled     = false;
-    document.getElementById('analyzeCamBtn').disabled = false;
-    document.getElementById('connPill').textContent = '● Kamera ulangan';
+    if (stopBtn) stopBtn.disabled = false;
+    document.getElementById('connPill').textContent = kind === 'scope' ? '● Mikroskop ulangan' : '● Telefon ulangan';
     document.getElementById('connPill').classList.add('pill-connected');
-    msg('camMsg', res.message, 'green');
+    msg(msgId, res.message, 'green');
     toast(res.message, 'green');
-    switchView('camera');
+    updateAnalyzeBtn();
+    showLivePreview(true);
   } else {
-    document.getElementById('startBtn').disabled = false;
-    msg('camMsg', res.message, 'red');
+    if (startBtn) startBtn.disabled = false;
+    msg(msgId, res.message, 'red');
     toast(res.message, 'red');
   }
 }
 
-async function stopCamera() {
+async function stopCamera(silent) {
   await api(apiPath('/api/stop_camera'), 'POST');
   cameraRunning = false;
-  document.getElementById('camOverlay').classList.remove('hidden');
-  document.getElementById('startBtn').disabled    = false;
-  document.getElementById('stopBtn').disabled     = true;
-  document.getElementById('analyzeCamBtn').disabled = true;
-  document.getElementById('connPill').textContent = '○ Kamera ulanmagan';
+  ['phoneStartBtn', 'scopeStartBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = false;
+  });
+  ['phoneStopBtn', 'scopeStopBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = true;
+  });
+  document.getElementById('connPill').textContent = '○ Ulanmagan';
   document.getElementById('connPill').classList.remove('pill-connected');
-  msg('camMsg', '', '');
-  toast("Kamera o'chirildi", 'gray');
+  msg('phoneMsg', '', '');
+  msg('scopeMsg', '', '');
+  updateAnalyzeBtn();
+  showLivePreview(false);
+  if (!silent) toast("O'chirildi", 'gray');
 }
 
-// ─── Tahlil ──────────────────────────────────────────────────────────────────
+async function analyze() {
+  if (_analyzeBusy) return;
+  if (currentSource === 'upload' && uploadedFiles.length) {
+    _analyzeBusy = true;
+    try { await analyzeFile(); } finally { _analyzeBusy = false; }
+    return;
+  }
+  if (cameraRunning) {
+    _analyzeBusy = true;
+    try { await analyzeCamera(); } finally { _analyzeBusy = false; }
+    return;
+  }
+  toast('Avval rasm yuklang yoki qurilmani yoqing', 'red');
+}
+
 async function analyzeFile() {
-  if (!uploadedFiles.length) { toast('Fayl yuklanmagan!', 'red'); return; }
   const hasVideo = uploadedFiles.some(isVideoFile);
   startAnalyzing(hasVideo);
 
   const formData = new FormData();
   for (const f of uploadedFiles) formData.append('files[]', f);
   formData.append('lab_type', currentLab);
-  formData.append('source', 'upload');
-  const prompt = document.getElementById('customPrompt').value.trim();
-  if (prompt) formData.append('prompt', prompt);
+  formData.append('source', currentSource === 'phone' ? 'phone' : 'upload');
   appendMicroscopeToFormData(formData);
 
   try {
@@ -475,7 +928,8 @@ async function analyzeFile() {
     }
     if (r.status === 409 || res.busy === true) {
       toast(res.message || 'Boshqa tahlil davom etmoqda — natija kutilmoqda.', 'blue');
-      pollResult();
+      if (res.job_id) pollResult(res.job_id);
+      else stopAnalyzing();
       return;
     }
     if (r.status === 429) {
@@ -485,30 +939,29 @@ async function analyzeFile() {
     }
     if (r.status === 503) {
       stopAnalyzing();
-      toast(res.message || 'ZiyrakAi hozircha mavjud emas (sozlash kerak).', 'blue');
+      toast(res.message || 'MedLab tahlil hozircha mavjud emas (sozlash kerak).', 'blue');
       return;
     }
     if (!res.success) { stopAnalyzing(); toast(res.message || `HTTP ${r.status}`, 'red'); return; }
     if (res.warnings && res.warnings.length)
       toast("Ogohlantirish: " + res.warnings.slice(0, 2).join("; "), 'gray');
     toast(res.message || 'Tahlil boshlandi', 'green');
-    pollResult();
+    if (res.public_id) setPublicId(res.public_id);
+    pollResult(res.job_id);
   } catch(e) { stopAnalyzing(); toast('Server xatosi', 'red'); }
 }
 
 async function analyzeCamera() {
-  if (!cameraRunning) { toast('Kamera yoqilmagan!', 'red'); return; }
   startAnalyzing(false);
-  const prompt = document.getElementById('customPrompt').value.trim() || null;
   const res = await api(apiPath('/api/analyze'), 'POST', {
     source: 'camera',
     lab_type: currentLab,
-    prompt,
     microscope: getMicroscopePayload(),
   });
   if (res._httpStatus === 409 || res.busy === true) {
     toast(res.message || 'Boshqa tahlil davom etmoqda — natija kutilmoqda.', 'blue');
-    pollResult();
+    if (res.job_id) pollResult(res.job_id);
+    else stopAnalyzing();
     return;
   }
   if (res._httpStatus === 429) {
@@ -518,115 +971,160 @@ async function analyzeCamera() {
   }
   if (res._httpStatus === 503) {
     stopAnalyzing();
-    toast(res.message || 'ZiyrakAi hozircha mavjud emas (sozlash kerak).', 'blue');
+    toast(res.message || 'MedLab tahlil hozircha mavjud emas (sozlash kerak).', 'blue');
     return;
   }
   if (!res.success) { stopAnalyzing(); toast(res.message || 'Xato', 'red'); return; }
-  pollResult();
+  if (res.public_id) setPublicId(res.public_id);
+  pollResult(res.job_id);
 }
 
 function startAnalyzing(isVideo) {
-  document.getElementById('analyzeFileBtn').disabled = true;
-  document.getElementById('analyzeCamBtn').disabled  = true;
-  document.getElementById('analyzeOv1').classList.remove('hidden');
-  document.getElementById('analyzeOv2').classList.remove('hidden');
+  document.getElementById('analyzeBtn').disabled = true;
+  const ov = document.getElementById('analyzeOv');
+  if (ov) ov.classList.remove('hidden');
   document.getElementById('analyzeStatus').textContent = isVideo
     ? '🎬 Video kadrlari tahlil qilinmoqda...'
-    : '✨ ZiyrakAi tahlil qilmoqda...';
+    : '🔬 Tahlil qilinmoqda...';
   showLoading();
+  refreshLabPlatform();
 }
 
 function stopAnalyzing() {
-  document.getElementById('analyzeFileBtn').disabled = uploadedFiles.length === 0;
-  document.getElementById('analyzeCamBtn').disabled  = !cameraRunning;
-  document.getElementById('analyzeOv1').classList.add('hidden');
-  document.getElementById('analyzeOv2').classList.add('hidden');
+  updateAnalyzeBtn();
+  const ov = document.getElementById('analyzeOv');
+  if (ov) ov.classList.add('hidden');
   document.getElementById('analyzeStatus').textContent = '';
+  refreshLabPlatform();
 }
 
-function pollResult() {
+let _pollGen = 0;
+
+function pollResult(jobId) {
+  const myGen = ++_pollGen;
   let tries = 0;
   let lastStatus = '';
-  const MAX_TRIES = 300; // 5 daqiqa (1000ms interval)
+  const MAX_TRIES = 300;
+  let t = null;
 
-  const t = setInterval(async () => {
+  const tick = async () => {
+    if (myGen !== _pollGen) {
+      if (t) clearInterval(t);
+      return;
+    }
     tries++;
     try {
-      const data = await api(apiPath('/api/analysis_result'));
-      if (!data) return;
+      const q = jobId ? ('?job_id=' + encodeURIComponent(jobId)) : '';
+      const data = await api(apiPath('/api/analysis_result' + q));
+      if (!data || myGen !== _pollGen) return;
+      if (jobId && data.job_id && data.job_id !== jobId) return;
 
-      // Progress xabari
       if (data.status !== lastStatus) {
         lastStatus = data.status;
         const statusMap = {
-          'tahlil_qilinmoqda':       '⏳ ZiyrakAi tahlil qilmoqda...',
+          'tahlil_qilinmoqda':       '⏳ Tahlil qilinmoqda...',
           'video_tahlil_qilinmoqda': '🎬 Video kadrlar tahlil qilinmoqda...',
         };
         const st = document.getElementById('analyzeStatus');
         if (st) st.textContent = statusMap[data.status] || '';
       }
 
-      if (data.status === 'tayyor' || data.status === 'xato') {
-        clearInterval(t);
+      const done = data.status === 'tayyor' || data.status === 'xato';
+      const jobOk = !jobId || !data.job_id || data.job_id === jobId;
+      if (done && jobOk && data.loading === false) {
+        if (t) clearInterval(t);
+        if (myGen !== _pollGen) return;
         stopAnalyzing();
         const st = document.getElementById('analyzeStatus');
         if (st) {
           st.textContent = data.status === 'tayyor' ? '✅ Tahlil tayyor' : '❌ Xato yuz berdi';
           setTimeout(() => { st.textContent = ''; }, 5000);
         }
+        if (currentPublicId && data.public_id && data.public_id !== currentPublicId) {
+          toast('Yangi tahlil tayyor: ' + data.public_id + ' — Tarixdan oching', 'green');
+          return;
+        }
+        if (data.public_id) setPublicId(data.public_id);
         renderResult(data);
       }
-    } catch(e) {
+    } catch (e) {
       // tarmoq xatosi — davom etamiz
     }
 
     if (tries >= MAX_TRIES) {
-      clearInterval(t);
-      stopAnalyzing();
-      toast('Vaqt tugadi — server javobi kelmadi', 'red');
+      if (t) clearInterval(t);
+      if (myGen === _pollGen) {
+        stopAnalyzing();
+        toast('Vaqt tugadi — server javobi kelmadi', 'red');
+      }
     }
-  }, 1000);
+  };
+
+  tick();
+  t = setInterval(tick, 800);
 }
 
-// ─── Natijani ko'rsatish ─────────────────────────────────────────────────────
 function showLoading() {
+  setExportButtonsEnabled(false);
+  const m = labMeta(currentLab);
   document.getElementById('resultBody').innerHTML = `
     <div class="result-loading">
       <div class="spinner" style="width:24px;height:24px;border-width:2px"></div>
-      ZiyrakAi tahlil qilmoqda...
+      ${esc(m.loading)}
     </div>`;
   document.getElementById('resultTs').textContent = '';
-  clearRegistrationUi();
+}
+
+function _pdfActionButtons() {
+  return [
+    document.getElementById('pdfClinicBtn'),
+    document.getElementById('pdfPatientBtn'),
+  ].filter(Boolean);
+}
+
+function setExportButtonsEnabled(on) {
+  _pdfActionButtons().forEach(b => { b.disabled = !on; });
 }
 
 function renderResult(data) {
-  const body      = document.getElementById('resultBody');
-  const ts        = document.getElementById('resultTs');
-  const pdfDoctor = document.getElementById('pdfDoctorBtn');
-  const pdfPatient = document.getElementById('pdfPatientBtn');
-  const printBtn  = document.getElementById('printBtn');
+  const body = document.getElementById('resultBody');
+  const ts   = document.getElementById('resultTs');
+  if (data.public_id) setPublicId(data.public_id);
+  if (data.lab_type && LAB_META[data.lab_type]) selectLab(data.lab_type);
 
+  const pending = data.status === 'tahlil_qilinmoqda' || data.status === 'video_tahlil_qilinmoqda';
+  if (pending) {
+    body.innerHTML = `
+      <div class="result-loading">
+        <div class="spinner" style="width:24px;height:24px;border-width:2px"></div>
+        Tahlil hali tayyor emas (ID: ${esc(currentPublicId || '—')})
+      </div>`;
+    ts.textContent = data.timestamp || '';
+    setExportButtonsEnabled(false);
+    return;
+  }
   if (data.status === 'xato') {
     body.innerHTML = `<div class="r-error r-anim">⚠ ${esc(data.text)}</div>`;
     ts.textContent = data.timestamp || '';
-    if (pdfDoctor)  pdfDoctor.disabled  = true;
-    if (pdfPatient) pdfPatient.disabled = true;
-    if (printBtn)   printBtn.disabled   = true;
+    setExportButtonsEnabled(false);
     return;
   }
-  if (!data.text) { body.innerHTML = '<div class="r-normal">Natija bo\'sh</div>'; return; }
+  if (!data.text) { body.innerHTML = '<div class="r-normal">Natija bo\'sh</div>'; setExportButtonsEnabled(false); return; }
 
   ts.textContent = data.timestamp ? `🕐 ${data.timestamp}` : '';
   body.setAttribute('data-raw-text', data.text || '');
   body.innerHTML = markdownToHtml(data.text);
-
-  const regId = buildRegistrationId(currentLab);
-  body.setAttribute('data-registration-id', regId);
-  setRegistrationUi(regId);
-
-  if (pdfDoctor)  pdfDoctor.disabled  = false;
-  if (pdfPatient) pdfPatient.disabled = false;
-  if (printBtn)   printBtn.disabled   = false;
+  setExportButtonsEnabled(true);
+  updateResultRegistrationId();
+  _hasResult = true;
+  _validated = false;
+  const vb = document.getElementById('validateBtn');
+  if (vb) {
+    vb.disabled = false;
+    vb.classList.remove('is-ok');
+    vb.textContent = 'Tasdiqlash';
+  }
+  refreshLabPlatform();
 }
 
 function isMdTableSeparator(line) {
@@ -675,56 +1173,6 @@ function renderMdTable(rowLines) {
   return html;
 }
 
-/** Jadval kataklarida | buzilishini oldini olish */
-function mdCellSanitize(s) {
-  return String(s || '').replace(/\|/g, '·').replace(/\n/g, ' ').trim();
-}
-
-/** Bemor varag'ida keraksiz bo'lim jadvallarini tashlash */
-function isExcludedPatientTableBlock(rowLines) {
-  if (!rowLines.length) return true;
-  const hdr = splitMdTableRow(rowLines[0]).join(' ').toLowerCase();
-  return /differensial|huquqiy|esklatma|chiqish qoidalari|tekshiruv rejasi|global mikroskopik|mikroskop holati/.test(hdr);
-}
-
-function extractAllMdTableBlocks(text) {
-  const lines = (text || '').split('\n');
-  const blocks = [];
-  let i = 0;
-  while (i < lines.length) {
-    while (i < lines.length && !isMdTableRow(lines[i].trim())) i++;
-    if (i >= lines.length) break;
-    const rowLines = [];
-    while (i < lines.length) {
-      const curTrim = lines[i].trim();
-      if (isMdTableSeparator(curTrim)) { i++; continue; }
-      if (isMdTableRow(curTrim)) { rowLines.push(lines[i]); i++; } else break;
-    }
-    if (rowLines.length >= 2) blocks.push(rowLines);
-  }
-  return blocks;
-}
-
-/**
- * Bemor PDF: muassasa sarlavhasi + meta jadval + AI chiqishidagi barcha mos data jadvallari (max 5).
- */
-function buildPatientPdfHtml(rawText, lab, dateStr, timeStr) {
-  const metaRows = [
-    `| Tahlil nomi / Вид исследования | ${mdCellSanitize(`${lab.icon} ${lab.name}`)} |`,
-    `| Sana va vaqt / Дата, время | ${mdCellSanitize(`${dateStr} ${timeStr}`)} |`,
-  ];
-  let html = renderMdTable(metaRows);
-  const blocks = extractAllMdTableBlocks(rawText).filter((b) => !isExcludedPatientTableBlock(b));
-  const maxTables = 5;
-  for (let t = 0; t < Math.min(blocks.length, maxTables); t++) {
-    html += renderMdTable(blocks[t]);
-  }
-  if (!blocks.length) {
-    html += '<p class="print-patient-empty">Jadval shaklidagi natijalar topilmadi. Toʻliq tahlil — «Shifokor PDF».</p>';
-  }
-  return html;
-}
-
 function inlineFormat(s) {
   if (s == null) s = '';
   s = esc(String(s));
@@ -735,7 +1183,9 @@ function inlineFormat(s) {
   return s;
 }
 
-function markdownToHtml(text) {
+function markdownToHtml(text, opts) {
+  const forPrint = !!(opts && opts.forPrint);
+  const anim = forPrint ? '' : ' r-anim';
   const lines = (text || '').split('\n');
   let html = '';
   let i = 0;
@@ -761,35 +1211,35 @@ function markdownToHtml(text) {
     }
 
     if (l.startsWith('#### ')) {
-      html += `<div class="r-h3 r-anim">${inlineFormat(l.slice(5))}</div>`;
+      html += `<div class="r-h3${anim}">${inlineFormat(l.slice(5))}</div>`;
       i++;
       continue;
     }
     if (l.startsWith('### ')) {
-      html += `<div class="r-h2 r-anim">${inlineFormat(l.slice(4))}</div>`;
+      html += `<div class="r-h2${anim}">${inlineFormat(l.slice(4))}</div>`;
       i++;
       continue;
     }
     if (l.startsWith('## ')) {
-      html += `<div class="r-h1 r-anim">${inlineFormat(l.slice(3))}</div>`;
+      html += `<div class="r-h1${anim}">${inlineFormat(l.slice(3))}</div>`;
       i++;
       continue;
     }
 
     if (l.startsWith('- ') || l.startsWith('• ')) {
-      html += `<div class="r-list r-anim">${inlineFormat(l.slice(2))}</div>`;
+      html += `<div class="r-list${anim}">${inlineFormat(l.slice(2))}</div>`;
       i++;
       continue;
     }
     if (l.startsWith('* ') && !l.startsWith('**')) {
-      html += `<div class="r-list r-anim">${inlineFormat(l.slice(2))}</div>`;
+      html += `<div class="r-list${anim}">${inlineFormat(l.slice(2))}</div>`;
       i++;
       continue;
     }
 
     if (/^\d+\.\s/.test(l)) {
       const inner = inlineFormat(l.replace(/^\d+\.\s+/, ''));
-      html += `<div class="r-list-num r-anim">${inner}</div>`;
+      html += `<div class="r-list-num${anim}">${inner}</div>`;
       i++;
       continue;
     }
@@ -800,15 +1250,17 @@ function markdownToHtml(text) {
       continue;
     }
 
-    const lLow = l.toLowerCase();
-    let cls = 'r-line r-anim';
-    if (lLow.includes('patolog') || lLow.includes('anormal') || lLow.includes('buzil') ||
-        lLow.includes('giper') || lLow.includes('kamay') || lLow.includes('topildi') ||
-        lLow.includes('aniqlandi') || lLow.includes('diqqat')) {
-      cls += ' r-warn';
-    }
-    if (lLow.includes('norma') && !lLow.includes('normadan') && !lLow.includes('normasiz')) {
-      cls += ' r-ok';
+    let cls = 'r-line' + anim;
+    if (!forPrint) {
+      const lLow = l.toLowerCase();
+      if (lLow.includes('patolog') || lLow.includes('anormal') || lLow.includes('buzil') ||
+          lLow.includes('giper') || lLow.includes('kamay') || lLow.includes('topildi') ||
+          lLow.includes('aniqlandi') || lLow.includes('diqqat')) {
+        cls += ' r-warn';
+      }
+      if (lLow.includes('norma') && !lLow.includes('normadan') && !lLow.includes('normasiz')) {
+        cls += ' r-ok';
+      }
     }
     html += `<div class="${cls}">${inlineFormat(l)}</div>`;
     i++;
@@ -817,29 +1269,89 @@ function markdownToHtml(text) {
 }
 
 function clearResult() {
-  document.getElementById('resultBody').innerHTML = `
-    <div class="result-empty">
-      <div class="re-icon">📋</div>
-      <p>Tahlil natijasi shu yerda ko'rinadi</p>
-      <p class="re-hint">Rasm/video yuklang yoki kamera yoqing,<br>so'ng tahlil tugmasini bosing</p>
-    </div>`;
+  _pollGen++;
+  document.getElementById('resultBody').innerHTML = emptyResultHtml();
   document.getElementById('resultTs').textContent = '';
   document.getElementById('resultBody').removeAttribute('data-raw-text');
-  clearRegistrationUi();
-  const pdfDoctor = document.getElementById('pdfDoctorBtn');
-  const pdfPatient = document.getElementById('pdfPatientBtn');
-  const printBtn   = document.getElementById('printBtn');
-  if (pdfDoctor)  pdfDoctor.disabled  = true;
-  if (pdfPatient) pdfPatient.disabled = true;
-  if (printBtn)   printBtn.disabled   = true;
+  setPublicId('');
+  setExportButtonsEnabled(false);
+  _hasResult = false;
+  _validated = false;
+  const vb = document.getElementById('validateBtn');
+  if (vb) {
+    vb.disabled = true;
+    vb.classList.remove('is-ok');
+    vb.textContent = 'Tasdiqlash';
+  }
+  refreshLabPlatform();
 }
 
-function _fillPrintArea() {
-  const lab  = LAB_META[currentLab];
-  const now  = new Date();
-  const dateStr = now.toLocaleDateString('uz-UZ', { year:'numeric', month:'long', day:'numeric' });
-  const timeStr = now.toLocaleTimeString('uz-UZ');
-  const isoStr  = now.toISOString().replace('T',' ').slice(0,19);
+function _joinReportLines(arr) {
+  return arr.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function _extractPatientTables(lines) {
+  const tableLines = [];
+  let inTable = false;
+  for (const line of lines) {
+    const t = line.trim();
+    if (isMdTableRow(t) || isMdTableSeparator(t)) {
+      tableLines.push(line);
+      inTable = true;
+    } else if (inTable && !t) {
+      tableLines.push('');
+      inTable = false;
+    } else {
+      inTable = false;
+    }
+  }
+  return _joinReportLines(tableLines);
+}
+
+function _synthesizePatientTable(raw) {
+  const rows = [];
+  const seen = new Set();
+  for (const line of String(raw || '').split('\n')) {
+    let t = line.replace(/^#{1,4}\s+/, '').replace(/^[-•*]\s+/, '').trim();
+    if (!t || t.length > 180) continue;
+    const m = t.match(/^(.{3,70}?)\s*[:—–\-]\s+(.{1,90})$/);
+    if (!m || !/\d/.test(m[2])) continue;
+    const k = m[1].replace(/\*+/g, '').trim();
+    const v = m[2].replace(/\*+/g, '').trim();
+    if (seen.has(k.toLowerCase())) continue;
+    seen.add(k.toLowerCase());
+    rows.push(`| ${k} | ${v} | — | — |`);
+  }
+  if (rows.length < 2) return '';
+  return ['| Ko\'rsatkich | Topilgan | Normal | Baho |', ...rows].join('\n');
+}
+
+function filterPatientReport(raw) {
+  const lines = String(raw || '').split('\n');
+  return _extractPatientTables(lines) || _synthesizePatientTable(raw) || '';
+}
+
+function _stampNow() {
+  const now = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return {
+    now,
+    dateStr: now.toLocaleDateString('uz-UZ', { year: 'numeric', month: 'long', day: 'numeric' }),
+    timeStr: now.toLocaleTimeString('uz-UZ'),
+    fileStamp: `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}_${p(now.getHours())}${p(now.getMinutes())}`,
+  };
+}
+
+function _fillPrintArea(mode) {
+  mode = mode === 'patient' ? 'patient' : 'clinic';
+  const lab = LAB_META[currentLab];
+  const { dateStr, timeStr } = _stampNow();
+  const area = document.getElementById('printArea');
+  if (area) {
+    area.dataset.printMode = mode;
+    area.classList.toggle('print-mode-patient', mode === 'patient');
+    area.classList.toggle('print-mode-clinic', mode === 'clinic');
+  }
 
   const setEl = (id, txt, html) => {
     const el = document.getElementById(id);
@@ -847,6 +1359,7 @@ function _fillPrintArea() {
     if (html) el.innerHTML = html; else el.textContent = txt;
   };
   setEl('printLabBadge', `${lab.icon} ${lab.name}`);
+  setEl('printPublicId', currentPublicId || '—');
   setEl('printDate', dateStr);
   setEl('printTime', timeStr);
   setEl('printPageDate', '', `<strong>${dateStr}</strong> &nbsp; ${timeStr}`);
@@ -855,48 +1368,73 @@ function _fillPrintArea() {
   const rawUser = up && up.textContent ? up.textContent.trim() : '';
   const exec = rawUser.replace(/^👤\s*/, '').trim() || '—';
   setEl('printExecutor', exec);
+  setEl('printPatientName', valOf('accName'));
+  const ageSex = [valOf('accAge') ? (valOf('accAge') + ' yosh') : '', valOf('accSex')].filter(Boolean).join(', ');
+  setEl('printPatientAge', ageSex);
+  setEl('printPatientWard', valOf('accWard') + (_priority === 'stat' ? (valOf('accWard') ? ' · STAT' : 'STAT') : ''));
+  setEl('printSampleNo', valOf('accSample'));
 
-  const body = document.getElementById('resultBody');
-  const regId = body ? (body.getAttribute('data-registration-id') || '') : '';
-  const prBar = document.getElementById('printRegistrationBar');
-  const prId = document.getElementById('printRegistrationId');
-  if (regId && prBar && prId) {
-    prId.textContent = regId;
-    prBar.style.display = 'flex';
-  } else if (prBar) {
-    prBar.style.display = 'none';
+  const banner = document.getElementById('printKindBanner');
+  if (banner) {
+    banner.className = 'print-kind-banner print-kind-clinic';
+    banner.innerHTML =
+      '<div class="print-kind-kicker">Shifokor uchun</div>' +
+      '<div class="print-kind-title">KLINIK HISOBOT</div>' +
+      '<div class="print-kind-sub">To‘liq morfologiya, AI xulosalari, differensial talqin va tavsiyalar</div>';
   }
 
-  // Raw matn — data-raw-text atributidan olish
-  const rawText = body.getAttribute('data-raw-text') || '';
+  const sec = document.getElementById('printSectionTitle');
+  if (sec) {
+    sec.innerHTML = '<span>🩺</span> KLINIK LABORATORIYA HISOBOTI (to‘liq)';
+  }
 
+  const note = document.getElementById('printClosingNote');
+  if (note) {
+    note.className = 'print-closing-note print-closing-clinic';
+    note.textContent =
+      'Ushbu hujjat shifokor va laborant uchun to‘liq klinik hisobotdir. MedLab morfologiya yordamchisi; yakuniy tashxis, davolash va rasmiy xulosa faqat litsenziyali mutaxassis tomonidan qo‘yiladi.';
+  }
+
+  setEl('printFooterAi', 'Klinik hisobot: MedLab');
+  const copy = document.getElementById('printFooterCopy');
+  if (copy) {
+    copy.innerHTML =
+      '&copy; 2026 Far&#x2018;ona Jamoat Salomatligi Tibbiyot Instituti. Barcha huquqlar himoyalangan. Yakuniy tashxis faqat mutaxassis tomonidan qo&#x2018;yilishi lozim.';
+  }
+
+  const body = document.getElementById('resultBody');
+  const rawText = body.getAttribute('data-raw-text') || '';
   let html;
-  if (rawText.trim()) {
-    html = markdownToHtml(rawText);
+  if (mode === 'patient') {
+    const wraps = body ? body.querySelectorAll('.r-table-wrap') : [];
+    if (wraps.length) {
+      html = Array.from(wraps).map((w) => w.outerHTML).join('');
+    } else {
+      const tables = filterPatientReport(rawText);
+      html = tables
+        ? markdownToHtml(tables, { forPrint: true })
+        : '<p class="print-no-table">Natija jadvali yo‘q. Qayta tahlil qiling.</p>';
+    }
+  } else if (rawText.trim()) {
+    html = markdownToHtml(rawText, { forPrint: true });
   } else {
-    // DOM fallback
     const clone = body.cloneNode(true);
     clone.querySelectorAll('.result-empty,.result-loading').forEach(el => el.remove());
-    let dhtml = clone.innerHTML;
-    dhtml = dhtml.replace(/<div[^>]*class="r-h1[^"]*"[^>]*>([\s\S]*?)<\/div>/g,   '<h1>$1</h1>');
-    dhtml = dhtml.replace(/<div[^>]*class="r-h2[^"]*"[^>]*>([\s\S]*?)<\/div>/g,   '<h2>$1</h2>');
-    dhtml = dhtml.replace(/<div[^>]*class="r-h3[^"]*"[^>]*>([\s\S]*?)<\/div>/g,   '<h3>$1</h3>');
-    dhtml = dhtml.replace(/<div[^>]*class="r-list[^"]*"[^>]*>([\s\S]*?)<\/div>/g, '<li>$1</li>');
-    dhtml = dhtml.replace(/<div[^>]*class="r-warn[^"]*"[^>]*>([\s\S]*?)<\/div>/g, '<p style="color:#92400e;background:#fef9c3;padding:3px 8px;border-left:3px solid #f59e0b">$1</p>');
-    dhtml = dhtml.replace(/<div[^>]*class="r-ok[^"]*"[^>]*>([\s\S]*?)<\/div>/g,   '<p style="color:#14532d;background:#f0fdf4;padding:3px 8px;border-left:3px solid #22c55e">$1</p>');
-    dhtml = dhtml.replace(/<div[^>]*class="r-error[^"]*"[^>]*>([\s\S]*?)<\/div>/g,'<p style="color:#991b1b;background:#fef2f2;padding:3px 8px;border-left:3px solid #ef4444">$1</p>');
-    dhtml = dhtml.replace(/<div[^>]*class="r-line[^"]*"[^>]*>[\s\S]*?<\/div>/g,   '<hr style="border:none;border-top:1px dashed #ccc;margin:5px 0">');
-    dhtml = dhtml.replace(/<div[^>]*class="r-[a-z-]*"[^>]*>([\s\S]*?)<\/div>/g,   '<p>$1</p>');
-    html = dhtml;
+    html = clone.innerHTML;
   }
   document.getElementById('printContent').innerHTML = html || '<p>Natija mavjud emas</p>';
 
   const pm = document.getElementById('printMicroscopeBlock');
   if (pm) {
-    const mh = buildPrintMicroscopeHtml();
-    if (mh) {
-      pm.style.display = 'block';
-      pm.innerHTML = mh;
+    if (mode === 'clinic') {
+      const mh = buildPrintMicroscopeHtml();
+      if (mh) {
+        pm.style.display = 'block';
+        pm.innerHTML = mh;
+      } else {
+        pm.style.display = 'none';
+        pm.innerHTML = '';
+      }
     } else {
       pm.style.display = 'none';
       pm.innerHTML = '';
@@ -904,133 +1442,77 @@ function _fillPrintArea() {
   }
 }
 
-function printResult() {
-  _fillPrintArea();
-  const el = document.getElementById('printArea');
-  el.style.display = 'block';
-  window.print();
-  el.style.display = 'none';
+async function ensureHtml2Pdf() {
+  if (typeof html2pdf === 'function') return true;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    s.async = true;
+    s.onload = () => resolve(true);
+    s.onerror = () => reject(new Error('PDF kutubxonasi yuklanmadi'));
+    document.head.appendChild(s);
+  });
+  return typeof html2pdf === 'function';
 }
 
-function _fillPrintAreaPatient() {
-  const lab = LAB_META[currentLab];
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('uz-UZ', { year: 'numeric', month: 'long', day: 'numeric' });
-  const timeStr = now.toLocaleTimeString('uz-UZ');
-  const setEl = (id, txt, html) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (html) el.innerHTML = html; else el.textContent = txt;
-  };
-  setEl('printPatientLabBadge', `${lab.icon} ${lab.name}`);
-  setEl('printPatientDate', dateStr);
-  setEl('printPatientTime', timeStr);
-  setEl('printPatientLabLine', `${lab.icon} ${lab.name}`);
-  const up = document.getElementById('userPill');
-  const rawUser = up && up.textContent ? up.textContent.trim() : '';
-  const exec = rawUser.replace(/^👤\s*/, '').trim() || '—';
-  setEl('printPatientExecutor', exec);
-  const body = document.getElementById('resultBody');
-  const regId = body ? (body.getAttribute('data-registration-id') || '') : '';
-  const pBar = document.getElementById('printPatientRegistrationBar');
-  const pId = document.getElementById('printPatientRegistrationId');
-  if (regId && pBar && pId) {
-    pId.textContent = regId;
-    pBar.style.display = 'flex';
-  } else if (pBar) {
-    pBar.style.display = 'none';
+async function savePDF(mode) {
+  mode = mode === 'patient' ? 'patient' : 'clinic';
+  try {
+    await ensureHtml2Pdf();
+  } catch (e) {
+    toast('PDF uchun kutubxona yuklanmadi (internetni tekshiring)', 'red');
+    return;
   }
-  const rawText = body.getAttribute('data-raw-text') || '';
-  const pc = document.getElementById('printPatientContent');
-  if (pc) pc.innerHTML = buildPatientPdfHtml(rawText, lab, dateStr, timeStr);
-}
-
-async function savePDFDoctor() {
-  const pdfBtn = document.getElementById('pdfDoctorBtn');
+  _fillPrintArea(mode);
   const el = document.getElementById('printArea');
-  if (!pdfBtn || !el) return;
-  _fillPrintArea();
   el.style.display = 'block';
 
-  const bodyEl = document.getElementById('resultBody');
-  const rid = bodyEl ? bodyEl.getAttribute('data-registration-id') : '';
-  const now = new Date();
-  const fname = rid
-    ? `MedLab_${rid}_shifokor.pdf`
-    : `MedLab_shifokor_${currentLab}_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.pdf`;
-
-  pdfBtn.disabled = true;
-  pdfBtn.textContent = '⏳...';
+  const { fileStamp } = _stampNow();
+  const kind = mode === 'patient' ? 'Tahlil' : 'Klinik';
+  const idPart = currentPublicId ? currentPublicId.replace(/[^\w-]/g, '') : currentLab;
+  const fname = `MedLab_${kind}_${idPart}_${fileStamp}.pdf`;
+  const btn = document.getElementById(mode === 'patient' ? 'pdfPatientBtn' : 'pdfClinicBtn');
+  const prevLabel = btn ? btn.textContent : '';
+  setExportButtonsEnabled(false);
+  if (btn) btn.textContent = '⏳ Saqlanmoqda...';
 
   try {
+    const patient = mode === 'patient';
     await html2pdf()
       .set({
-        margin:       [10, 10, 10, 10],
-        filename:     fname,
-        image:        { type: 'jpeg', quality: 0.93 },
-        html2canvas:  { scale: 1.65, useCORS: true, backgroundColor: '#ffffff', logging: false },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] },
+        margin:      patient ? [8, 10, 8, 10] : [10, 10, 10, 10],
+        filename:    fname,
+        image:       { type: 'jpeg', quality: 0.95 },
+        html2canvas: {
+          scale: patient ? 2.2 : 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          onclone: (doc) => {
+            const root = doc.getElementById('printArea');
+            if (!root) return;
+            root.style.display = 'block';
+            root.querySelectorAll('*').forEach((n) => {
+              n.style.webkitPrintColorAdjust = 'exact';
+              n.style.printColorAdjust = 'exact';
+            });
+          },
+        },
+        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:   patient ? { mode: ['avoid-all'] } : { mode: ['css', 'legacy'] },
       })
-      .from(el)
+      .from(document.getElementById('printArea'))
       .save();
-    toast(`📄 Shifokor PDF: "${fname}"`, 'green');
+    toast(`📄 ${kind} PDF saqlandi: ${fname}`, 'green');
   } catch (e) {
     toast('PDF saqlashda xato: ' + e.message, 'red');
   } finally {
     el.style.display = 'none';
-    pdfBtn.disabled = false;
-    pdfBtn.textContent = 'Shifokor PDF';
+    if (btn) btn.textContent = prevLabel;
+    setExportButtonsEnabled(true);
   }
 }
 
-async function savePDFPatient() {
-  const btn = document.getElementById('pdfPatientBtn');
-  const el = document.getElementById('printAreaPatient');
-  if (!btn || !el) return;
-  _fillPrintAreaPatient();
-  el.style.display = 'block';
-
-  const bodyEl = document.getElementById('resultBody');
-  const rid = bodyEl ? bodyEl.getAttribute('data-registration-id') : '';
-  const now = new Date();
-  const fname = rid
-    ? `MedLab_${rid}_bemor.pdf`
-    : `MedLab_bemor_${currentLab}_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.pdf`;
-
-  btn.disabled = true;
-  btn.textContent = '⏳...';
-
-  try {
-    await html2pdf()
-      .set({
-        margin:       [5, 5, 5, 5],
-        filename:     fname,
-        image:        { type: 'jpeg', quality: 0.9 },
-        html2canvas:  { scale: 1.35, useCORS: true, backgroundColor: '#ffffff', logging: false },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] },
-      })
-      .from(el)
-      .save();
-    toast(`📄 Bemor PDF: "${fname}"`, 'green');
-  } catch (e) {
-    toast('Bemor PDF: ' + e.message, 'red');
-  } finally {
-    el.style.display = 'none';
-    btn.disabled = false;
-    btn.textContent = 'Bemor PDF';
-  }
-}
-
-// ─── Snapshot ────────────────────────────────────────────────────────────────
-async function captureSnapshot() {
-  const res = await api(apiPath('/api/capture'), 'POST');
-  msg('snapMsg', res.message, res.success ? 'green' : 'red');
-  if (res.success) setTimeout(() => msg('snapMsg','',''), 4000);
-}
-
-// ─── Utils ───────────────────────────────────────────────────────────────────
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
@@ -1103,8 +1585,185 @@ function toast(text, color = 'gray') {
   }, 3500);
 }
 
-// ─── Init ────────────────────────────────────────────────────────────────────
+function setPublicId(id) {
+  currentPublicId = String(id || '').trim();
+  const el = document.getElementById('resultPublicId');
+  if (!el) return;
+  if (currentPublicId) {
+    el.textContent = currentPublicId;
+    el.classList.remove('hidden');
+  } else {
+    el.textContent = '';
+    el.classList.add('hidden');
+  }
+}
+
+async function copyPublicId() {
+  if (!currentPublicId) return;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(currentPublicId);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = currentPublicId;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    toast('ID nusxalandi: ' + currentPublicId, 'green');
+  } catch (_) {
+    toast(currentPublicId, 'blue');
+  }
+}
+
+function openHistory(skipLoad) {
+  const ov = document.getElementById('historyOverlay');
+  if (!ov) return;
+  ov.classList.remove('hidden');
+  document.body.classList.add('hist-open');
+  ov.dataset.prevFocus = (document.activeElement && document.activeElement.id) || 'historyBtn';
+  const inp = document.getElementById('histSearch');
+  if (inp) {
+    const hdr = document.getElementById('headerIdSearch');
+    if (hdr && hdr.value && !inp.value) inp.value = hdr.value;
+    setTimeout(() => inp.focus(), 50);
+  }
+  if (!skipLoad) {
+    _histPage = 1;
+    loadHistory();
+  }
+}
+
+function closeHistory(ev) {
+  if (ev && ev.target && ev.target.id !== 'historyOverlay' && ev.type === 'click') return;
+  const ov = document.getElementById('historyOverlay');
+  if (ov) ov.classList.add('hidden');
+  document.body.classList.remove('hist-open');
+  const back = ov && ov.dataset.prevFocus;
+  const el = back && document.getElementById(back);
+  if (el && typeof el.focus === 'function') el.focus();
+}
+
+function headerSearchHistory(ev) {
+  ev.preventDefault();
+  const q = (document.getElementById('headerIdSearch') || {}).value || '';
+  const inp = document.getElementById('histSearch');
+  if (inp) inp.value = q.trim();
+  _histAutoOpen = true;
+  openHistory(true);
+  searchHistory(ev, true);
+}
+
+function searchHistory(ev, alreadyOpen) {
+  if (ev && ev.preventDefault) ev.preventDefault();
+  _histQuery = ((document.getElementById('histSearch') || {}).value || '').trim();
+  _histPage = 1;
+  if (!alreadyOpen) _histAutoOpen = true;
+  if (!alreadyOpen) {
+    const ov = document.getElementById('historyOverlay');
+    if (ov && ov.classList.contains('hidden')) openHistory(true);
+  }
+  loadHistory();
+}
+
+function _histStatus(st, createdAt) {
+  if (st === 'tayyor') return { cls: 'hist-st--ok', label: 'Tayyor' };
+  if (st === 'xato') return { cls: 'hist-st--err', label: 'Xato' };
+  const ts = createdAt ? Date.parse(createdAt) : NaN;
+  if (!Number.isNaN(ts) && (Date.now() - ts) > 20 * 60 * 1000) {
+    return { cls: 'hist-st--err', label: 'Uzildi' };
+  }
+  return { cls: 'hist-st--wait', label: 'Jarayonda' };
+}
+
+function _histSource(src) {
+  return ({ camera: 'Mikroskop', upload: 'Fayl', phone: 'Telefon' })[src] || src || '';
+}
+
+async function loadHistory() {
+  const list = document.getElementById('histList');
+  const meta = document.getElementById('histMeta');
+  if (!list) return;
+  if (_histPage <= 1) list.innerHTML = '<div class="hist-empty">Yuklanmoqda...</div>';
+  const params = new URLSearchParams();
+  if (_histQuery) params.set('q', _histQuery);
+  params.set('page', String(_histPage));
+  const data = await api(apiPath('/api/analyses?' + params.toString()));
+  if (!data || !data.success) {
+    list.innerHTML = `<div class="hist-empty">${esc((data && data.message) || 'Tarix yuklanmadi')}</div>`;
+    if (meta) meta.textContent = '';
+    return;
+  }
+  const rows = data.results || [];
+  if (meta) {
+    meta.textContent = _histQuery
+      ? `${data.count} ta natija — «${_histQuery}»`
+      : `Jami ${data.count} ta tahlil`;
+  }
+  if (!rows.length && _histPage <= 1) {
+    list.innerHTML = `<div class="hist-empty">${_histQuery ? 'Bu ID bo‘yicha tahlil topilmadi' : 'Hali tahlillar yo‘q — birinchi tahlilni qiling'}</div>`;
+    return;
+  }
+  if (_histAutoOpen && data.exact_id && rows.length === 1 && _histQuery) {
+    _histAutoOpen = false;
+    openHistoryRecord(data.exact_id);
+    return;
+  }
+  _histAutoOpen = false;
+  const cards = rows.map((r) => {
+    const st = _histStatus(r.status, r.created_at);
+    const src = _histSource(r.source);
+    return `<button type="button" class="hist-card" data-public-id="${esc(r.public_id)}">
+      <div class="hist-card-top">
+        <span class="hist-id">${esc(r.public_id)}</span>
+        <span class="hist-st ${st.cls}">${st.label}</span>
+      </div>
+      <div class="hist-card-mid">
+        <span>${esc(r.lab_label || r.lab_type)}</span>
+        ${src ? `<span>·</span><span>${esc(src)}</span>` : ''}
+        <span>·</span>
+        <span>${esc(r.created_label || '')}</span>
+      </div>
+      ${r.preview ? `<div class="hist-card-prev">${esc(r.preview)}</div>` : ''}
+    </button>`;
+  }).join('');
+  const more = data.has_more
+    ? '<button type="button" class="hist-card" id="histMoreBtn" onclick="_histPage++; loadHistory()">Yana yuklash</button>'
+    : '';
+  const oldMore = document.getElementById('histMoreBtn');
+  if (oldMore) oldMore.remove();
+  if (_histPage <= 1) list.innerHTML = cards + more;
+  else list.insertAdjacentHTML('beforeend', cards + more);
+}
+
+async function openHistoryRecord(publicId) {
+  const data = await api(apiPath('/api/analyses/' + encodeURIComponent(publicId)));
+  if (!data || !data.success || !data.analysis) {
+    toast((data && data.message) || 'Tahlil ochilmadi', 'red');
+    return;
+  }
+  const rec = data.analysis;
+  closeHistory();
+  renderResult({
+    status: rec.status,
+    text: rec.text,
+    timestamp: rec.created_label,
+    public_id: rec.public_id,
+    lab_type: rec.lab_type,
+  });
+  toast('Tahlil ochildi: ' + rec.public_id, 'green');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeHistory();
+});
+
 async function logoutMedlab() {
+  if (!window.confirm('Tizimdan chiqasizmi?')) return;
   try {
     await api(apiPath('/api/auth/logout'), 'POST', {});
   } catch (_) { /* ignore */ }
@@ -1113,61 +1772,38 @@ async function logoutMedlab() {
 
 async function refreshUserPill() {
   const el = document.getElementById('userPill');
+  if (!el) return;
   const data = await api(apiPath('/api/auth/me'));
-  if (el) {
-    if (data && data.success && data.user && data.user.username) {
-      el.textContent = '👤 ' + data.user.username;
-    } else {
-      el.textContent = '—';
-    }
+  if (data && data.success && data.user && data.user.username) {
+    el.textContent = '👤 ' + data.user.username;
+  } else {
+    el.textContent = '—';
   }
-  /** Profildan daftar maydonlari: hudud, poliklinika №, tur (masalan 7 va OP) */
-  if (!data || !data.success || !data.user) return;
-  const u = data.user;
-  let touched = false;
-  const l = document.getElementById('daftarLocality');
-  if (l && u.hudud_code) {
-      let code = String(u.hudud_code).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
-    if (code.length >= 2) {
-      l.value = code;
-      touched = true;
-    }
-  }
-  const c = document.getElementById('daftarClinic');
-  if (c && u.clinic_no) {
-    const digits = String(u.clinic_no).replace(/\D/g, '').slice(0, 3);
-    if (digits) {
-      c.value = digits;
-      touched = true;
-    }
-  }
-  const t = document.getElementById('daftarType');
-  if (t && u.visit_type) {
-    let vt = String(u.visit_type).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
-    if (vt.length >= 2) {
-      t.value = vt;
-      touched = true;
-    }
-  }
-  if (touched) daftarSaveSettings();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const vf = document.getElementById('videoFeed');
-  if (vf) {
-    const p = vf.getAttribute('data-stream-path') || '/video_feed';
-    vf.src = apiPath(p);
-  }
-  daftarLoadSettings();
-  ['daftarRegion', 'daftarLocality', 'daftarClinic', 'daftarType'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('change', daftarSaveSettings);
-      el.addEventListener('blur', daftarSaveSettings);
-    }
-  });
   refreshUserPill();
-  scanCameras();
+  daftarLoadSettings();
   selectLab('hematology');
   onMicroChange();
+  setSource('upload');
+  updateAnalyzeBtn();
+  tickLabClock();
+  setInterval(tickLabClock, 1000);
+  refreshLabPlatform();
+  ['daftarRegion', 'daftarLocality', 'daftarClinic', 'daftarType'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', () => { daftarSave(); updateResultRegistrationId(); });
+  });
+  ['accName', 'accSample', 'accAge', 'accSex', 'accWard'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', refreshLabPlatform);
+  });
+  const histList = document.getElementById('histList');
+  if (histList) {
+    histList.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-public-id]');
+      if (btn && btn.id !== 'histMoreBtn') openHistoryRecord(btn.getAttribute('data-public-id'));
+    });
+  }
 });

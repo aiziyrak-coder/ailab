@@ -1,4 +1,6 @@
 """Ro'yxatdan o'tish, kirish, chiqish (Django sessiya + DRF)."""
+import logging
+
 from django.contrib.auth import authenticate, login, logout
 from django.http import JsonResponse
 from django.shortcuts import redirect
@@ -15,6 +17,8 @@ from .models import UserProfile
 from .serializers import LoginSerializer, RegisterSerializer
 from .template_mixins import MedlabPublicTemplateMixin
 from .throttling import AuthThrottle
+
+auth_log = logging.getLogger("medlab.auth")
 
 
 def _profile_fields_for_response(user):
@@ -78,6 +82,7 @@ class LoginApiView(APIView):
             request._request, username=username, password=password
         )
         if user is None:
+            auth_log.warning("login_fail username=%s", username)
             return Response(
                 {
                     "success": False,
@@ -91,6 +96,7 @@ class LoginApiView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         login(request._request, user)
+        auth_log.info("login_ok user=%s", user.username)
         return Response(
             {
                 "success": True,
@@ -117,6 +123,7 @@ class RegisterApiView(APIView):
             )
         user = ser.save()
         login(request._request, user)
+        auth_log.info("register_ok user=%s", user.username)
         return Response(
             {
                 "success": True,
@@ -131,7 +138,9 @@ class LogoutApiView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        name = getattr(request.user, "username", "")
         logout(request._request)
+        auth_log.info("logout user=%s", name)
         return Response({"success": True, "message": "Chiqildi"})
 
 
@@ -148,6 +157,7 @@ class MeApiView(APIView):
         )
 
 
+@method_decorator(ensure_csrf_cookie, name="dispatch")
 class AuthCheckView(View):
     """Sessiya tekshiruvi — to'g'ridan-to'g'ri Django (DRF autentifikatsiyasiz)."""
 

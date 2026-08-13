@@ -34,6 +34,16 @@ function csrfHeaders() {
   return t ? { 'X-CSRFToken': t } : {};
 }
 
+async function ensureCsrfCookie() {
+  if (getCookie('csrftoken')) return;
+  try {
+    await fetch(apiPath('/api/auth/check'), {
+      method: 'GET',
+      credentials: apiCredentials(),
+    });
+  } catch (_) { /* cookie keyingi urinishda kelishi mumkin */ }
+}
+
 /** JSON API so'rovlari uchun fetch init */
 function apiFetchInit(method, bodyObj) {
   const m = (method || 'GET').toUpperCase();

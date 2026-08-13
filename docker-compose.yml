@@ -1,9 +1,10 @@
-# MedLab AI + PostgreSQL (namuna). GEMINI_API_KEY ni .env yoki muhitda bering.
+# MedLab AI + PostgreSQL (namuna). OPENAI_API_KEY ni .env yoki muhitda bering.
 # Tashqi port 18000: ko‘p serverlarda 8000 band (boshqa servis yoki runserver).
 # Ishlab chiqarishda odatda systemd+gunicorn (8011) ishlatiladi — Docker bilan aralashtirmang.
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: medlab
       POSTGRES_PASSWORD: medlab
@@ -20,18 +21,27 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "127.0.0.1:18000:8000"
     environment:
       DATABASE_URL: postgresql://medlab:medlab@db:5432/medlab
       DJANGO_DEBUG: "0"
+      DJANGO_ENV: staging
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,web,0.0.0.0
       DJANGO_ADMIN_ENABLED: "0"
-      # Ishlab chiqarishda albatta o'zgartiring (48+ belgi, tasodifiy)
+      # Staging namuna — haqiqiy productionda .env dan 48+ belgi tasodifiy kalit
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL_ID: ${GEMINI_MODEL_ID:-gemini-2.5-flash}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL_ID: ${OPENAI_MODEL_ID:-gpt-4o}
       SESSION_COOKIE_SECURE: "0"
+      GUNICORN_WORKERS: "1"
+      GUNICORN_THREADS: "4"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5)"]
+      interval: 20s
+      timeout: 8s
+      retries: 5
     depends_on:
       db:
         condition: service_healthy

@@ -71,8 +71,8 @@ p.write_text(
             "SESSION_COOKIE_SECURE=1",
             "DJANGO_SECURE_SSL_REDIRECT=0",
             "DJANGO_ADMIN_ENABLED=1",
-            "GEMINI_API_KEY=",
-            "GEMINI_MODEL_ID=gemini-2.5-pro",
+            "OPENAI_API_KEY=",
+            "OPENAI_MODEL_ID=gpt-4o",
         ]
     )
     + "\\n"

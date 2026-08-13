@@ -3,408 +3,352 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#f4f6f9">
+  <meta name="theme-color" content="#1b3a5c">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>MedLab — ZiyrakAi laboratoriya tahlili</title>
+  <title>MedLab — laboratoriya tahlili</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css">
-  <!-- Prod: Django MEDLAB_PUBLIC_API_BASE; lokal: bo'sh (bir xil origin) -->
+  <link rel="stylesheet" href="/static/css/style.css?v=off1">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off1">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
-  <symbol id="icon-microscope" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-    <circle cx="12" cy="12" r="3"/>
-    <path d="M12 2v3M12 19v3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M2 12h3M19 12h3M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/>
-    <path d="M8 12h8" opacity=".5"/>
-  </symbol>
-  <symbol id="icon-sparkle" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2l1.2 4.5L18 8l-4.8 1.5L12 14l-1.2-4.5L6 8l4.8-1.5L12 2zM19 15l.5 2 2 .5-2 .5-.5 2-.5-2-2-.5 2-.5.5-2z"/>
+  <symbol id="icon-microscope" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 21h10"/>
+    <path d="M7 21V15h5l2 6"/>
+    <path d="M8.5 15V8.5"/>
+    <path d="M6 12.5h9"/>
+    <circle cx="15.2" cy="7.2" r="2.6"/>
+    <path d="M15.2 4.6V3.4a1.4 1.4 0 0 1 2.8 0V4.6"/>
+    <path d="M13.1 9.1 9.2 12.2"/>
   </symbol>
 </svg>
 
 <div class="app-root">
 
-  <!-- ═══ HEADER ═══ -->
   <header class="header">
     <div class="header-brand">
       <div class="header-logo-wrap" aria-hidden="true">
         <svg width="22" height="22" aria-hidden="true"><use href="#icon-microscope"/></svg>
       </div>
       <div>
-        <div class="header-title">MedLab AI</div>
-        <div class="header-sub">Klinik laboratoriya • ZiyrakAi mikroskopiyasi</div>
+        <div class="header-kicker">Klinik laboratoriya diagnostikasi</div>
+        <div class="header-title">MedLab</div>
+      </div>
+    </div>
+    <div class="lab-hud" aria-label="Laboratoriya holati">
+      <div class="hud-cell">
+        <span class="hud-k">Bo‘lim</span>
+        <span class="hud-v" id="hudDept">Gematologiya</span>
+      </div>
+      <div class="hud-cell">
+        <span class="hud-k">Bo‘yoq</span>
+        <span class="hud-v" id="hudStain">Giemsa / Romanovskiy</span>
+      </div>
+      <div class="hud-cell hud-mag">
+        <span class="hud-k">Kattalashtirish</span>
+        <span class="hud-v" id="hudMag">1000×</span>
       </div>
     </div>
     <div class="header-status">
+      <form class="header-id-search" onsubmit="headerSearchHistory(event)" autocomplete="off">
+        <input id="headerIdSearch" type="search" placeholder="Tahlil ID: ML-260813-0001" aria-label="Tahlil ID qidirish" />
+        <button type="submit">Qidirish</button>
+      </form>
+      <button type="button" class="btn-history" id="historyBtn" onclick="openHistory()" title="Tahlillar tarixi">Tarix</button>
       <span class="status-pill status-pill--user" id="userPill" title="Joriy foydalanuvchi">—</span>
       <button type="button" class="btn-auth-logout" id="logoutBtn" onclick="logoutMedlab()" title="Chiqish">Chiqish</button>
-      <span class="status-pill" id="connPill">○ Kamera ulanmagan</span>
-      <span class="status-pill pill-ziyrakai" title="Yakuniy qaror shifokor mutaxassisniki">
-        <svg width="14" height="14" style="vertical-align:-2px;margin-right:4px;opacity:.9" aria-hidden="true"><use href="#icon-sparkle"/></svg>
-        ZiyrakAi
-      </span>
+      <span class="status-pill" id="connPill" aria-live="polite">○ Ulanmagan</span>
     </div>
   </header>
+  <div class="official-bar" aria-hidden="true"></div>
 
-  <!-- ═══ LAB TABS ═══ -->
-  <nav class="lab-nav">
-    <button class="lab-tab active" data-lab="hematology" onclick="selectLab('hematology')">
-      <span class="tab-icon">🩸</span>
-      <span class="tab-name">Gematologiya</span>
-      <span class="tab-desc">Qon yoqmasi</span>
-    </button>
-    <button class="lab-tab" data-lab="urine" onclick="selectLab('urine')">
-      <span class="tab-icon">🧪</span>
-      <span class="tab-name">Siydik</span>
-      <span class="tab-desc">Urin mikroskopiya</span>
-    </button>
-    <button class="lab-tab" data-lab="coprology" onclick="selectLab('coprology')">
-      <span class="tab-icon">🦠</span>
-      <span class="tab-name">Koprologiya</span>
-      <span class="tab-desc">Najas tahlili</span>
-    </button>
-    <button class="lab-tab" data-lab="spermogram" onclick="selectLab('spermogram')">
-      <span class="tab-icon">🔵</span>
-      <span class="tab-name">Sperma Analiz</span>
-      <span class="tab-desc">Spermiologiya</span>
-    </button>
-    <button class="lab-tab" data-lab="smear" onclick="selectLab('smear')">
-      <span class="tab-icon">🌸</span>
-      <span class="tab-name">Mazok</span>
-      <span class="tab-desc">Sitologiya + flora alohida</span>
-    </button>
-    <button class="lab-tab" data-lab="csf" onclick="selectLab('csf')">
-      <span class="tab-icon">🧠</span>
-      <span class="tab-name">Likvor</span>
-      <span class="tab-desc">Orqa miya suyuqligi</span>
-    </button>
-    <button class="lab-tab" data-lab="lymph" onclick="selectLab('lymph')">
-      <span class="tab-icon">💠</span>
-      <span class="tab-name">Limfa</span>
-      <span class="tab-desc">Limfa suyuqligi</span>
-    </button>
-    <button class="lab-tab" data-lab="le_cell" onclick="selectLab('le_cell')">
-      <span class="tab-icon">✴️</span>
-      <span class="tab-name">LE-hujayra</span>
-      <span class="tab-desc">Lupus hujayrasi</span>
-    </button>
-    <button class="lab-tab" data-lab="prostata_sok" onclick="selectLab('prostata_sok')">
-      <span class="tab-icon">🔷</span>
-      <span class="tab-name">Prostata SOK</span>
-      <span class="tab-desc">Prostata suyuqligi</span>
-    </button>
-    <button class="lab-tab" data-lab="myelogram" onclick="selectLab('myelogram')">
-      <span class="tab-icon">🦴</span>
-      <span class="tab-name">Miyelogramma</span>
-      <span class="tab-desc">Suyak mozgi qoni</span>
-    </button>
-    <button class="lab-tab" data-lab="blood_parasites" onclick="selectLab('blood_parasites')">
-      <span class="tab-icon">🦟</span>
-      <span class="tab-name">Qon parazitlari</span>
-      <span class="tab-desc">Malariya, mikrofilariya</span>
-    </button>
-    <button class="lab-tab" data-lab="afb_microscopy" onclick="selectLab('afb_microscopy')">
-      <span class="tab-icon">🔬</span>
-      <span class="tab-name">KOCH / AFB</span>
-      <span class="tab-desc">Kislotalik tikanlar</span>
-    </button>
-    <button class="lab-tab" data-lab="mycology" onclick="selectLab('mycology')">
-      <span class="tab-icon">🍄</span>
-      <span class="tab-name">Mikologiya</span>
-      <span class="tab-desc">Chuqur zamburug‘ tahlili</span>
-    </button>
-    <button class="lab-tab" data-lab="effusion_cytology" onclick="selectLab('effusion_cytology')">
-      <span class="tab-icon">💧</span>
-      <span class="tab-name">Effuziya sitologiyasi</span>
-      <span class="tab-desc">Pleura, periton, perikard</span>
-    </button>
-    <button class="lab-tab" data-lab="histology" onclick="selectLab('histology')">
-      <span class="tab-icon">🧫</span>
-      <span class="tab-name">Gistologiya</span>
-      <span class="tab-desc">H&E, biopsiya morfologiyasi</span>
-    </button>
-  </nav>
+  <div class="workbar">
+    <div class="wb-clock">
+      <strong id="wbTime">--:--:--</strong>
+      <span id="wbDate"></span>
+    </div>
+    <div class="wb-station" title="Ish stansiyasi">WS-01 · MIKROSKOP</div>
+    <ol class="wb-flow" id="wbFlow">
+      <li data-step="0" class="on">Qabul</li>
+      <li data-step="1">Preparat</li>
+      <li data-step="2">Mikroskopiya</li>
+      <li data-step="3">Tahlil</li>
+      <li data-step="4">Hisobot</li>
+    </ol>
+    <span class="wb-inst" id="wbInst">IDLE</span>
+    <span class="wb-bsl" id="wbBsl">BSL-2</span>
+    <span class="wb-haz hidden" id="wbHaz" title="Biohazard">BIOHAZARD</span>
+  </div>
 
-  <!-- ═══ MAIN LAYOUT ═══ -->
   <div class="main-layout">
 
-    <!-- ── LEFT PANEL ── -->
     <aside class="left-panel">
 
-      <!-- Fayl yuklash -->
       <div class="card">
-        <div class="card-title">📁 Fayl Yuklash <span class="badge-multi">Ko'p fayl</span></div>
-
-        <div class="upload-zone" id="uploadZone"
-             onclick="document.getElementById('fileInput').click()"
-             ondragover="event.preventDefault();this.classList.add('drag-active')"
-             ondragleave="this.classList.remove('drag-active')"
-             ondrop="handleDrop(event)">
-          <div class="upload-ico" id="uploadIco">📎</div>
-          <div class="upload-main" id="uploadMain">Rasm yoki Video yuklang</div>
-          <div class="upload-hint">Ko'p rasm tanlash mumkin (Ctrl+klik)</div>
-          <div class="upload-hint">JPG · PNG · BMP · MP4 · AVI · MOV · WebM · maks 200 MB</div>
-        </div>
-        <input type="file" id="fileInput" accept="image/*,video/*,.avi,.mp4,.mov,.mkv,.webm"
-               style="display:none" onchange="handleFileSelect(event)" multiple>
-
-        <!-- Yuklangan fayllar ro'yxati -->
-        <div id="filePreview" class="file-preview" style="display:none">
-          <div class="preview-header">
-            <span id="previewCount" class="preview-count"></span>
-            <button class="btn-x" onclick="clearFile()">✕ Hammasini o'chirish</button>
-          </div>
-          <div id="fileList" class="file-list"></div>
-          <!-- Birinchi rasmning preview -->
-          <img id="previewImg" src="" alt="preview" style="display:none">
-          <video id="previewVideo" controls style="display:none;max-width:100%;border-radius:6px;max-height:140px"></video>
+        <div class="card-title"><span class="step-num">1</span> Preparat / bo‘lim</div>
+        <select id="labSelect" class="lab-select" onchange="selectLab(this.value)" aria-label="Tahlil turi">
+          <option value="hematology">🩸 Gematologiya — qon yoqmasi</option>
+          <option value="urine">🧪 Siydik — urin mikroskopiya</option>
+          <option value="coprology">🧫 Koprologiya — najas</option>
+          <option value="spermogram">🫧 Sperma analiz</option>
+          <option value="smear">🌸 Mazok — sitologiya + flora</option>
+          <option value="csf">🧠 Likvor — orqa miya suyuqligi</option>
+          <option value="lymph">🟣 Limfa suyuqligi</option>
+          <option value="le_cell">✴️ LE-hujayra</option>
+          <option value="prostata_sok">🟠 Prostata SOK</option>
+          <option value="myelogram">🦴 Miyelogramma</option>
+          <option value="blood_parasites">🦟 Qon parazitlari</option>
+          <option value="afb_microscopy">🫁 KOCH / AFB</option>
+          <option value="mycology">🍄 Mikologiya</option>
+          <option value="dermatology">🧴 Dermatologiya — teri / dermoskopiya</option>
+          <option value="derm_microscopy">🕷️ Teri qirindisi — KOH, kanal, Tzanck</option>
+          <option value="effusion_cytology">💧 Effuziya sitologiyasi</option>
+          <option value="histology">🧬 Gistologiya — to‘qima / H&E</option>
+        </select>
+        <p class="lab-brief" id="labBrief">Bo‘yalgan qon yoqmasi: eritrotsit, leykosit formulasi, trombotsit.</p>
+        <div class="lab-checks" id="labChecks" aria-label="Shu tahlilda nima ko‘riladi"></div>
+        <div class="proto-row" id="protoRow" aria-label="Protokol">
+          <span id="protoProtocol">Giemsa 15–20 daq</span>
+          <span id="protoFields">10–20 maydon</span>
+          <span id="protoIllum">Yorug‘ maydon</span>
         </div>
       </div>
 
-      <!-- Mikroskop holati -->
+      <div class="card">
+        <div class="card-title"><span class="step-num">2</span> Yoqma manbasi</div>
+
+        <div class="src-tabs" role="tablist" aria-label="Namuna manbasi">
+          <button type="button" class="src-tab active" data-src="upload" role="tab" aria-selected="true" onclick="setSource('upload')">📎 Rasm yuklash</button>
+          <button type="button" class="src-tab" data-src="phone" role="tab" aria-selected="false" onclick="setSource('phone')">📱 Telefonni ulash</button>
+          <button type="button" class="src-tab" data-src="scope" role="tab" aria-selected="false" onclick="setSource('scope')">🔬 Mikroskopni ulash</button>
+        </div>
+
+        <div id="paneUpload">
+          <div class="upload-zone" id="uploadZone" role="button" tabindex="0"
+               aria-label="Rasm yoki video yuklash"
+               onclick="document.getElementById('fileInput').click()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('fileInput').click();}"
+               ondragover="event.preventDefault();this.classList.add('drag-active')"
+               ondragleave="this.classList.remove('drag-active')"
+               ondrop="handleDrop(event)">
+            <div class="upload-ico" id="uploadIco">🩸</div>
+            <div class="upload-main" id="uploadMain">Qon yoqmasi rasmini yuklang</div>
+            <div class="upload-hint" id="uploadHint">Giemsa / Romanovskiy · 40× yoki 100× immersiya</div>
+          </div>
+          <input type="file" id="fileInput" accept="image/*,video/*,.avi,.mp4,.mov,.mkv,.webm"
+                 style="display:none" onchange="handleFileSelect(event)" multiple>
+          <div id="filePreview" class="file-preview" style="display:none">
+            <div class="preview-header">
+              <span id="previewCount" class="preview-count"></span>
+              <button class="btn-x" onclick="clearFile()">✕ Tozalash</button>
+            </div>
+            <div id="fileList" class="file-list"></div>
+          </div>
+        </div>
+
+        <div id="panePhone" style="display:none">
+          <p class="src-hint" id="phoneHint">Telefonni mikroskop okulyariga mahkam tuting — yoqma kadr.</p>
+          <div class="input-row">
+            <select id="phoneSelect">
+              <option value="">— Telefon / webcam tanlang —</option>
+            </select>
+            <button class="btn-icon" onclick="scanCameras()" title="Yangilash" aria-label="Kameralarni yangilash">⟳</button>
+          </div>
+          <div class="btn-pair">
+            <button class="btn btn-green" id="phoneStartBtn" onclick="startLive('phone')">▶ Yoqish</button>
+            <button class="btn btn-red" id="phoneStopBtn" onclick="stopCamera()" disabled>■ O‘chirish</button>
+          </div>
+          <div id="phoneMsg" class="info-msg"></div>
+        </div>
+
+        <div id="paneScope" style="display:none">
+          <p class="src-hint" id="scopeHint">Yorug‘ maydon + immersiya moyi. 100× obyektiv tavsiya.</p>
+          <div id="scopeDriverBox" class="driver-warn" style="display:none"></div>
+          <div class="input-row">
+            <select id="scopeSelect">
+              <option value="">— Mikroskop tanlang —</option>
+            </select>
+            <button class="btn-icon" onclick="scanCameras()" title="Yangilash" aria-label="Mikroskoplarni yangilash">⟳</button>
+          </div>
+          <div class="btn-pair">
+            <button class="btn btn-green" id="scopeStartBtn" onclick="startLive('scope')">▶ Yoqish</button>
+            <button class="btn btn-red" id="scopeStopBtn" onclick="stopCamera()" disabled>■ O‘chirish</button>
+          </div>
+          <div id="scopeMsg" class="info-msg"></div>
+        </div>
+      </div>
+
       <div class="card micro-card">
-        <div class="micro-card-head">
-          <span class="micro-card-icon">🔬</span>
-          <div>
-            <div class="card-title micro-card-title">Mikroskop holati</div>
-            <p class="micro-hint">Okulyar va obyektiv ro‘yxatidan tanlov qiling — umumiy kattalashtirish avtomatik hisoblanadi (standart qiymatlar oldindan tanlangan; kerak bo‘lsa o‘zgartiring).</p>
-          </div>
-        </div>
-
-        <div class="micro-grid">
-          <div class="micro-field">
-            <label for="microOcularSel">Okulyar</label>
-            <div class="micro-inline">
-              <select id="microOcularSel" class="micro-select" onchange="onMicroChange()">
-                <option value="">— tanlang —</option>
-                <option value="5×">5×</option>
-                <option value="8×">8×</option>
-                <option value="10×" selected>10×</option>
-                <option value="12.5×">12.5×</option>
-                <option value="15×">15×</option>
-                <option value="16×">16×</option>
-                <option value="20×">20×</option>
-                <option value="__custom__">Boshqa…</option>
-              </select>
-              <input type="text" id="microOcularInp" class="micro-custom-inp" placeholder="Masalan: 10×" style="display:none" oninput="onMicroChange()">
-            </div>
-          </div>
-
-          <div class="micro-field">
-            <label for="microObjSel">Obyektiv</label>
-            <div class="micro-inline">
-              <select id="microObjSel" class="micro-select" onchange="onMicroChange()">
-                <option value="">— tanlang —</option>
-                <option value="4×">4× (skaner)</option>
-                <option value="10×">10×</option>
-                <option value="20×">20×</option>
-                <option value="40×" selected>40×</option>
-                <option value="60×">60×</option>
-                <option value="100× (immersion)">100× (immersion / moy)</option>
-                <option value="100× (quruq)">100× (quruq)</option>
-                <option value="__custom__">Boshqa…</option>
-              </select>
-              <input type="text" id="microObjInp" class="micro-custom-inp" placeholder="Masalan: 40×" style="display:none" oninput="onMicroChange()">
-            </div>
-          </div>
-        </div>
-
-        <div class="micro-total-banner" id="microTotalBanner" title="Okulyar × obyektiv (yuqoridagi tanlovlardan)">
-          <span class="micro-total-label">Umumiy kattalashtirish</span>
-          <span class="micro-total-value" id="microTotalBadge">—</span>
-        </div>
-
+        <div class="card-title" id="microCardTitle"><span class="step-num">3</span> Kattalashtirish · immersiya</div>
         <div class="micro-grid micro-grid-2">
           <div class="micro-field">
-            <label for="microCondenserSel">Kondensor / diyafragma</label>
-            <select id="microCondenserSel" class="micro-select">
-              <option value="">— ixtiyoriy —</option>
-              <option value="Ochiq (pastki yoritish)">Ochiq (pastki yoritish)</option>
-              <option value="Yopilgan / diyafragma tor">Yopilgan / diyafragma tor</option>
-              <option value="NA 0.65">NA 0.65</option>
-              <option value="NA 1.25 (moy)">NA 1.25 (moy)</option>
+            <label for="microOcularSel">Okulyar</label>
+            <select id="microOcularSel" class="micro-select" onchange="onMicroChange()">
+              <option value="10×" selected>10×</option>
+              <option value="5×">5×</option>
+              <option value="15×">15×</option>
+              <option value="20×">20×</option>
             </select>
           </div>
           <div class="micro-field">
-            <label for="microIllumSel">Yoritish</label>
-            <select id="microIllumSel" class="micro-select">
-              <option value="">— ixtiyoriy —</option>
-              <option value="Pastki (transmitted)">Pastki (transmitted)</option>
-              <option value="Yuqori (reflected)">Yuqori (reflected)</option>
-              <option value="LED">LED</option>
-              <option value="Galogensimon">Galogensimon</option>
+            <label for="microObjSel">Obyektiv</label>
+            <select id="microObjSel" class="micro-select" onchange="onMicroChange()">
+              <option value="40×">40×</option>
+              <option value="4×">4×</option>
+              <option value="10×">10×</option>
+              <option value="20×">20×</option>
+              <option value="100× (immersion)" selected>100× (moy)</option>
             </select>
           </div>
         </div>
-
-        <div class="micro-field">
-          <label for="microNotes">Qisqa izoh (ixtiyoriy)</label>
-          <input type="text" id="microNotes" class="micro-notes-inp" placeholder="Masalan: May-Grynwald bo‘yalgan yoqma" maxlength="200">
+        <div class="micro-total-banner" id="microTotalBanner">
+          <span class="micro-total-label">Umumiy</span>
+          <span class="micro-total-value" id="microTotalBadge">1000×</span>
         </div>
       </div>
 
-      <!-- Kamera -->
       <div class="card">
-        <div class="card-title">📷 Kamera</div>
-        <div class="input-row">
-          <select id="camSelect">
-            <option value="">— Kamera tanlang —</option>
-          </select>
-          <button class="btn-icon" onclick="scanCameras()" title="Yangilash">⟳</button>
-        </div>
-        <div class="btn-pair">
-          <button class="btn btn-green" id="startBtn" onclick="startCamera()">▶ Yoqish</button>
-          <button class="btn btn-red"   id="stopBtn"  onclick="stopCamera()" disabled>■ O'chirish</button>
-        </div>
-        <div id="camMsg" class="info-msg"></div>
-      </div>
-
-      <!-- Daftar identifikatsiyasi (viloyat • hudud • poliklinika • sana • tahlil • tartib) -->
-      <div class="card daftar-card">
-        <div class="card-title">📒 Daftar identifikatsiyasi</div>
-        <p class="daftar-hint">Har yangi tahlil uchun avtomatik №: viloyat + hudud + poliklinika + tur + sana (kunoyyil) + tahlil qisqartmasi + tartib.</p>
-        <div class="daftar-grid">
-          <div class="daftar-field">
-            <label for="daftarRegion">Viloyat kodi</label>
-            <input type="text" id="daftarRegion" class="daftar-inp" maxlength="3" placeholder="40" autocomplete="off">
-          </div>
-          <div class="daftar-field">
-            <label for="daftarLocality">Hudud kodi</label>
-            <input type="text" id="daftarLocality" class="daftar-inp" maxlength="16" placeholder="FSH yoki QOQ" title="Roʻyxatdan oʻtishda tanlangan hudud kodi (2–16 belgi)" autocomplete="off">
-          </div>
-          <div class="daftar-field">
-            <label for="daftarClinic">Poliklinika №</label>
-            <input type="text" id="daftarClinic" class="daftar-inp" maxlength="3" placeholder="7" autocomplete="off">
-          </div>
-          <div class="daftar-field">
-            <label for="daftarType">Tur (masalan OP)</label>
-            <input type="text" id="daftarType" class="daftar-inp" maxlength="3" placeholder="OP" title="Oylaviy poliklinika" autocomplete="off">
-          </div>
-        </div>
-      </div>
-
-      <!-- Maxsus so'rov -->
-      <div class="card">
-        <div class="card-title">💬 Maxsus So'rov (ixtiyoriy)</div>
-        <textarea id="customPrompt" rows="2"
-          placeholder="O'z so'rovingizni kiriting yoki bo'sh qoldiring — avtomatik tahlil bo'ladi..."></textarea>
-      </div>
-
-      <!-- Tahlil tugmalari -->
-      <div class="card">
-        <div class="card-title" id="labTitle">🩸 Gematologiya Tahlili</div>
-
-        <button class="btn btn-ziyrakai" id="analyzeFileBtn" onclick="analyzeFile()" disabled>
-          ✨ Faylni Tahlil Qil
+        <button class="btn btn-ziyrakai" id="analyzeBtn" onclick="analyze()" disabled>
+          ✨ Yoqmani tahlil qil
         </button>
-        <button class="btn btn-blue" id="analyzeCamBtn" onclick="analyzeCamera()" disabled>
-          📷 Kamera Kadrini Tahlil Qil
-        </button>
-
-        <div id="analyzeStatus" class="analyze-status"></div>
-      </div>
-
-      <!-- Snapshot -->
-      <div class="card">
-        <button class="btn btn-outline" onclick="captureSnapshot()">💾 Kamera kadrini saqlash</button>
-        <div id="snapMsg" class="info-msg"></div>
+        <div id="analyzeStatus" class="analyze-status" aria-live="polite"></div>
       </div>
     </aside>
 
-    <!-- ── CENTER PANEL ── -->
     <div class="center-panel">
-
-      <!-- View switcher -->
-      <div class="view-switch">
-        <button class="vsw active" id="vswCamera"   onclick="switchView('camera')">📷 Kamera</button>
-        <button class="vsw"         id="vswUploaded" onclick="switchView('uploaded')">🖼 Yuklangan</button>
+      <div class="stage-rail">
+        <div class="slide-chip">
+          <span class="slide-chip-frost" id="slideFrostCode">HEMA</span>
+          <span class="slide-chip-body">
+            <b id="slideName">Qon yoqmasi</b>
+            <em id="slideStain">Giemsa / Romanovskiy</em>
+            <strong id="slideMag">1000×</strong>
+          </span>
+        </div>
+        <div class="obj-turret" id="objTurret" title="Obyektiv">
+          <span data-obj="4">4×</span>
+          <span data-obj="10">10×</span>
+          <span data-obj="20">20×</span>
+          <span data-obj="40">40×</span>
+          <span data-obj="100" class="on">100×</span>
+        </div>
       </div>
-
-      <!-- Kamera view -->
-      <div class="media-box" id="boxCamera">
-        <div id="microContextChip" class="micro-context-chip hidden" aria-live="polite"></div>
-        <img id="videoFeed" src="" alt="Kamera" data-stream-path="/video_feed">
+      <div class="media-box" id="mediaBox">
+        <span class="opt-fiducial nw" aria-hidden="true"></span>
+        <span class="opt-fiducial ne" aria-hidden="true"></span>
+        <span class="opt-fiducial sw" aria-hidden="true"></span>
+        <span class="opt-fiducial se" aria-hidden="true"></span>
+        <div class="opt-iris" aria-hidden="true"></div>
+        <div class="opt-lamp" aria-hidden="true"></div>
+        <div class="opt-scale" aria-hidden="true"></div>
+        <img id="videoFeed" src="" alt="Jonli tasvir" data-stream-path="/video_feed" style="display:none">
+        <div class="media-center" id="uploadedContent" style="display:none"></div>
+        <div class="media-scan" aria-hidden="true"></div>
         <div class="media-overlay" id="camOverlay">
           <div class="overlay-content">
-            <div class="ov-icon">📷</div>
-            <p>Chap paneldan kamera yoqing</p>
+            <p id="overlayText">Qon yoqmasini yuklang</p>
+            <p class="ov-lab-hint">Mikroskop stoli · preparat / yoqma</p>
           </div>
         </div>
-        <div class="analyzing-overlay hidden" id="analyzeOv1">
-          <div class="spinner"></div><span>ZiyrakAi tahlil qilmoqda...</span>
+        <div class="analyzing-overlay hidden" id="analyzeOv">
+          <div class="lab-scope-anim" aria-hidden="true">
+            <span class="scope-ring r1"></span>
+            <span class="scope-ring r2"></span>
+            <span class="scope-ring r3"></span>
+            <span class="scope-core"></span>
+          </div>
+          <div class="spinner"></div>
+          <span>Mikroskopiya o‘qilmoqda...</span>
         </div>
       </div>
-
-      <!-- Yuklangan fayl view -->
-      <div class="media-box" id="boxUploaded" style="display:none">
-        <div id="microContextChip2" class="micro-context-chip hidden" aria-live="polite"></div>
-        <div class="media-center" id="uploadedContent">
-          <div class="overlay-content">
-            <div class="ov-icon">📎</div>
-            <p>Rasm yoki video yuklang</p>
-          </div>
-        </div>
-        <div class="analyzing-overlay hidden" id="analyzeOv2">
-          <div class="spinner"></div><span>ZiyrakAi tahlil qilmoqda...</span>
-        </div>
+      <div class="stage-toolbar">
+        <span class="st-illum" id="stIllum">Yorug‘ maydon</span>
+        <span class="st-oil hidden" id="stOil">Immersiya moyi</span>
+        <span class="st-live" id="stLive">IDLE</span>
+        <span class="st-field">Maydon <b id="fieldN">0</b></span>
+        <button type="button" class="st-btn" onclick="addMicField()">+ Maydon</button>
       </div>
     </div>
 
-    <!-- ── RIGHT PANEL (Natija) ── -->
-    <div class="right-panel">
+    <div class="right-panel report-sheet">
+      <div class="report-banner">Laboratoriya hisoboti</div>
+      <form class="acc-form" autocomplete="off" onsubmit="return false;">
+        <label>F.I.Sh. <input id="accName" maxlength="120" placeholder="Bemor familiyasi, ismi"></label>
+        <label>Namuna № <input id="accSample" maxlength="32" placeholder="NP-001"></label>
+        <label>Yosh <input id="accAge" type="number" min="0" max="120" placeholder="—"></label>
+        <label>Jins
+          <select id="accSex">
+            <option value="">—</option>
+            <option value="Erkak">Erkak</option>
+            <option value="Ayol">Ayol</option>
+          </select>
+        </label>
+        <label class="acc-span">Bo‘lim / manzil <input id="accWard" maxlength="80" placeholder="Masalan: terapiya"></label>
+        <label>Viloyat <input id="daftarRegion" maxlength="3" placeholder="40"></label>
+        <label>Hudud <input id="daftarLocality" maxlength="16" placeholder="FSH"></label>
+        <label>Pol. № <input id="daftarClinic" maxlength="3" placeholder="7"></label>
+        <label>Tur <input id="daftarType" maxlength="3" placeholder="OP"></label>
+        <div class="prio-row acc-span">
+          <button type="button" class="prio on" data-prio="routine" onclick="setPriority('routine')">Oddiy</button>
+          <button type="button" class="prio prio-stat" data-prio="stat" onclick="setPriority('stat')">STAT</button>
+          <span class="case-pill" id="caseStatus">KUTILMOQDA</span>
+        </div>
+      </form>
+      <div class="report-meta-grid">
+        <div><span>Bo‘lim</span><b id="reportDept">Gematologiya</b></div>
+        <div><span>Preparat</span><b id="reportSpecimen">Qon yoqmasi</b></div>
+        <div><span>Bo‘yoq</span><b id="reportStain">Giemsa</b></div>
+        <div><span>MAG</span><b id="reportMag">1000×</b></div>
+      </div>
       <div class="result-header">
         <div class="result-title">
           <span id="resultLabIcon">🩸</span>
           <span id="resultLabName">Gematologiya Natijasi</span>
+          <button type="button" id="resultPublicId" class="result-id hidden" title="ID ni nusxalash" onclick="copyPublicId()"></button>
         </div>
-        <div id="resultRegRow" class="result-reg-row hidden" title="Laboratoriya daftariga identifikatsiya raqami">
-          <span class="result-reg-label">Daftar identifikatsiya №</span>
+        <div id="resultRegRow" class="result-reg-row hidden" title="Daftar identifikatsiya raqami">
+          <span class="result-reg-label">Daftar №</span>
           <code id="resultRegId" class="result-reg-id"></code>
         </div>
         <div class="result-meta">
           <span id="resultTs" class="result-ts"></span>
-          <button class="btn-small btn-sm-clear" onclick="clearResult()">🗑 Tozalash</button>
-          <span class="result-pdf-group" title="Toʻliq tahlil va blanka">
-            <button class="btn-small btn-sm-pdf" onclick="savePDFDoctor()" id="pdfDoctorBtn" disabled>Shifokor PDF</button>
-            <button class="btn-small btn-sm-pdf btn-sm-pdf-patient" onclick="savePDFPatient()" id="pdfPatientBtn" disabled>Bemor PDF</button>
-          </span>
-          <button class="btn-small btn-sm-print" onclick="printResult()" id="printBtn" disabled>🖨 Chop</button>
+          <div class="result-actions">
+            <button class="btn-small btn-sm-clear" onclick="clearResult()">Tozalash</button>
+            <button class="btn-small btn-sm-ok" id="validateBtn" onclick="validateReport()" disabled title="Laborant tasdiqlashi">Tasdiqlash</button>
+            <button class="btn-small btn-sm-pdf btn-sm-pdf-clinic" onclick="savePDF('clinic')" id="pdfClinicBtn" disabled title="Shifokor uchun: to‘liq AI hisobot, xulosa va tavsiyalar">Klinik PDF</button>
+            <button class="btn-small btn-sm-pdf btn-sm-pdf-patient" onclick="savePDF('patient')" id="pdfPatientBtn" disabled title="Bemor uchun: faqat tahlil natijalari">Tahlil PDF</button>
+          </div>
         </div>
       </div>
       <div class="result-body" id="resultBody">
         <div class="result-empty">
-          <div class="re-icon">📋</div>
-          <p>Tahlil natijasi shu yerda ko'rinadi</p>
-          <p class="re-hint">Rasm/video yuklang yoki kamera yoqing,<br>so'ng tahlil tugmasini bosing</p>
+          <div class="re-icon">🩸</div>
+          <p>Gematologiya kutilmoqda</p>
+          <p class="re-hint">Bo‘yalgan qon yoqmasi. Tavsiya: 100× immersiya.</p>
         </div>
       </div>
     </div>
 
-  </div><!-- /main-layout -->
+  </div>
 
-  <!-- ═══ APP FOOTER ═══ -->
   <footer class="app-footer">
     <span class="app-footer-logo">🔬</span>
     <span class="app-footer-text">
-      &copy; 2026 <strong>Far&#x2018;ona Jamoat Salomatligi Tibbiyot Instituti</strong> &nbsp;|&nbsp;
-      ZiyrakAi • MedLab v2.0 &nbsp;|&nbsp; Barcha huquqlar himoyalangan
+      Klinik laboratoriya diagnostikasi · &copy; 2026 <strong>Far&#x2018;ona Jamoat Salomatligi Tibbiyot Instituti</strong>
     </span>
-    <span class="app-footer-right">Ferghana Medical Institute of Public Health</span>
+    <span class="app-footer-right">MedLab · <span id="ftStation">WS-01</span> · <span id="ftClock"></span></span>
   </footer>
 
-</div><!-- /app-root -->
+</div>
 
-<!-- Print / PDF template -->
-<div id="printArea" style="display:none">
+<div id="printArea" style="display:none" data-print-mode="clinic">
   <div class="print-page">
 
-    <!-- ═══ HEADER ═══ -->
     <div class="print-clinic-header">
       <div class="print-logo-row">
         <img src="/static/logo.png" alt="Logo" class="print-logo-img">
@@ -412,57 +356,54 @@
           <div class="print-clinic-uz">FAR&#x2019;ONA JAMOAT SALOMATLIGI TIBBIYOT INSTITUTI</div>
           <div class="print-clinic-ru">Ферганский медицинский институт общественного здоровья</div>
           <div class="print-clinic-en">Ferghana Medical Institute of Public Health</div>
-          <div class="print-clinic-dept">Klinik Laboratoriya Diagnostikasi Bo'limi • ZiyrakAi mikroskopiya tahlili</div>
+          <div class="print-clinic-dept">Klinik Laboratoriya Diagnostikasi Bo'limi</div>
         </div>
       </div>
       <div class="print-header-divider"></div>
 
-      <div id="printRegistrationBar" class="print-registration-bar" style="display:none">
-        <span class="print-reg-bar-label">Daftar identifikatsiya №</span>
-        <span id="printRegistrationId" class="print-reg-bar-value"></span>
+      <div id="printKindBanner" class="print-kind-banner print-kind-clinic">
+        <div class="print-kind-kicker">Shifokor uchun</div>
+        <div class="print-kind-title">KLINIK HISOBOT</div>
+        <div class="print-kind-sub">To‘liq morfologiya, AI xulosalari, differensial talqin va tavsiyalar</div>
       </div>
 
       <div class="print-doc-info">
         <div class="print-doc-badge" id="printLabBadge">🩸 Gematologiya Tahlili</div>
         <div class="print-doc-meta">
+          <span>🆔 <b>ID:</b> <span id="printPublicId">—</span></span>
           <span>📅 <b>Sana:</b> <span id="printDate"></span></span>
           <span>🕐 <b>Vaqt:</b> <span id="printTime"></span></span>
-          <span>✅ <b>Holat:</b> Tahlil bajarildi</span>
         </div>
       </div>
 
-      <div class="print-reg-banner" role="note">
-        <div class="print-reg-title">Oʻzbekiston Respublikasi — klinik laboratoriya hujjati (blanka)</div>
-        <div class="print-reg-sub">Meʼyoriy hujjatlar va tibbiy muassasa ichki tartibiga mos laboratoriya natijasi chop etish / печать результата лабораторных исследований</div>
-      </div>
       <div class="print-patient-sheet" aria-label="Bemor va namuna rekvizitlari">
         <div class="print-ps-row">
           <div class="print-ps-field print-ps-grow">
             <span class="print-ps-lbl">Bemorning F.I.Sh. / Ф.И.О. пациента</span>
-            <div class="print-ps-line" contenteditable="false"></div>
+            <div class="print-ps-line" id="printPatientName" contenteditable="false"></div>
           </div>
           <div class="print-ps-field print-ps-narrow">
-            <span class="print-ps-lbl">Tugʻilgan sanasi / Дата рождения</span>
-            <div class="print-ps-line"></div>
+            <span class="print-ps-lbl">Yosh, jins / Возраст, пол</span>
+            <div class="print-ps-line" id="printPatientAge"></div>
           </div>
         </div>
         <div class="print-ps-row">
           <div class="print-ps-field print-ps-grow">
             <span class="print-ps-lbl">Manzil, boʻlim / Адрес, отделение</span>
-            <div class="print-ps-line"></div>
+            <div class="print-ps-line" id="printPatientWard"></div>
           </div>
           <div class="print-ps-field print-ps-narrow">
             <span class="print-ps-lbl">Namuna № / № пробы</span>
-            <div class="print-ps-line"></div>
+            <div class="print-ps-line" id="printSampleNo"></div>
           </div>
         </div>
         <div class="print-ps-row">
           <div class="print-ps-field print-ps-half">
-            <span class="print-ps-lbl">Tahlil turi (blankada) / Вид исследования</span>
+            <span class="print-ps-lbl">Tahlil turi / Вид исследования</span>
             <div class="print-ps-line print-ps-line--muted" id="printLabLine"></div>
           </div>
           <div class="print-ps-field print-ps-half">
-            <span class="print-ps-lbl">Tizim foydalanuvchisi (login) / Пользователь</span>
+            <span class="print-ps-lbl">Foydalanuvchi / Пользователь</span>
             <div class="print-ps-line print-ps-line--muted" id="printExecutor"></div>
           </div>
         </div>
@@ -471,13 +412,16 @@
 
     <div id="printMicroscopeBlock" class="print-micro-block" style="display:none"></div>
 
-    <!-- ═══ NATIJA ═══ -->
-    <div class="print-section-title">
-      <span>📋</span> LABORATORIYA TAHLILI NATIJALARI
+    <div class="print-section-title" id="printSectionTitle">
+      <span>🩺</span> KLINIK LABORATORIYA HISOBOTI (to‘liq)
     </div>
     <div id="printContent" class="print-content"></div>
 
-    <!-- ═══ IMZO ═══ -->
+    <div id="printClosingNote" class="print-closing-note print-closing-clinic">
+      Ushbu hujjat shifokor va laborant uchun to‘liq klinik hisobotdir. MedLab morfologiya yordamchisi;
+      yakuniy tashxis, davolash va rasmiy xulosa faqat litsenziyali mutaxassis tomonidan qo‘yiladi.
+    </div>
+
     <div class="print-sign-row">
       <div class="print-sign-box">
         <div class="print-sign-line"></div>
@@ -487,13 +431,12 @@
         <div class="print-sign-line"></div>
         <div class="print-sign-label">Shifokor imzosi</div>
       </div>
-      <div class="print-sign-box">
+      <div class="print-sign-box" id="printSignMudur">
         <div class="print-sign-line"></div>
         <div class="print-sign-label">Mudur imzosi / M.O'.</div>
       </div>
     </div>
 
-    <!-- ═══ FOOTER ═══ -->
     <div class="print-footer">
       <div class="print-footer-divider"></div>
       <div class="print-footer-main">
@@ -506,98 +449,38 @@
         </div>
         <div class="print-footer-right">
           <div id="printPageDate" class="print-footer-date"></div>
-          <div class="print-footer-ai">Tahlil: ZiyrakAi (MedLab v2.0)</div>
+          <div id="printFooterAi" class="print-footer-ai">Klinik hisobot: MedLab</div>
         </div>
       </div>
-      <div class="print-footer-copy">
+      <div id="printFooterCopy" class="print-footer-copy">
         &copy; 2026 Far&#x2018;ona Jamoat Salomatligi Tibbiyot Instituti. Barcha huquqlar himoyalangan.
-        Ushbu hujjat faqat tibbiy ma&#x2018;lumot maqsadida tayyorlangan. Yakuniy tashxis faqat mutaxassis tomonidan qo&#x2018;yilishi lozim.
+        Yakuniy tashxis faqat mutaxassis tomonidan qo&#x2018;yilishi lozim.
       </div>
     </div>
 
-  </div><!-- /print-page -->
+  </div>
 </div>
 
-<!-- Bemor uchun qisqa PDF (asosan jadval, A4 bitta sahifa) -->
-<div id="printAreaPatient" style="display:none">
-  <div class="print-page print-page--patient">
-
-    <div class="print-clinic-header print-clinic-header--patient">
-      <div class="print-logo-row print-logo-row--patient">
-        <img src="/static/logo.png" alt="" class="print-logo-img print-logo-img--patient">
-        <div class="print-header-text">
-          <div class="print-clinic-uz print-clinic-uz--patient">FAR&#x2019;ONA JAMOAT SALOMATLIGI TIBBIYOT INSTITUTI</div>
-          <div class="print-clinic-ru print-clinic-ru--patient">Ферганский медицинский институт общественного здоровья</div>
-          <div class="print-patient-doc-title">Bemor uchun qisqa laboratoriya natijasi / Краткий результат для пациента</div>
-        </div>
+<div id="historyOverlay" class="hist-overlay hidden" onclick="closeHistory(event)">
+  <aside class="hist-drawer" role="dialog" aria-modal="true" aria-labelledby="histTitle" onclick="event.stopPropagation()">
+    <div class="hist-head">
+      <div>
+        <h2 id="histTitle">Tahlillar tarixi</h2>
+        <p class="hist-sub">Har bir tahlilning ID raqami bor — shu ID bo‘yicha qidiring</p>
       </div>
-      <div class="print-header-divider print-header-divider--patient"></div>
-
-      <div id="printPatientRegistrationBar" class="print-registration-bar print-registration-bar--patient" style="display:none">
-        <span class="print-reg-bar-label">Daftar identifikatsiya №</span>
-        <span id="printPatientRegistrationId" class="print-reg-bar-value"></span>
-      </div>
-
-      <div class="print-doc-info print-doc-info--patient">
-        <div class="print-doc-badge" id="printPatientLabBadge">—</div>
-        <div class="print-doc-meta print-doc-meta--patient">
-          <span><b>Sana:</b> <span id="printPatientDate"></span></span>
-          <span><b>Vaqt:</b> <span id="printPatientTime"></span></span>
-        </div>
-      </div>
+      <button type="button" class="hist-close" onclick="closeHistory()" aria-label="Yopish">✕</button>
     </div>
-
-    <div class="print-patient-sheet print-patient-sheet--patientpdf" aria-label="Bemor rekvizitlari">
-      <div class="print-ps-row print-ps-row--patient">
-        <div class="print-ps-field print-ps-grow">
-          <span class="print-ps-lbl print-ps-lbl--patient">Bemorning F.I.Sh. / Ф.И.О.</span>
-          <div class="print-ps-line print-ps-line--patient"></div>
-        </div>
-        <div class="print-ps-field print-ps-narrow">
-          <span class="print-ps-lbl print-ps-lbl--patient">Namuna № / № пробы</span>
-          <div class="print-ps-line print-ps-line--patient"></div>
-        </div>
-      </div>
-      <div class="print-ps-row print-ps-row--patient">
-        <div class="print-ps-field print-ps-half">
-          <span class="print-ps-lbl print-ps-lbl--patient">Tahlil nomi / Вид исследования</span>
-          <div class="print-ps-line print-ps-line--muted print-ps-line--patient" id="printPatientLabLine"></div>
-        </div>
-        <div class="print-ps-field print-ps-half">
-          <span class="print-ps-lbl print-ps-lbl--patient">Roʻyxatdan oʻtgan / Пользователь</span>
-          <div class="print-ps-line print-ps-line--muted print-ps-line--patient" id="printPatientExecutor"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="print-section-title print-section-title--patient">
-      <span>📊</span> NATIJA (JADVAL) / Результат
-    </div>
-    <div id="printPatientContent" class="print-content print-content--patient"></div>
-
-    <p class="print-patient-disclaimer">
-      Ushbu sahifada faqat jadval koʻrinishidagi asosiy koʻrsatkichlar beriladi. Batafsil mikroskopik tahlil, differensial talqin va huquqiy izohlar — «Shifokor PDF» hujjatida.
-    </p>
-
-    <div class="print-sign-row print-sign-row--patient">
-      <div class="print-sign-box">
-        <div class="print-sign-line print-sign-line--patient"></div>
-        <div class="print-sign-label">Laborant</div>
-      </div>
-      <div class="print-sign-box">
-        <div class="print-sign-line print-sign-line--patient"></div>
-        <div class="print-sign-label">Shifokor</div>
-      </div>
-    </div>
-
-    <div class="print-footer-patient-mini">
-      © 2026 Far&#x2018;ona Jamoat Salomatligi Tibbiyot Instituti · ZiyrakAi MedLab · Yakuniy baho — shifokor
-    </div>
-  </div>
+    <form class="hist-search" onsubmit="searchHistory(event)" autocomplete="off">
+      <input id="histSearch" type="search" placeholder="Masalan: ML-260813-0001" aria-label="Tahlil ID" />
+      <button type="submit">Qidirish</button>
+    </form>
+    <div id="histMeta" class="hist-meta"></div>
+    <div id="histList" class="hist-list"></div>
+  </aside>
 </div>
 
 <div id="toast"></div>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js"></script>
+<script src="/static/js/app.js?v=off2"></script>
 </body>
 </html>

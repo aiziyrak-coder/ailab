@@ -5,24 +5,30 @@ import logging
 import numpy as np
 import base64
 import io
+import json
 import os
 import re
+import subprocess
 import sys
-import google.generativeai as genai
+import uuid
 from PIL import Image
 
 try:
-    import google.api_core.exceptions as google_exc
+    from openai import (
+        APIConnectionError,
+        APITimeoutError,
+        InternalServerError,
+        RateLimitError,
+    )
 
-    _GEMINI_RETRYABLE = (
-        google_exc.ResourceExhausted,
-        google_exc.ServiceUnavailable,
-        google_exc.DeadlineExceeded,
-        google_exc.InternalServerError,
-        google_exc.Aborted,
+    _OPENAI_RETRYABLE = (
+        RateLimitError,
+        APIConnectionError,
+        APITimeoutError,
+        InternalServerError,
     )
 except ImportError:
-    _GEMINI_RETRYABLE = ()
+    _OPENAI_RETRYABLE = ()
 
 # Juda katta rasmlardan himoya (DoS)
 Image.MAX_IMAGE_PIXELS = 100_000_000
@@ -69,14 +75,12 @@ camera_op_lock = threading.Lock()
 VIDEO_EXT = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".mpeg", ".m4v"}
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 
-# ─── ZiyrakAi (foydalanuvchiga ko'rinadigan nom); texnik API — Google Generative AI ─
-ZIYRAKAI_DISPLAY_NAME = "ZiyrakAi"
-# Kalit va model ID: muhit o'zgaruvchilari (repoga yozilmaydi)
-# Standart: flash — tezroq javob; maksimal chuqurlik uchun .env da GEMINI_MODEL_ID=gemini-2.5-pro
-GEMINI_MODEL_ID = (os.environ.get("GEMINI_MODEL_ID") or "gemini-2.5-flash").strip()
+# ─── MedLab (foydalanuvchiga ko'rinadigan nom); texnik API — OpenAI ─
+ZIYRAKAI_DISPLAY_NAME = "MedLab"
+OPENAI_MODEL_ID = (os.environ.get("OPENAI_MODEL_ID") or "gpt-4o").strip()
 
 
-def _normalize_gemini_api_key(raw):
+def _normalize_api_key(raw):
     if raw is None:
         return ""
     s = str(raw).strip()
@@ -85,79 +89,81 @@ def _normalize_gemini_api_key(raw):
     return s
 
 
-def _init_gemini_models():
-    key = _normalize_gemini_api_key(os.environ.get("GEMINI_API_KEY"))
+def _init_openai_client():
+    key = _normalize_api_key(os.environ.get("OPENAI_API_KEY"))
     if not key:
         log.warning(
-            "%s: API kaliti topilmadi (GEMINI_API_KEY) — tahlil ishlamaydi (%s)",
+            "%s: API kaliti topilmadi (OPENAI_API_KEY) — tahlil ishlamaydi (%s)",
             ZIYRAKAI_DISPLAY_NAME,
             _backend_dotenv_path(),
         )
-        return None, None
-    genai.configure(api_key=key)
-    model = genai.GenerativeModel(GEMINI_MODEL_ID)
-    return model, model
+        return None
+    try:
+        from openai import OpenAI
+    except ImportError:
+        log.warning("openai paketi o‘rnatilmagan")
+        return None
+    try:
+        timeout_sec = float(os.environ.get("OPENAI_TIMEOUT_SEC", "120"))
+    except ValueError:
+        timeout_sec = 120.0
+    timeout_sec = max(15.0, min(timeout_sec, 600.0))
+    return OpenAI(api_key=key, timeout=timeout_sec)
 
 
-gemini_model, gemini_vision = _init_gemini_models()
+openai_client = _init_openai_client()
 
 
-def ensure_gemini_from_env():
+def ensure_openai_from_env():
     """
     .env diskda yangilangan bo'lsa (restart qilmasdan) yoki birinchi importda cwd noto'g'ri bo'lsa —
-    qayta yuklab Gemini ni ishga tushirish.
+    qayta yuklab OpenAI ni ishga tushirish.
     """
-    global gemini_model, gemini_vision
-    if gemini_model is not None:
+    global openai_client, OPENAI_MODEL_ID
+    if openai_client is not None:
         return True
     _load_backend_dotenv()
-    gemini_model, gemini_vision = _init_gemini_models()
-    return gemini_model is not None
+    OPENAI_MODEL_ID = (os.environ.get("OPENAI_MODEL_ID") or "gpt-4o").strip()
+    openai_client = _init_openai_client()
+    return openai_client is not None
 
 # ─── Barcha tahlillar oldidan: maksimal chuqurlik + tibbiy chegara ───────────
 CLINICAL_EXCELLENCE_PREFIX_UZ = """
-Sen klinik laboratoriya mikroskopiyasi bo'yicha eng yuqori standartdagi mutaxassis sifatida ishlayapsan.
+KONTEKST: Bu ICHKI laborator hisobot — litsenziyali laborant va shifokor o'qiydi. Bemorga to'g'ridan-to'g'ri
+maslahat yoki rasmiy yakuniy tashxis EMAS. Rad etish taqiqlanadi: tasvir xira bo'lsa ham to'liq tuzilmani yoz.
 
-ASOSIY VAZIFA: Berilgan mikroskopiya tasvir(lar)ini to'liq, sistematik, laborator protokoliga yaqin holda
-tahlil qilib, O'zbek tilida batafsil professional hisobot yoz. Qisqa, yuzaki yoki "umumiy so'zlar bilan
-tugagan" javoblar QABUL QILINMAYDI — har bir bo'lim to'ldirilishi va mantiqan yakunlanishi shart.
+SEN: 20+ yillik tajribaga ega katta laborant-morfolog va klinik laborator diagnostika o'qituvchisisan.
+Maqsad: laborant hisobotni o'qib HAR BIR topilmani, NIMA UCHUN muhimligini va KEYIN NIMA QILISHNI tushunsin.
 
-CHUQURLIK TALABLARI (maksimal darajada):
-1. Avvalo umumiy mikroskopik landshaft: fon, zichlik, dominant tuzilmalar, maydon chegarasi, yoritish
-   ta'siri (agar sezilsa), keyin elementma-element tahlil.
-2. Har bir ko'rinadigan yoki shubhali ob'ekt uchun: taxminiy joylashuv, nisbiy o'lcham, shakl, rang,
-   ichki tuzilish, qo'shni hujayralar bilan munosabat — imkon qadar batafsil.
-3. Har bir laborator ostbo'lim bo'yicha ketma-ket: kuzatuv (nima ko'rinadi) → talqin (nima anglatishi
-   mumkin, ehtiyotkor) → qaysi qo'shimcha tekshiruv yoki takroriy namuna kerakligi.
-4. Bir nechta mumkin bo'lgan talqin bo'lsa — barchasini sanab, qaysi test yoki usul farqlashini yoz.
-5. Kamida ikkita mazmunli jadval (turli mavzuda) va barcha majburiy sarlavhalar (quyidagi chiqish
-   qoidalarida) chiqarilishi shart.
+ASOSIY VAZIFA: mikroskopiya tasvirini O'zbek tilida CHUQUR, SISTEMATIK, klinik fikrlash bilan tahlil qil.
+Yuzaki javob ("hujayralar ko'rinadi", "umuman norma", "patologiya yo'q" — 2-3 jumla) QAT'IY TAQIQLANADI.
+
+HAR BIR OSTBO'LIMDA MAJBURIY ZANJIR (kamida shu tartibda, qisqartirma):
+1) KUZATUV — nima aniq ko'rinadi: shakl, rang, o'lcham, zichlik, joylashuv, qo'shni tuzilmalar.
+2) ASOS — nima uchun shunday baholading (qaysi belgi, qaysi mezon, nima yetarli/yetarli emas).
+3) IZOH (laborant uchun) — bu belgi amaliyotda qanday o'qiladi, yangi laborant nima adashtirishi mumkin,
+   o'xshash artefaktlardan qanday farqlanadi.
+4) KLINIK AHAMIYATI — nima anglatishi MUMKIN (ehtiyotkor, "mumkin/shubhali"); yakuniy tashxis qo'yma,
+   lekin fikrlashni yashirma — differensial yo'nalishlarni ochiq yoz.
+5) KEYINGI QADAM — qaysi takroriy maydon, bo'yoq, sonli test yoki shifokor e'tibori kerak.
+
+CHUQURLIK:
+- Avval butun maydon landshafti (14+ jumla), keyin elementma-element.
+- Har bir shubhali ob'ekt: joy, o'lcham, shakl, rang, ichki tuzilish, qo'shnilar.
+- Bir nechta talqin bo'lsa — BARCHASINI yoz, qaysi test farqlashini ayt.
+- Kamida 4 ta mazmunli jadval.
+- Har ostbo'lim oxirida "Izoh:" ostida 4-7 to'liq jumla.
 
 ILMIY ANIQLIK:
-- Faqat tasvirda haqiqatan ko'rinadigan tuzilmalarni tavsifla. Pikselli, noaniq joylarda: "aniqlab
-  bo'lmadi" yoki "maydon yetarli emas" — sababini bir jumla bilan yoz.
-- Raqam va foizlarni faqat tasvirga asoslangan yoki "taxminiy" deb aniq belgilangan holda ishlat.
-- Ishonchli morfologiya bo'lmagan joyda "shubhali / tasdiqlanmagan" deb yoz; 100% ishonch bilan
-  noaniq tasvirga tayanib xulosa berish mumkin emas.
+- Ko'rinmayotgan narsani uydirma; "aniqlab bo'lmadi" desang — SABABINI yoz.
+- Raqam/foiz: asoslangan yoki "taxminiy".
+- Bemor yoshi/shikoyatini o'ylab topma.
+- Rasmiy tashxis va davolash — shifokorniki; SEN chuqur laborator talqin va klinik fikrlash berasan.
 
-QONUNIY VA TIBBIY CHEGARA:
-- Tasvirdan tashqari bemor ma'lumotlari (yosh, shikoyat, oldingi tahlillar) berilmagan bo'lsa — ularni
-  uydurma yoki taxmin qilma.
-- Yakuniy tashxis, davolash, rasmiy tibbiy hujjat — faqat litsenziyali shifokor vakolati; sen faqat
-  mikroskopik topilmalar va laborator talqin berasan.
+TIL: ilmiy-laborator, to'liq jumlalar, o'qituvchi uslubi. Atamalarni birinchi marta qisqa izohla.
 
-O'ZBEKISTON ME'YORIY AMALIYOTI (mazmuniy moslik):
-- Hisobot O'zbekiston Respublikasida klinik laboratoriyalarda qo'llaniladigan rasmiy va yo'riqnoma
-  asosidagi terminologiya, bo'limlar tartibi va hisobot madaniyatiga yaqin bo'lsin (tibbiy buyruqlar,
-  klinik protokollar, laboratoriya sifati bo'yicha ichki tartib-qoidalarga muvofiq yozuv uslubi).
-- Normativ qiymatlar yoki chegaralar faqat tasvir va umumiy laboratoriya bilimiga asoslangan holda,
-  "taxminiy" yoki "maydon bo'yicha" deb belgilangan holda keltirilsin; aniq RS jadvali raqamlarini
-  faqat ishonchli manba keltirilmasa, uydurma.
-
-TIL: ilmiy-aniq, laborator uslubida, jumlalar to'liq va yakuniy.
-
-SAVDO NOMI: Foydalanuvchi uchun tizim nomi doim "ZiyrakAi". Javob matnida boshqa xizmat yoki
-model savdo nomlari (masalan, Google, Gemini va hokazo) ISHLATMA — faqat "ZiyrakAi" yoki
+SAVDO NOMI: Foydalanuvchi uchun tizim nomi doim "MedLab". Javob matnida boshqa xizmat yoki
+model savdo nomlari (masalan, OpenAI, ChatGPT, GPT va hokazo) ISHLATMA — faqat "MedLab" yoki
 neytral "avtomatlashtirilgan tahlil" iboralari.
 
 """
@@ -165,38 +171,49 @@ neytral "avtomatlashtirilgan tahlil" iboralari.
 # ─── Lab bo'limlari prompts ───────────────────────────────────────────────────
 LAB_PROMPTS = {
     "hematology": """
-Sen professional tibbiy laborant mutaxassisissan. Bu qon yoqmasi (gematologiya) mikroskopiya tasvirini O'ZBEK tilida BATAFSIL tahlil qil.
+Sen katta gematolog-laborantsan. Bu bo'yalgan qon yoqmasi mikroskop maydonini O'ZBEK tilida CHUQUR tahlil qil.
+Bu ichki laborator hisobot (laborant/shifokor uchun). Bemorga tashxis emas, LEKIN klinik fikrlashni yashirma.
 
-MAJBURIY tahlil qil:
+HAR BO'LIMDA: kuzatuv + asos + izoh (laborant tushunishi uchun) + klinik ahamiyat + keyingi qadam.
 
 ## 1. ERITROSITLAR (Qizil qon tanachalari)
-- Soni (ko'ruv maydonidagi taxminiy miqdor)
-- Morfologiyasi: normositlar, mikrositlar, makrositlar, poikilositoz
-- Rangi: normoxromiya, gipoxromiya, giperxromiya
-- Shakli: anulotsitlar, sferositlar, eliptositlar, drepanositlar, skistositlar, akanositlar, burr-hujayra, teardrop
-- Ichki tuzilish: bazofil donachalar, xalqalar (Kebot, Jolly tanachalari)
+- Soni (ko'ruv maydonidagi taxminiy miqdor) va zichlik bahosi
+- Morfologiya: normosit / mikrosit / makrosit, anizositoz, poikilositoz — darajasi (yo'q/yengil/o'rta/og'ir)
+- Rang: normoxromiya, gipoxromiya, giperxromiya — qaysi belgi asosida
+- Shakl: anulotsit, sferosit, eliptosit, drepanosit, skistosit, akanosit, burr, teardrop — bor/yo'q, taxminiy ulush
+- Ichki tuzilish: bazofil donachalar, Kebot, Jolly, polixromatofiliya
+- Izoh: nima uchun shunday, qanday artefakt (quritish, bo'yoq) adashtirishi mumkin
 
 ## 2. LEYKOSITLAR (Oq qon tanachalari)
-- UMUMIY SONI (ko'ruv maydonida)
-- HAR BIRINI ALOHIDA SANA VA FOIZDA KO'RSAT:
-  * Neytrofillar (segmentoyadroli, tayoqchayadroli) — soni va %
-  * Eozinofillar — soni va %
-  * Bazofillar — soni va %
-  * Monotsitlar — soni va %
-  * Limfotsitlar — soni va %
-  * Blastlar (agar bo'lsa) — soni va %
-- Morfologiya anomaliyalari: toksik donachalar, vakuolizatsiya, Pelger-Huet
+- Umumiy soni (ko'ruv maydonida) va taqsimlanish
+- HAR TURINI ALOHIDA: neytrofil (segm./tayoqcha), eozinofil, bazofil, monotsit, limfotsit, blast — son va %
+- Morfologiya: toksik donacha, vakuol, Döhle, Pelger-Huet, reaktiv limfotsit, yadro shakli
+- Izoh: yallig'lanish vs reaktiv vs blast shubhasi — qanday farqlading, nima ishonchsiz
 
 ## 3. TROMBOSITLAR
-- Miqdori (oz, normal, ko'p)
-- Morfologiyasi: o'lchami, granullari
+- Miqdor (oz / normal / ko'p), agregatlar, gigant trombotsit, granula
+- Izoh: EDTA agregati vs haqiqiy trombotsitopeniya farqi
 
-## 4. XULOSA VA IZOH
-- Aniqlangan patologiyalar ro'yxati
-- Mumkin bo'lgan kasalliklar (qon kamqonligi turi, leykoz, infeksiya, parazit va h.k.)
-- Qo'shimcha tekshiruvlar tavsiyasi
+## 4. PARAZIT / BOSHQA TOPILMALAR
+- Malyariya, mikrofilariya, boshqa shubhali inklyuziya — bor/yo'q, asos
 
-Javobni jadval va ro'yxat ko'rinishida chiqar. Har bir ko'rsatkich uchun: TOPILGAN KO'RSATKICH | NORMAL QIYMAT | BAHO formatida yoz.
+## 5. KLINIK FIKRLASH VA LABORANT XULOSASI
+- Asosiy topilmalar ro'yxati (har biri 2-3 jumla asos bilan)
+- Differensial yo'nalishlar (anemiya turi, infeksiya/yallig'lanish, leykoz shubhasi va h.k.) — "mumkin"
+- Qaysi qo'shimcha test (CBC, retikulotsit, temir, PCR, qayta mazok) farqlaydi
+- Shifokorga nima aytish kerakligi — aniq, lekin rasmiy tashxis qo'ymasdan
+
+AVVAL shu jadvalni to'ldir (har qatorda SON):
+
+| Ko'rsatkich | Topilgan | Normal orientir | Baho |
+| Eritrositlar (ta/maydon) |  | 150-250 |  |
+| Leykositlar (ta/maydon) |  | 4-10 |  |
+| Neytrofil, % |  | 40-70 |  |
+| Limfotsit, % |  | 20-40 |  |
+| Monotsit, % |  | 2-10 |  |
+| Eozinofil, % |  | 1-6 |  |
+| Bazofil, % |  | 0-1 |  |
+| Trombotsitlar (maydon) |  | 8-20 |  |
 """,
 
     "urine": """
@@ -234,10 +251,10 @@ MAJBURIY tahlil qil:
 - Triaxomonadalar: bor/yo'q
 - Shilim: bor/yo'q, miqdori
 
-## 5. XULOSA
-- Asosiy patologik topilmalar
-- Mumkin bo'lgan kasallik (sistit, pielonefrit, glomerulonefrit, nefrolitiaz va h.k.)
-- Qo'shimcha tekshiruvlar tavsiyasi
+## 5. MORFOLOGIK XULOSA (ta'limiy; bemorga tashxis emas)
+- Asosiy mikroskopik topilmalar
+- Differensial morfologik yo'nalishlar (masalan yallig'lanish, tuz kristallari) — ehtiyotkor
+- Qo'shimcha laborator tekshiruvlar (ta'limiy ro'yxat)
 
 Har bir ko'rsatkich uchun TOPILGAN MIQDOR | NORMAL QIYMAT | KLINIK BAHO formatida yoz.
 """,
@@ -933,6 +950,117 @@ yoki "qo'shimcha kultura kerak".
 MUHIM: Mikroskopiya zamburug'ni species darajasida tasdiqlamaydi — har doim kultura va molekulyar usullar bilan tasdiqlashni yoz.
 """,
 
+    "dermatology": """
+Sen katta dermatolog-klinitsist va dermoskopiya o'qituvchisisan. Bu tasvir — klinik teri fotosurati, dermoskop (dermatoskop)
+maydoni, yoki telefon orqali olingan toshma/xol/yara rasmi bo'lishi mumkin. Dermatolog va laborant o'qib tushunadigan
+ICHKI hisobot yoz. Bemorga tashxis emas, LEKIN klinik fikrlashni yashirma.
+
+AVVAL aniqlang: klinik foto / dermoskopiya / aralash / noaniq. Keyin mos bo'limlarni to'liq to'ldir.
+Yuzaki "teri o'zgarishi bor" QAT'IY TAQIQLANADI.
+
+HAR BO'LIMDA: kuzatuv + asos + izoh (dermatolog/laborant uchun) + klinik ahamiyat + keyingi qadam.
+
+## BO'LIM 0 — TASVIR TURI VA SIFAT
+- Klinik foto / kontakt dermoskopiya / immersiya / polarizatsiya (agar sezilsa)
+- Yorug'lik, fokus, masshtab, soch/kream/qon artefakti
+- Anatomik soha (agar ko'rinadigan bo'lsa): yuz, tanasi, oyoq-qo'l, bosh terisi, shilliq, tirnoq
+
+## BO'LIM 1 — KLINIK MORFOLOGIYA (asosiy toshma)
+- Birlamchi element: makula, papula, plutka (plaque), vesikula, bulla, pustula, tugun, yara, eroziya
+- Ikkilamchi: qobir, qobiq, likenifikatsiya, chandiq, ekskoriatsiya
+- Rang, chegara (aniq/noaniq), simmetriya, o'lcham (taxminiy), soni (yakka/ko'p), tarqalish
+- Atrof teri: eritema, shish, deskvamatsiya, lichen, atrofiya
+
+## BO'LIM 2 — PIGMENTLI O'ZGARISH (xol / melanotsitar shubha)
+- ABCDE: Asimmetriya, Border, Color (ranglar soni), Diameter his-tuyg'usi, Evolution (agar ma'lum emas — yoz)
+- Dermoskopik pattern (agar dermoskop): pigment to'ri, globula, chiziqlar (streaks), blue-white veil,
+  regression, dots, blotch, vascular (comma, dotted, arborizing, glomerular, hairpin)
+- Melanotsitar vs nomelanotsitar orientatsiya — asos bilan
+- Sezilarli "qizil bayroq" belgilari — alohida, shoshilinch biopsya eslatmasi (tashxis qo'ymasdan)
+
+## BO'LIM 3 — YALLIG'LANISH / INFEKSION / ALLERGIK YO'NALISH
+- Ekzema/dermatit vs psoriaz vs tinea vs impetigo vs virusli (gerpes, so'gal) — faqat morfologik "mumkin"
+- Qichishish izlari, ekskoriatsiya, serpiginoz yo'l (kanal shubhasi)
+- Pustula: follikulyar vs non-follikulyar; kandid vs bakterial vs sterial
+
+## BO'LIM 4 — SOCH, BOSH TERISI, TIRNOQ (agar tasvir mos)
+- Soch o'qi, nits, alopetsiya maydoni, sariq qobiq
+- Tirnoq: onixoliz, sariq, qalinlash, pitting — onixomikoz vs psoriaz vs travma (ehtiyotkor)
+
+## BO'LIM 5 — JADVALLAR (kamida 4 ta)
+| Belgi | Kuzatuv | Asos | Izoh |
+| Element | Rang / chegara | Tarqalish | Baho |
+| Dermoskopik pattern | Bor/yo'q | Melanotsitar ehtimol | Keyingi qadam |
+| Differensial | Nima uchun mos | Nima qarshi | Qaysi test farqlaydi |
+
+## BO'LIM 6 — KLINIK FIKRLASH VA TAVSIYA (dermatolog uchun)
+- 3-5 differensial yo'nalish, har biri asos bilan
+- KOH / yog'li qirindi / Tzanck / bakterial ekish / biopsiya (qayerdan, nima uchun) — aniq
+- Shoshilinch: tezkor onkologik/infeksion ko'rik holatlari
+- Rasmiy tashxis va davolash sxemasi YOZILMAYDI — faqat laborator-klinik orientatsiya
+
+MUHIM: Melanoma, KLL, tizimli kasallik nomini yakuniy tashxis qilib qo'yma. "Shubha / biopsiya kerak" deb yoz.
+Hech qachon "sizda saraton bor" deb yozma.
+""",
+
+    "derm_microscopy": """
+Sen dermatologik mikroskopiya (teri qirindisi, KOH, kanal, demodex, Tzanck, soch/tirnoq) bo'yicha katta laborant-morfologsan.
+Bu tasvir — optik mikroskop ostidagi teri/soch/tirnoq preparati. ICHKI hisobot: dermatolog va laborant tushunsin.
+Bemorga tashxis emas, lekin klinik fikrlashni yashirma. Yuzaki "zamburug' yo'q" yetarli EMAS.
+
+AVVAL aniqlang preparat: KOH / mineral yog' / native / Giemsa-Tzanck / soch o'qi / tirnoq qirindisi / noaniq.
+
+HAR BO'LIMDA: kuzatuv + asos + izoh + klinik ahamiyat + keyingi qadam.
+
+## BO'LIM 0 — PREPARAT VA SIFAT
+- Bo'yash/muhit: KOH, yog', suv, Giemsa, methylene blue
+- Qalinlik, havo pufakchalari, keratin parchalari, soch, to'qima
+- Kattalashtirish his-tuyg'usi (agar berilgan bo'lsa)
+
+## BO'LIM 1 — ZAMBURUG' (dermatofit, Candida, Malassezia)
+- Septali gifa, arthroconidia, spora, psevdogifa, "spaghetti and meatballs" (Malassezia)
+- Joylashuv: shox qavat, soch o'qi atrofida (ektotriks/endotriks — ehtiyotkor)
+- Miqdor: yo'q / yakka / o'rta / ko'p
+- Artefakt: paxta tola, havo, KOH kristallari — qanday farqlading
+
+## BO'LIM 2 — KANAL (Sarcoptes scabiei)
+- O'rgimchaksimon kanal: oyoqlari, qalqoni, tuxum, najas (scybala)
+- Tuxum o'lchami/shakli, bo'sh qobiq
+- Yo'q bo'lsa: "aniqlanmadi" + qancha maydon ko'rilgani va qayta qirindi tavsiyasi
+- Izoh: laborant qayerda qidirishi kerak (qichishish yo'li uchi)
+
+## BO'LIM 3 — DEMODEX
+- Demodex folliculorum / brevis ko'rinishi: uzunlik, oyoqlar, opistosoma
+- Soni (maydon bo'yicha), soch follikuli bilan bog'liqligi
+- Klinika: rozatsea/blefarit fonida ahamiyati — ehtiyotkor, kolonizatsiya vs patologik yuk
+
+## BO'LIM 4 — TZANCK (gerpes / pemfigus)
+- Atsantolitik hujayralar, ko'p yadroli gigant hujayralar, yadro ichi kiritmalari
+- HSV/VZV vs pemfigus vs artefakt — asos
+- Agar preparat Tzanck emas — "bu bo'lim mos emas" deb yoz, uydirma
+
+## BO'LIM 5 — SOCH VA TIRNOQ MIKROSKOPIYASI
+- Nits / bit, soch o'qi distrofiyasi, trichorrhexis, trichoptilosis
+- Tirnoq: gifa, spora, detrit
+
+## BO'LIM 6 — BOSHQA (bakteriya to'plami, hujayra, kristall)
+- Faqat ko'rinadiganlar; Gram tasdiqlanmasa "shubhali"
+
+## BO'LIM 7 — JADVALLAR (kamida 4 ta)
+| Obyekt | Bor/yo'q | Morfologiya | Miqdor | Asos |
+| Zamburug' | Gifa/spora | Joy | Baho | Izoh |
+| Kanal / Demodex / Tzanck | Topilma | Ishonch | Artefakt xavfi | Keyingi qadam |
+| Differensial | Mos | Qarshi | Qaysi test | Izoh |
+
+## BO'LIM 8 — KLINIK FIKRLASH (dermatolog uchun)
+- Asosiy mikroskopik xulosa 8-12 jumla
+- Differensial: tinea vs ekzema vs kanal vs demodex vs virusli pufakcha
+- Takroriy qirindi, kultura, PCR, dermoskopiya, biopsiya — qachon
+- Rasmiy tashxis qo'yma
+
+MUHIM: Bitta maydonda kanal ko'rinmasa, kanal yo'q deb xulosa qilma — "ushbu maydonda aniqlanmadi".
+""",
+
     "effusion_cytology": """
 Sen sitopatologiya va seroz bo'shliq effuziyalari bo'yicha eng yuqori malakali laborant-sitolog mutaxassisissan.
 Bu tasvir — pleura, perikard, peritoneum yoki boshqa seroz bo'shliq suyuqligidan sitologik preparat (Papanikolau, Giemsa,
@@ -978,80 +1106,137 @@ MUHIM: Effuziya sitologiyasi sezgirlik-cheklangan; salbiy natija yomon hujayrani
 """,
 
     "histology": """
-Sen patologiya va gistologiya bo'yicha yuqori malakali laborant-mutaxassisissan (morfologik mikroskopik talqin).
-Bu tasvir — biopsiya yoki rezektsiya namunasidan H&E (gematoksilin-eozin) yoki boshqa maxsus bo'yoq (PAS, trichrome, retikulin,
-immungistokimya natijasiga o'xshash kontrast) bilan tayyorlangan gistologik preparat bo'lishi mumkin.
-ASOSIY VAZIFA: To'qima arxitekturasi, hujayra guruhlari, yadro/sitoplazma, mitozlar, nekroz, inflamatsiya, stroma — morfologik
-tasvir; yakuniy patologik tashxis (saraton, TNM, subtip) faqat patolog-hujjat asosida — sen faqat "morfologik shubha / reaktiv /
-yoqumli" darajasida yoz.
+Sen katta gistopatolog-morfolog va gistologiya o'qituvchisisan. Bu tasvir — to'qima kesmasi (odatda H&E; ba'zan PAS,
+Van Gieson, Masson, Giemsa, kumush, IHC). ICHKI hisobot: patolog va laborant o'qib tushunsin.
+Bemorga tashxis emas, LEKIN klinik-morfologik fikrlashni yashirma. Yuzaki "to'qima ko'rinadi" QAT'IY TAQIQLANADI.
 
-## BO'LIM 0 — PREPARAT VA BO'YASH
-- Bo'yash turi (taxminiy): H&E / PAS / trichrome / IHC / boshqa
-- Kesim qalinligi, qirqish artefaktlari, cho'ntaklar, quruq joylar
-- Masshtab: agar berilmagan bo'lsa — "aniq masshtab yo'q, nisbiy talqin"
+AVVAL aniqlang: organ/to'qima (agar sezilsa), bo'yoq (H&E / maxsus / IHC / noaniq), kesma sifati, kattalashtirish his-tuyg'usi.
 
-## BO'LIM 1 — ARXITEKTURA VA UMUMIY TUHFA
-- Normal tuzilma saqlanganligi yoki buzilish (aksillar, papillar, trabekulyar, diffuz infiltrat va h.k.)
-- Hujayra zichligi (past / o'rta / yuqori), gomogenlik
-- Chegaralar: infiltrativ / eksfanativ / kapsula (agar ko'rinadigan bo'lsa)
+HAR BO'LIMDA: kuzatuv + asos + izoh (laborant/patolog uchun) + klinik ahamiyat + keyingi qadam.
 
-## BO'LIM 2 — HUJAYRA MORFOLOGIYASI
-- Yadro: o'lcham, shakl, kontur, nukleol, xromatin, mitozlar (bor/yo'q, atipik mitoz shubhasi)
-- Sitoplazma: miqdori, vakuolalar, pigment, mukin
-- Atipiya darajasi (reaktiv → og'ir atipiya): faqat morfologik chegaralar bilan
+## BO'LIM 0 — PREPARAT VA SIFAT
+- Bo'yoq: gematoksilin-eozin (yadro binafsha, sitoplazma pushti) vs PAS vs trichrome vs boshqa
+- Kesma: qalinlik, burilish, pichoq chizig'i, quritish, havo, qon, formalini artefakti
+- Fokus, yorug'lik, qoplama; qaysi maydonlar ishonchli, qaysilari emas
+- Taxminiy organ: teri, oshqozon-ichak, jigar, o'pka, buyrak, limfa, bachadon, prostata, sut bezi, suyak, boshqa / noaniq
 
-## BO'LIM 3 — STROMA, QON TOMIRLARI, YALLIG'LANISH
-- Fibroz, edema, limfoplazmatik infiltrat, granuloma, gigant hujayralar
-- Tromb, qon quyilishi, nekroz zonasi
+## BO'LIM 1 — ARXITEKTURA (past kattalashtirish)
+- Umumiy tuzilish: bezlar, so'rg'ichlar, kriptalar, alveolalar, lobulalar, follikulalar, qatlamlar
+- Stroma/parenchima nisbati, kapsula, chegara (aniq/infiltrativ)
+- Qon tomirlari, nerv, yog' to'qimasi, mushak
+- Izoh: normal organ arxitekturasi saqlanganmi yoki buzilganmi — asos
 
-## BO'LIM 4 — MAXSUS MOYLIKLAR (agar tasvirga mos)
-- Adenokarsinoma pattern (bezellar, trash print)
-- Squamous differensial (keratin, intercellular ko'priklar)
-- Sarkoma pattern (spindle hujayra zichligi)
-- **Muhim:** faqat "tasvirga mos keladigan pattern" — tashxis qo'ymasdan
+## BO'LIM 2 — HUJAYRA VA TO'QIMA TURLARI
+- Epiteliy: yassi / kubsimon / silindrsimon; qatlamlar; goblet; siliya; keratin
+- Biriktiruvchi: kollagen, fibroblast, shish, gialinizatsiya
+- Mushak: silliq / ko'ndalang-targ'il (agar ko'rinsa)
+- Nerv / xondroid / suyak (lakuna, osteoid) — faqat ko'rinadiganlar
+- Yadro: o'lcham, xromatin, yadrocha, N/C nisbati, anizokaryoz
+- Mitoz: yo'q / yakka / ko'p; atipik mitoz shubhasi (ehtiyotkor)
 
-## BO'LIM 5 — FARQI VA CHEKLASHLAR
-- Artefakt: qirqish, preslovlenie, bo'yoq cho'ntagi, plehr kabi joylar
-- Digital tasvir piksellashtirish — noaniq detallar
-- To'liq blok va bir nechta kesim talabi — eslatma
+## BO'LIM 3 — YALLIG'LANISH
+- O'tkir: neytrofil, mikroabscess, fibrin, shish
+- Surunkali: limfotsit, plazmotsit, makrofag, follikula
+- Granuloma: epitelioid, gigant hujayra (Langhans / chetki yadro), kazeoz nekroz — bor/yo'q, asos
+- Eozinofil, mast hujayra — agar sezilsa
+- Izoh: infeksiya vs autoimmun vs nospetsifik — faqat "mumkin"
 
-## BO'LIM 6 — JADVALLAR (kamida 2 ta)
-| Maydon / tuzilma | Morfologik belgilar | Atipiya / shubha darajasi | Keyingi qadam (IHC panel, qo'shimcha kesim) |
-| Topilma | Inflamatsion fon | Patolog bilan korrelyatsiya | Izoh |
+## BO'LIM 4 — SHIKASTLANISH, DEGENERATSIYA, TA'MIRLASH
+- Nekroz turi (koagulyatsion, kollikvatsion, kazeoz, yog' — ehtiyotkor)
+- Apoptoz tanalari, vakuol, gidropik o'zgarish
+- Fibroz, skleroz, angiogenez, granulyatsion to'qima
+- Qon quyilishi, tromb, pigment (gemosiderin, melanin, lipofussin, o't)
 
-## BO'LIM 7 — LABORATOR VA KLINIK YO'NALISh
-- Qo'shimcha kesimlar, IHC (Keratin, CD markerlar va h.k.) — umumiy tavsiya ro'yxati, konkret panel tashxis emas
-- Molekulyar genetika (fusion, mutatsiya) — faqat indikatsiya bo'yicha
+## BO'LIM 5 — ATIPIYA / DISPLAZIYA / O'SMA SHUBHASI (juda ehtiyotkor)
+- Arxitektura buzilishi, qatlamlilik yo'qolishi, invaziya (stromaga, tomirga) — faqat ko'rinadigan belgi
+- Yadro atipiyasi darajasi: yo'q / yengil / o'rta / og'ir (sub'yektiv, asos bilan)
+- Differensial: reaktiv atipiya vs displaziya vs in situ vs invaziv o'sma — "shubha", yakuniy tashxis EMAS
+- Chegara / rezektsiya qirrasi (agar kesma mos)
+- Qizil bayroq: shoshilinch patolog ko'rigi — tashxis qo'ymasdan
 
-MUHIM: Gistologiyada bitta maydon yoki bitta RBG tasvir yakuniy "saraton" yoki "benign" deb aniqlay olmaydi — har doim patolog
-tasdig'i va klinika zarur. Hech qachon bemorga to'g'ridan-to'g'ri "sizda kasallik bor" deb yozma.
+## BO'LIM 6 — MAXSUS BO'YOQ / IHC (agar tasvir mos)
+- PAS (+), kumush, Ziehl (to'qimada AFB), Congo (amiloid) — faqat sezilsa
+- IHC: jigarrang DAB, membrana/sitoplazma/yadro boyashi — nima uchun kerakligi, uydirma marker YO'Q
+- Agar H&E bo'lsa — qaysi maxsus bo'yoq keyingi qadam
+
+## BO'LIM 7 — JADVALLAR (AVVAL SHULAR; kamida 4 ta, birinchisi ≥8 qator, HAR QATORDA SON)
+
+| Ko'rsatkich | Topilgan | Normal orientir | Baho |
+| Kesma sifati (1-5) |  | 4-5 |  |
+| Arxitektura saqlanishi, % |  | 80-100 |  |
+| Yallig'lanish zichligi (ta/maydon) |  | 0-5 |  |
+| Neytrofil (ta/maydon) |  | 0-2 |  |
+| Limfotsit/plazmotsit (ta/maydon) |  | 0-10 |  |
+| Mitoz (10 maydonda) |  | 0-2 |  |
+| Atipik yadro, % |  | 0-5 |  |
+| Nekroz maydoni, % |  | 0 |  |
+| Fibroz/skleroz, % |  | 0-10 |  |
+
+| To'qima / struktura | Kuzatuv | Miqdor / daraja | Izoh |
+| Epiteliy |  |  |  |
+| Stroma |  |  |  |
+| Tomirlar |  |  |  |
+| Yallig'lanish |  |  |  |
+
+| Differensial | Nima mos | Nima qarshi | Qaysi usul farqlaydi |
+| (1) |  |  |  |
+| (2) |  |  |  |
+| (3) |  |  |  |
+
+| Keyingi qadam | Nima uchun | Muddat / shoshilinchlik | Izoh |
+| Qayta kesma / chuqur blok |  |  |  |
+| Maxsus bo'yoq |  |  |  |
+| IHC panel |  |  |  |
+| Klinika / shoshilinch patolog |  |  |  |
+
+## BO'LIM 8 — KLINIK-MORFOLOGIK FIKRLASH
+- Asosiy topilmalar (har biri 2-4 jumla asos bilan)
+- 3-5 differensial yo'nalish: yallig'lanish, regeneratsiya, displaziya, o'sma shubhasi, artefakt
+- Qaysi qo'shimcha kesma, bo'yoq, IHC, klinika farqlaydi
+- Rasmiy gistologik tashxis va davolash YOZILMAYDI — faqat morfologik orientatsiya
+
+MUHIM: "Saraton", "karsinoma", "melanoma" ni yakuniy tashxis qilib qo'yma. "Shubha / patolog tasdiqlashi kerak" deb yoz.
+Ko'rinmagan organni uydirma. Bitta maydon salbiy bo'lsa, butun preparat "norma" deb yopma.
 """
 }
 
 ALLOWED_LAB_TYPES = frozenset(LAB_PROMPTS.keys())
 
+TABLES_FIRST_UZ = """
+JAVOBNI JADVALLARDAN BOSHLA. Uzun matnni jadvallardan OLDIN yozma.
+Jadvalsiz yoki raqamsiz javob TAQIQLANADI.
+
+#### NATIJA JADVALLARI
+| Ko'rsatkich | Topilgan | Normal orientir | Baho |
+| (nom) | (SON: ta/maydon yoki %) | (orientir) | norma / oz / ko'p |
+
+Qoidalar:
+- Kamida 2 ta jadval; birinchisi kamida 8 qator.
+- Har qatorda RAQAM bo'lsin (masalan 12 ta/maydon, 62%). "ko'p/oz" yolg'iz yetarli emas.
+- Taxminiy bo'lsa ham son yoz: "taxminiy 40".
+- Qator formati: | ustun | ustun | ustun | ustun |
+- :--- ajratuvchi qator QO'SHMA. Yulduzcha ** ISHLATMA.
+
+"""
+
 OUTPUT_FORMAT_RULES_UZ = """
 ---
 CHIQISH QOIDALARI (majburiy tartibda, hech birini o'tkazma):
-0. Agar tahlil manbai yoki vosita nomi kerak bo'lsa — faqat "ZiyrakAi" yoki neytral iboralar; boshqa savdo nomlari yo'q.
-1. Javob matnida ** yoki boshqa yulduzcha ISHLATMA — oddiy matn.
-2. Jadval: kamida UCHTA alohida jadval (masalan: sonli/ko'rsatkichlar; morfologiya; differensial yoki
-   qo'shimcha tekshiruvlar); har qator | ustun1 | ustun2 | ustun3 | ko'rinishida; :--- ajratuvchi qator QO'SHMA.
-3. "#### GLOBAL MIKROSKOPIK TAVSIF" — kamida 14-20 to'liq jumla: fon, zichlik, dominant tuzilmalar,
-   maydon sifati, masshtab his-tuyg'usi (agar berilgan bo'lsa), video bo'lsa harakat va vaqt bo'yicha o'zgarishlar,
-   artefaktlar, sifat bahosi.
-4. Quyida laborator promptidagi BARCHA ostbo'limlar ketma-ket, to'liq hajmda (qisqartirish yoki "xulosa
-   qilib" deb birlashtirish mumkin emas).
-5. "#### DIFFERENSIAL TALQIN VA TEKSHIRUV REJASI" — kamida 10-14 band: mumkin bo'lgan sabablar
-   (har biri ehtiyotkor, "mumkin" bilan), har bir farziyani qaysi laborator yoki instrument tekshiruvi
-   aniqlashi yoki istisno qilishi mumkinligi; O'zbekiston klinik laboratoriya amaliyotida odatiy qo'shimcha tekshiruvlar.
-6. "#### YAKUNIY XULOSA VA TAVSIYALAR" — kamida 22-32 to'liq jumla: eng muhim topilmalar, laborator
-   baho, klinik orientatsiya (tashxis qo'ymasdan), shoshilinch ko'rik holatlari, takroriy tekshiruvlar
-   (mazok, likvor PCR, kultura, kolposkopiya, immunologik panel, qon va h.k.), kuzatish, namuna sifati bo'yicha eslatma.
-7. "#### HUQUQIY VA TIBBIY ESKLATMA" — 4-7 jumla: natija ZiyrakAi tizimi yordamida tayyorlangan; tibbiy qaror mutaxassisniki;
-   xato yoki noaniq tasvirda javob cheklangan bo'lishi mumkin; rasmiy blanka va tashkilot ichki tartibiga muvofiqlik laborant mas'uliyati.
-8. Sonlar va foizlar faqat asoslangan yoki "taxminiy" deb belgilangan bo'lsin.
-9. Kamida bitta "#### QISQACHA KLINIK XULOSA (laborant uchun)" bo'limi: 5-8 jumla, faqat mikroskopik xulosalar.
+0. Vosita nomi faqat "MedLab". Boshqa savdo nomlari yo'q.
+1. Javobda ** yulduzcha ISHLATMA — oddiy matn.
+2. AVVAL jadvallar (yuqoridagi NATIJA JADVALLARI), keyin matn.
+3. "#### GLOBAL MIKROSKOPIK TAVSIF" — kamida 16-22 to'liq jumla.
+4. Laborator promptidagi BARCHA ostbo'limlar ketma-ket, to'liq; har birining oxirida "Izoh:" 4-7 jumla.
+5. "#### LABORANT UCHUN IZOH, ASOS VA KLINIK FIKRLASH" — HAR asosiy topilma uchun:
+   Kuzatuv → Asos → Nima uchun muhim → Artefakt/adashish → Keyingi qadam.
+   Har topilma kamida 6-10 to'liq jumla. Yuzaki baho yetarli emas.
+6. "#### DIFFERENSIAL TALQIN VA TEKSHIRUV REJASI" — kamida 12-16 band, har biri "mumkin" bilan
+   va qaysi test farqlashini ko'rsatib.
+7. "#### YAKUNIY XULOSA VA TAVSIYALAR" — kamida 24-36 to'liq jumla: topilmalar, laborator baho,
+   klinik orientatsiya (rasmiy tashxis qo'ymasdan), shoshilinch holatlar, takroriy tekshiruvlar.
+8. "#### QISQACHA KLINIK XULOSA (laborant uchun)" — 8-12 jumla, amaliy xulosa.
+9. "#### HUQUQIY VA TIBBIY ESKLATMA" — 4-7 jumla: MedLab yordamchi; qaror mutaxassisniki.
+10. Qisqa umumiy gaplar taqiqlanadi. Hisobot laborant o'qib to'liq tushunadigan darajada bo'lsin.
 """
 
 def _append_output_format(prompt):
@@ -1061,7 +1246,11 @@ def _full_analysis_prompt(base, microscope_prefix):
     """Mikroskop + laborator prompt + klinik sifat prefiksi + chiqish qoidalari."""
     merged = _merge_prompt_with_microscope(base, microscope_prefix)
     return _append_output_format(
-        CLINICAL_EXCELLENCE_PREFIX_UZ.strip() + "\n\n" + merged
+        TABLES_FIRST_UZ.strip()
+        + "\n\n"
+        + CLINICAL_EXCELLENCE_PREFIX_UZ.strip()
+        + "\n\n"
+        + merged
     )
 
 # ─── Global state ─────────────────────────────────────────────────────────────
@@ -1070,12 +1259,105 @@ camera_index  = 0
 stream_active = False
 frame_lock    = threading.Lock()
 latest_frame  = None
+preview_jpeg  = None  # jonli oqim uchun oldindan JPEG (tezlik)
+
+def _preview_fps():
+    try:
+        return max(12.0, min(float(os.environ.get("PREVIEW_FPS", "25")), 30.0))
+    except ValueError:
+        return 25.0
+
+
+def _preview_max_edge():
+    try:
+        return max(640, min(int(os.environ.get("PREVIEW_MAX_EDGE", "1280")), 1920))
+    except ValueError:
+        return 1280
+
+
+def _preview_jpeg_quality():
+    try:
+        return max(40, min(int(os.environ.get("PREVIEW_JPEG_QUALITY", "62")), 85))
+    except ValueError:
+        return 62
+
+
+def _encode_preview_jpeg(frame):
+    """Jonli ko'rsatish: kichikroq JPEG — tahlil uchun latest_frame to'liq qoladi."""
+    if frame is None:
+        return None
+    img = frame
+    h, w = img.shape[:2]
+    edge = _preview_max_edge()
+    m = max(w, h)
+    if m > edge:
+        scale = edge / float(m)
+        img = cv2.resize(
+            img,
+            (max(1, int(w * scale)), max(1, int(h * scale))),
+            interpolation=cv2.INTER_LINEAR,
+        )
+    ok, buf = cv2.imencode(
+        ".jpg",
+        img,
+        [int(cv2.IMWRITE_JPEG_QUALITY), _preview_jpeg_quality()],
+    )
+    if not ok:
+        return None
+    return buf.tobytes()
 analysis_lock = threading.Lock()
 latest_analysis = {
     "text": "", "lines": [], "timestamp": "",
     "status": "kutilmoqda", "loading": False,
-    "lab_type": ""
+    "lab_type": "",
+    "job_id": "",
+    "public_id": "",
+    "user_id": None,
+    "img_count": 0,
 }
+_completed_jobs = {}
+_COMPLETED_JOBS_MAX = 40
+
+
+def _publish_analysis(updates):
+    """latest_analysis ni yangilash; tugagan ishni job_id bo'yicha saqlab qo'yish."""
+    with analysis_lock:
+        latest_analysis.update(updates)
+        if updates.get("loading") is False:
+            jid = latest_analysis.get("job_id") or ""
+            if jid:
+                _completed_jobs[jid] = latest_analysis.copy()
+                while len(_completed_jobs) > _COMPLETED_JOBS_MAX:
+                    _completed_jobs.pop(next(iter(_completed_jobs)), None)
+
+
+def take_completed_job(job_id):
+    """Persist uchun tugagan ish nusxasi (boshqa tahlil boshlansa ham yo'qolmaydi)."""
+    if not job_id:
+        return None
+    with analysis_lock:
+        return _completed_jobs.pop(job_id, None)
+
+
+def begin_analysis_job(lab_type, status="tahlil_qilinmoqda", user_id=None):
+    """Yangi tahlil ishini belgilash. Band bo'lsa None qaytaradi."""
+    job_id = uuid.uuid4().hex
+    with analysis_lock:
+        if latest_analysis.get("loading"):
+            return None
+        latest_analysis.update({
+            "job_id": job_id,
+            "loading": True,
+            "status": status,
+            "lab_type": lab_type,
+            "text": "",
+            "lines": [],
+            "timestamp": "",
+            "public_id": "",
+            "user_id": user_id,
+            "img_count": 0,
+        })
+    return job_id
 
 
 def _video_temp_suffix(original_name):
@@ -1099,70 +1381,289 @@ def _ensure_bgr_frame(frame):
 
 
 # ─── Kamera ───────────────────────────────────────────────────────────────────
+_MICRO_NAME_KEYS = (
+    "euromex", "bioblue", "cmex", "tucsen", "touptek", "toupview", "toupcam",
+    "microscope", "mikroskop",
+    "usb2.0 camera", "usb 2.0 camera", "usb2.0 cam", "imaging source",
+)
+_PHONE_NAME_KEYS = (
+    "droidcam", "iriun", "iphone", "android", "samsung", "continuity",
+    "phone", "telefon", "ip webcam", "epoccam", "ivcam",
+)
+
+
+def _classify_camera_name(name):
+    n = (name or "").lower()
+    if any(k in n for k in _MICRO_NAME_KEYS):
+        return "microscope"
+    if any(k in n for k in _PHONE_NAME_KEYS):
+        return "phone"
+    return "webcam"
+
+
+def _warmup_read(cap, tries=10):
+    for _ in range(tries):
+        ret, frame = cap.read()
+        if ret and frame is not None and getattr(frame, "size", 0):
+            return True
+        time.sleep(0.04)
+    return False
+
+
+_dshow_names_cache = []
+
+
+def _dshow_device_names():
+    global _dshow_names_cache
+    if sys.platform != "win32":
+        return list(_dshow_names_cache)
+    try:
+        from pygrabber.dshow_graph import FilterGraph
+        graph = FilterGraph()
+        names = list(graph.get_input_devices())
+        del graph
+        _dshow_names_cache = names
+        return names
+    except Exception:
+        return list(_dshow_names_cache)
+
+
+def _try_open_capture(index, backends):
+    for backend in backends:
+        cap = cv2.VideoCapture(index, backend)
+        if not cap.isOpened():
+            cap.release()
+            continue
+        try:
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        except Exception:
+            pass
+        try:
+            cap.set(cv2.CAP_PROP_CONVERT_RGB, 1)
+        except Exception:
+            pass
+        # MJPG + 720p — USB2 YUY2 5MP ~5 FPS; MJPG 25–30 FPS
+        fourcc_mjpg = cv2.VideoWriter_fourcc(*"MJPG")
+        for w, h in ((1280, 720), (800, 600), (640, 480), (1920, 1080)):
+            try:
+                cap.set(cv2.CAP_PROP_FOURCC, fourcc_mjpg)
+            except Exception:
+                pass
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
+            try:
+                cap.set(cv2.CAP_PROP_FPS, 25)
+                cap.set(cv2.CAP_PROP_FOURCC, fourcc_mjpg)
+            except Exception:
+                pass
+            if _warmup_read(cap, tries=8):
+                aw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or w)
+                ah = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or h)
+                log.info("Kamera %s ochildi (backend=%s, %sx%s)", index, backend, aw, ah)
+                return cap
+        if _warmup_read(cap, tries=6):
+            log.info("Kamera %s ochildi (backend=%s, native)", index, backend)
+            return cap
+        cap.release()
+    return None
+
+
+def _open_dshow_named(substr):
+    """DirectShow nomidan kamera ochish (masalan ToupcamMicro)."""
+    needle = (substr or "").lower()
+    if not needle:
+        return None
+    names = list(_dshow_names_cache) if _dshow_names_cache else _dshow_device_names()
+    backends = (cv2.CAP_DSHOW, cv2.CAP_ANY)
+    for i, name in enumerate(names):
+        if needle in (name or "").lower():
+            cap = _try_open_capture(i, backends)
+            if cap is not None:
+                return cap
+    return None
+
+
 def open_camera(index):
+    """Kamerani ochish: avval kadr olinishini tekshiradi (bo‘sh ochilishni rad etadi)."""
+    idx = int(index)
     if sys.platform == "win32":
         backends = (cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY)
     else:
         v4l2 = getattr(cv2, "CAP_V4L2", cv2.CAP_ANY)
         backends = (v4l2, cv2.CAP_ANY)
-    for backend in backends:
-        cap = cv2.VideoCapture(index, backend)
-        if cap.isOpened():
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1280)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-            cap.set(cv2.CAP_PROP_FPS, 30)
-            log.info("Kamera %s ochildi (backend=%s)", index, backend)
+
+    # Eski soxta indeks 16 — USB2.0 Camera. Haqiqiy qurilma DirectShow ToupcamMicro.
+    if idx >= 16:
+        cap = _open_dshow_named("toupcammicro") or _open_dshow_named("toup")
+        if cap is not None:
+            log.info("Mikroskop ToupcamMicro orqali ochildi (so‘ralgan index=%s)", idx)
             return cap
-        cap.release()
-    return None
+
+    cap = _try_open_capture(idx, backends)
+    if cap is not None:
+        return cap
+    return _open_dshow_named("toupcammicro") or _open_dshow_named("toup")
 
 def capture_thread():
-    global camera, latest_frame, stream_active
+    global camera, latest_frame, stream_active, preview_jpeg
+    interval = 1.0 / _preview_fps()
     while stream_active:
+        t0 = time.perf_counter()
         if camera is None or not camera.isOpened():
-            time.sleep(0.1)
+            time.sleep(0.05)
             continue
         ret, frame = camera.read()
         if ret and frame is not None:
-            frame = _ensure_bgr_frame(frame.copy())
+            bgr = _ensure_bgr_frame(frame).copy()
+            jpeg = _encode_preview_jpeg(bgr)
             with frame_lock:
-                latest_frame = frame
-        time.sleep(0.033)
+                latest_frame = bgr
+                if jpeg:
+                    preview_jpeg = jpeg
+        elapsed = time.perf_counter() - t0
+        wait = interval - elapsed
+        if wait > 0.002:
+            time.sleep(wait)
 
 def generate_mjpeg():
+    """Oldindan kodlangan JPEG — har mijoz qayta encode qilmaydi."""
+    blank = None
+    last = None
     while True:
         with frame_lock:
-            frame = latest_frame.copy() if latest_frame is not None else None
-        if frame is None:
-            blank = np.zeros((480, 640, 3), dtype=np.uint8)
-            cv2.putText(blank, "Kamera kutilmoqda...", (130, 240),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (50, 50, 50), 2)
-            _, buf = cv2.imencode('.jpg', blank)
-            time.sleep(0.1)
+            buf = preview_jpeg
+        if not buf:
+            if blank is None:
+                img = np.zeros((480, 640, 3), dtype=np.uint8)
+                cv2.putText(
+                    img, "Kamera kutilmoqda...", (130, 240),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (50, 50, 50), 2,
+                )
+                ok, enc = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
+                blank = enc.tobytes() if ok else b""
+            payload = blank
+            time.sleep(0.08)
         else:
-            _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
-            time.sleep(0.033)
-        yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buf.tobytes() + b'\r\n')
+            payload = buf
+            if payload is last:
+                time.sleep(0.008)
+                continue
+            last = payload
+        yield (
+            b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + payload + b"\r\n"
+        )
+
+def _probe_windows_microscope_usb():
+    """BioBlue/CMEX USB (VID_0547) — WinUSB bo‘lsa OpenCV uni kamera deb ko‘rmaydi."""
+    if sys.platform != "win32":
+        return {"found": False, "ready": False}
+    ps = r"""
+$ErrorActionPreference = 'SilentlyContinue'
+$d = Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -match 'VID_0547&PID_1236' } | Select-Object -First 1
+if (-not $d) { Write-Output '{"found":false,"ready":false}'; exit 0 }
+$svc = [string]$d.Service
+$ready = ($svc -match 'usbvideo')
+@{
+  found = $true
+  name = [string]$d.FriendlyName
+  instance_id = [string]$d.InstanceId
+  service = $svc
+  pnp_class = [string]$d.PNPClass
+  ready = [bool]$ready
+} | ConvertTo-Json -Compress
+"""
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps],
+            capture_output=True, text=True, timeout=12,
+        )
+        raw = (r.stdout or "").strip()
+        if not raw:
+            return {"found": False, "ready": False}
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            return {"found": False, "ready": False}
+        found = bool(data.get("found"))
+        ready = bool(data.get("ready"))
+        svc = (data.get("service") or "").upper()
+        hint = ""
+        if found and not ready:
+            if "WINUSB" in svc or (data.get("pnp_class") or "") == "USBDevice":
+                hint = (
+                    "Mikroskop USB da ulangan (ToupTek/Euromex). Uni MedLab ToupTek SDK orqali ochadi — "
+                    "USB Video Device ni tanlamang."
+                )
+            else:
+                hint = "Mikroskop USB da bor."
+        return {
+            "found": found,
+            "ready": ready,
+            "name": data.get("name") or "USB2.0 Camera",
+            "service": data.get("service") or "",
+            "pnp_class": data.get("pnp_class") or "",
+            "hint": hint,
+        }
+    except Exception as e:
+        log.warning("USB mikroskop tekshiruvi: %s", e)
+        return {"found": False, "ready": False}
+
 
 def scan_cameras():
     found = []
-    names = []
-    try:
-        from pygrabber.dshow_graph import FilterGraph
-        names = list(FilterGraph().get_input_devices())
-    except Exception:
-        names = []
+    names = _dshow_device_names()
     is_win = sys.platform == "win32"
-    for i in range(8):
-        backend = cv2.CAP_DSHOW if is_win else cv2.CAP_ANY
-        cap = cv2.VideoCapture(i, backend)
-        if cap.isOpened():
-            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            name = names[i] if i < len(names) else f"Kamera {i}"
-            found.append({"index": i, "name": name, "resolution": f"{w}x{h}"})
+    backends = (cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY) if is_win else (cv2.CAP_ANY,)
+    seen = set()
+
+    def _add(i, name, w=0, h=0, kind=None):
+        if i in seen:
+            return
+        seen.add(i)
+        kind = kind or _classify_camera_name(name)
+        found.append({
+            "index": i,
+            "name": name,
+            "resolution": f"{w}x{h}" if w and h else "—",
+            "kind": kind,
+        })
+
+    for i, name in enumerate(names):
+        n = (name or "").lower()
+        if "toup" in n or _classify_camera_name(name) == "microscope":
+            _add(i, name, kind="microscope")
+
+    max_i = max(8, len(names))
+    for i in range(max_i):
+        if i in seen:
+            continue
+        opened = False
+        w = h = 0
+        for backend in backends:
+            cap = cv2.VideoCapture(i, backend)
+            if cap.isOpened():
+                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+                opened = True
+                cap.release()
+                break
             cap.release()
-    return found
+        if not opened:
+            continue
+        name = names[i] if i < len(names) else f"Kamera {i}"
+        _add(i, name, w, h)
+
+    usb = _probe_windows_microscope_usb()
+    already_scope = any(c.get("kind") == "microscope" for c in found)
+    if already_scope:
+        usb["ready"] = True
+        usb["sdk"] = "dshow"
+    elif usb.get("found"):
+        usb["ready"] = True
+        usb["sdk"] = "dshow"
+        usb["hint"] = (
+            "Mikroskop USB da bor. Ro‘yxatni yangilang va ToupcamMicro ni tanlang."
+        )
+    return {"cameras": found, "microscope_usb": usb}
 
 # ─── Mikroskop konteksti (laborant kiritadi) ──────────────────────────────────
 def microscope_dict_from_input(*, json_body=None, form_get=None):
@@ -1195,7 +1696,7 @@ def microscope_dict_from_input(*, json_body=None, form_get=None):
     }
 
 def _microscope_prompt_prefix(d):
-    """Gemini uchun mikroskop holati bloklari (bo'sh bo'lsa None)."""
+    """Tahlil uchun mikroskop holati bloklari (bo'sh bo'lsa None)."""
     if not d:
         return None
     if not any(d.values()):
@@ -1229,32 +1730,31 @@ def _merge_prompt_with_microscope(base_prompt, microscope_prefix):
         return microscope_prefix.strip() + "\n\n" + base_prompt
     return base_prompt
 
-# ─── Gemini tahlil ────────────────────────────────────────────────────────────
-def _gemini_image_max_px():
+# ─── OpenAI tahlil ────────────────────────────────────────────────────────────
+def _openai_image_max_px():
     try:
-        v = int(os.environ.get("GEMINI_IMAGE_MAX_PX", "1600"))
+        v = int(os.environ.get("OPENAI_IMAGE_MAX_PX", "1600"))
     except ValueError:
         v = 1600
     return max(960, min(v, 4096))
 
 
-def _gemini_generation_config():
-    """Chiqish tokeni: katta qiymat sekinroq; .env orqali sozlash mumkin."""
+def _openai_generation_kwargs():
     try:
-        max_out = int(os.environ.get("GEMINI_MAX_OUTPUT_TOKENS", "16384"))
+        max_out = int(os.environ.get("OPENAI_MAX_OUTPUT_TOKENS", "16384"))
     except ValueError:
         max_out = 16384
-    max_out = max(4096, min(max_out, 65536))
+    max_out = max(1024, min(max_out, 16384))
     try:
-        temp = float(os.environ.get("GEMINI_TEMPERATURE", "0.1"))
+        temp = float(os.environ.get("OPENAI_TEMPERATURE", "0.35"))
     except ValueError:
-        temp = 0.1
+        temp = 0.35
     try:
-        top_p = float(os.environ.get("GEMINI_TOP_P", "0.92"))
+        top_p = float(os.environ.get("OPENAI_TOP_P", "0.92"))
     except ValueError:
         top_p = 0.92
     return {
-        "max_output_tokens": max_out,
+        "max_tokens": max_out,
         "temperature": max(0.0, min(temp, 1.5)),
         "top_p": max(0.05, min(top_p, 1.0)),
     }
@@ -1269,70 +1769,124 @@ def _truncate_field(val, maxlen):
     return s
 
 
+_LAB_ALIASES = {
+    "gistologiya": "histology",
+    "gistalogiya": "histology",
+    "gistology": "histology",
+}
+
+
 def _normalize_lab_type(lab_type):
     if not lab_type or not isinstance(lab_type, str):
         return "hematology"
     lab_type = lab_type.strip().lower()
+    lab_type = _LAB_ALIASES.get(lab_type, lab_type)
     if re.match(r"^[a-z][a-z0-9_]{0,40}$", lab_type) and lab_type in ALLOWED_LAB_TYPES:
         return lab_type
     return "hematology"
 
 
-def _extract_gemini_text(response):
-    """Bo'sh Part, safety block — response.text xato bermasligi uchun."""
-    try:
-        cands = getattr(response, "candidates", None) or []
-        if cands:
-            c0 = cands[0]
-            content = getattr(c0, "content", None)
-            parts = getattr(content, "parts", None) if content else None
-            if parts:
-                chunks = []
-                for part in parts:
-                    t = getattr(part, "text", None)
-                    if t:
-                        chunks.append(t)
-                if chunks:
-                    return "\n".join(chunks).strip()
-            fr = getattr(c0, "finish_reason", None)
-            if fr is not None:
-                return (
-                    (
-                        "%s javob matni bo'sh yoki to'liq emas (finish_reason=%s). "
-                        "Keyinroq qayta urinib ko'ring yoki qisqaroq so'rov bilan sinang."
-                    )
-                    % (ZIYRAKAI_DISPLAY_NAME, fr)
-                )
-    except Exception:
-        pass
-    try:
-        return (response.text or "").strip()
-    except Exception:
-        fb = getattr(response, "prompt_feedback", None)
-        br = getattr(fb, "block_reason", None) if fb else None
-        return (
-            "%s javobi olinmadi. prompt_feedback.block_reason=%s"
-            % (ZIYRAKAI_DISPLAY_NAME, br)
-        )
+def _pil_to_data_url(img):
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, format="JPEG", quality=88)
+    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    return "data:image/jpeg;base64," + b64
 
 
-def _gemini_generate(content_list):
-    if gemini_model is None:
-        raise RuntimeError(
-            "%s sozlanmagan: xizmat kaliti o'rnatilmagan — administrator .env faylida "
-            "GEMINI_API_KEY ni belgilashi kerak."
-            % ZIYRAKAI_DISPLAY_NAME
-        )
-    max_retries = max(1, int(os.environ.get("GEMINI_MAX_RETRIES", "3")))
-    base_delay = float(os.environ.get("GEMINI_RETRY_DELAY_SEC", "2"))
+_ANALYSIS_SYSTEM = (
+    "Sen MedLab — katta klinik laborant-morfolog. Ichki hisobot yozasan. "
+    "Javobni markdown JADVALLARDAN boshlaysan: | Ko'rsatkich | Topilgan | Normal | Baho |. "
+    "Har qatorda RAQAM (ta/maydon yoki %). Jadvalsiz yoki faqat matn — taqiqlanadi. "
+    "Bemorga tashxis emas, lekin sonli natija va izoh majburiy. Rad etma. Faqat MedLab."
+)
+
+_WORKSHEET_SYSTEM = (
+    "Sen MedLab. Litsenziyali laborant uchun ichki morfologiya VARAQASINI to'ldirasan. "
+    "Bu bemorga tibbiy maslahat yoki tashxis emas. O'zbek tilida javob ber. "
+    "Avval markdown jadval, har qatorda son. Rad etma. Faqat MedLab."
+)
+
+_WORKSHEET_USER = (
+    "Bu bo'yalgan optik mikroskop namunasining maydoni. Ichki varaqani to'ldir. "
+    "Kasallik nomi va tashxis YOZMA.\n\n"
+    "Avval markdown jadval (kamida 8 qator). Har qatorda RAQAM (ta/maydon yoki %):\n"
+    "| Ko'rsatkich | Topilgan | Normal orientir | Baho |\n"
+    "Ko'rinadigan har bir hujayra/tuzilma turini alohida qator qil. "
+    "Keyin 12-18 jumla: rang, shakl, zichlik. Yulduzcha ** yo'q. :--- yo'q."
+)
+
+_DESCRIBE_SYSTEM = (
+    "You describe stained optical-microscope photographs for a lab worksheet. "
+    "No disease names, no diagnosis, no treatment. Reply in Uzbek. Tables with counts."
+)
+
+_DESCRIBE_USER = (
+    "Stained microscope-field photo. In Uzbek, markdown table then short notes.\n"
+    "| Turi | Taxminiy son | Rang | Shakl |\n"
+    "Count pink discs and purple-nucleus cells per field. No diagnosis."
+)
+
+_REFUSAL_MARKERS = (
+    "i'm sorry, i can't assist",
+    "i’m sorry, i can’t assist",
+    "i cannot assist with that",
+    "i can't assist with that",
+    "i can’t assist with that",
+    "i'm not able to assist",
+    "i am not able to assist",
+    "i cannot help with that",
+    "i can't help with that",
+    "i’m unable to assist",
+    "i am unable to assist",
+    "cannot provide medical",
+    "can't provide medical",
+    "i cannot provide a diagnosis",
+    "i can't provide a diagnosis",
+    "i cannot analyze medical",
+    "i'm sorry, i can't help",
+)
+
+_REFUSAL_FALLBACK_UZ = (
+    "Hisobotni tuzib bo'lmadi. Bir necha soniyadan keyin tahlilni qayta bosing."
+)
+
+
+def _looks_like_refusal(text):
+    if not text:
+        return True
+    t = text.strip().lower()
+    if any(m in t for m in _REFUSAL_MARKERS):
+        return True
+    if len(t) < 80 and ("can't" in t or "cannot" in t or "unable" in t):
+        return True
+    return False
+
+
+def _chat_complete(messages, kwargs):
+    max_retries = max(1, int(os.environ.get("OPENAI_MAX_RETRIES", "3")))
+    base_delay = float(os.environ.get("OPENAI_RETRY_DELAY_SEC", "2"))
     for attempt in range(max_retries):
         try:
-            return gemini_model.generate_content(
-                content_list,
-                generation_config=_gemini_generation_config(),
+            resp = openai_client.chat.completions.create(
+                model=OPENAI_MODEL_ID,
+                messages=messages,
+                **kwargs,
             )
+            choice = (resp.choices or [None])[0]
+            if choice is None:
+                return "%s javobi bo‘sh." % ZIYRAKAI_DISPLAY_NAME
+            text = (choice.message.content or "").strip()
+            fr = getattr(choice, "finish_reason", None)
+            if fr in ("content_filter",) or (not text and fr == "content_filter"):
+                return "I'm sorry, I can't assist with that."
+            if text:
+                return text
+            return (
+                "%s javob matni bo'sh yoki to'liq emas (finish_reason=%s). "
+                "Keyinroq qayta urinib ko'ring."
+            ) % (ZIYRAKAI_DISPLAY_NAME, fr)
         except Exception as e:
-            retry = bool(_GEMINI_RETRYABLE and isinstance(e, _GEMINI_RETRYABLE))
+            retry = bool(_OPENAI_RETRYABLE and isinstance(e, _OPENAI_RETRYABLE))
             if retry and attempt < max_retries - 1:
                 delay = base_delay * (2**attempt)
                 log.warning(
@@ -1348,10 +1902,103 @@ def _gemini_generate(content_list):
             raise
 
 
+def _usable(text, min_len=120):
+    return bool(text) and not _looks_like_refusal(text) and len(text.strip()) >= min_len
+
+
+def _vision_user(prompt, image_parts):
+    return [{"type": "text", "text": prompt}] + image_parts
+
+
+def _expand_full_report(observation, full_prompt, kwargs):
+    """Rasm yo'q — kuzatuvdan to'liq laborator hisobot (jadval + matn)."""
+    return _chat_complete(
+        [
+            {"role": "system", "content": _ANALYSIS_SYSTEM},
+            {
+                "role": "user",
+                "content": (
+                    "Quyida mikroskop maydonining ichki varaqasi/kuzatuvi berilgan. "
+                    "Shu asosida HAQIQIY laborator hisobot yoz: AVVAL sonli jadvallar, "
+                    "keyin batafsil bo'limlar. Bemorga tashxis emas.\n\n"
+                    "==== KUZATUV / JADVAL ====\n"
+                    + observation[:12000]
+                    + "\n==== TUGADI ====\n\n"
+                    + full_prompt
+                ),
+            },
+        ],
+        kwargs,
+    )
+
+
+def _openai_generate(content_list):
+    if openai_client is None:
+        raise RuntimeError(
+            "%s sozlanmagan: xizmat kaliti o'rnatilmagan — administrator .env faylida "
+            "OPENAI_API_KEY ni belgilashi kerak."
+            % ZIYRAKAI_DISPLAY_NAME
+        )
+    full_prompt = "\n\n".join(item for item in content_list if isinstance(item, str))
+    image_parts = [
+        {
+            "type": "image_url",
+            "image_url": {"url": _pil_to_data_url(item), "detail": "high"},
+        }
+        for item in content_list
+        if isinstance(item, Image.Image)
+    ]
+    kwargs = _openai_generation_kwargs()
+
+    sheet = ""
+    if image_parts:
+        log.info("%s: 1-bosqich varaqa (rasm)", ZIYRAKAI_DISPLAY_NAME)
+        sheet = _chat_complete(
+            [
+                {"role": "system", "content": _WORKSHEET_SYSTEM},
+                {"role": "user", "content": _vision_user(_WORKSHEET_USER, image_parts)},
+            ],
+            kwargs,
+        )
+        if not _usable(sheet):
+            log.warning("%s: varaqa rad, vizual tavsif", ZIYRAKAI_DISPLAY_NAME)
+            sheet = _chat_complete(
+                [
+                    {"role": "system", "content": _DESCRIBE_SYSTEM},
+                    {"role": "user", "content": _vision_user(_DESCRIBE_USER, image_parts)},
+                ],
+                kwargs,
+            )
+
+    source = sheet if _usable(sheet, 80) else ""
+    if source:
+        log.info("%s: 2-bosqich to'liq hisobot (matn, %s belgi)", ZIYRAKAI_DISPLAY_NAME, len(source))
+        report = _expand_full_report(source, full_prompt, kwargs)
+        if _usable(report, 200):
+            if _has_md_table(report):
+                return report
+            if _has_md_table(source):
+                return source.strip() + "\n\n" + report
+            return report
+        if _usable(source, 80):
+            return source
+
+    log.warning("%s: hisobot olinmadi", ZIYRAKAI_DISPLAY_NAME)
+    return _REFUSAL_FALLBACK_UZ
+
+
+def _has_md_table(text):
+    n = 0
+    for line in (text or "").splitlines():
+        if line.count("|") >= 3:
+            n += 1
+    return n >= 3
+
+
 def _resize_img(img, max_px=None):
-    """Rasmni Gemini uchun optimallashtirish (tafsilot saqlanadi)."""
+    """Rasmni OpenAI vision uchun optimallashtirish (tafsilot saqlanadi)."""
     if max_px is None:
-        max_px = _gemini_image_max_px()
+        max_px = _openai_image_max_px()
     w, h = img.size
     if max(w, h) > max_px:
         scale = max_px / max(w, h)
@@ -1364,14 +2011,13 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None)
     if not isinstance(pil_images, list):
         pil_images = [pil_images]
     if not pil_images:
-        with analysis_lock:
-            latest_analysis.update({
-                "text": "Xato: hech qanday rasm berilmagan",
-                "lines": ["Xato: hech qanday rasm berilmagan"],
-                "timestamp": time.strftime("%H:%M:%S"),
-                "status": "xato",
-                "loading": False,
-            })
+        _publish_analysis({
+            "text": "Xato: hech qanday rasm berilmagan",
+            "lines": ["Xato: hech qanday rasm berilmagan"],
+            "timestamp": time.strftime("%H:%M:%S"),
+            "status": "xato",
+            "loading": False,
+        })
         return
     try:
         with analysis_lock:
@@ -1395,29 +2041,26 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None)
         else:
             content = [prompt, imgs[0]]
 
-        response = _gemini_generate(content)
-        text = _extract_gemini_text(response)
+        text = _openai_generate(content)
         lines = [l.strip() for l in text.split('\n') if l.strip()]
 
-        with analysis_lock:
-            latest_analysis.update({
-                "text": text, "lines": lines,
-                "timestamp": time.strftime('%H:%M:%S'),
-                "status": "tayyor", "loading": False,
-                "lab_type": lab_type,
-                "img_count": len(imgs)
-            })
+        _publish_analysis({
+            "text": text, "lines": lines,
+            "timestamp": time.strftime('%H:%M:%S'),
+            "status": "tayyor", "loading": False,
+            "lab_type": lab_type,
+            "img_count": len(imgs),
+        })
         log.info("%s OK %s (%s rasm), %s belgi", ZIYRAKAI_DISPLAY_NAME, lab_type, len(imgs), len(text))
 
     except Exception as e:
         err = str(e)
         log.exception("%s tahlil xatosi: %s", ZIYRAKAI_DISPLAY_NAME, err)
-        with analysis_lock:
-            latest_analysis.update({
-                "text": f"Xato: {err}", "lines": [f"Xato: {err}"],
-                "timestamp": time.strftime('%H:%M:%S'),
-                "status": "xato", "loading": False
-            })
+        _publish_analysis({
+            "text": f"Xato: {err}", "lines": [f"Xato: {err}"],
+            "timestamp": time.strftime('%H:%M:%S'),
+            "status": "xato", "loading": False,
+        })
 
 def do_analyze_video(
     video_bytes,
@@ -1427,7 +2070,7 @@ def do_analyze_video(
     microscope_prefix=None,
     original_filename=None,
 ):
-    """Video faylni Gemini bilan tahlil qilish (loading=True allaqachon API da)."""
+    """Video faylni OpenAI bilan tahlil qilish (loading=True allaqachon API da)."""
     global latest_analysis
     tmp_path = None
     try:
@@ -1452,7 +2095,7 @@ def do_analyze_video(
         if not fps or fps != fps:  # 0 yoki nan
             fps = 25.0
         try:
-            max_frames = int(os.environ.get("GEMINI_VIDEO_MAX_FRAMES", "6"))
+            max_frames = int(os.environ.get("OPENAI_VIDEO_MAX_FRAMES", "6"))
         except ValueError:
             max_frames = 6
         max_frames = max(4, min(max_frames, 12))
@@ -1482,29 +2125,26 @@ def do_analyze_video(
         content = [f"Bu {len(frames_data)} ta mikroskopiya video/rasm kadri. " + prompt]
         content.extend(frames_data)
 
-        response = _gemini_generate(content)
-        text = _extract_gemini_text(response)
+        text = _openai_generate(content)
         lines = [l.strip() for l in text.split('\n') if l.strip()]
 
-        with analysis_lock:
-            latest_analysis.update({
-                "text": text, "lines": lines,
-                "timestamp": time.strftime('%H:%M:%S'),
-                "status": "tayyor", "loading": False,
-                "lab_type": lab_type,
-                "img_count": len(frames_data),
-            })
+        _publish_analysis({
+            "text": text, "lines": lines,
+            "timestamp": time.strftime('%H:%M:%S'),
+            "status": "tayyor", "loading": False,
+            "lab_type": lab_type,
+            "img_count": len(frames_data),
+        })
         log.info("%s video OK %s, %s belgi", ZIYRAKAI_DISPLAY_NAME, lab_type, len(text))
 
     except Exception as e:
         err = str(e)
         log.exception("%s video xatosi: %s", ZIYRAKAI_DISPLAY_NAME, err)
-        with analysis_lock:
-            latest_analysis.update({
-                "text": f"Xato: {err}", "lines": [f"Xato: {err}"],
-                "timestamp": time.strftime('%H:%M:%S'),
-                "status": "xato", "loading": False
-            })
+        _publish_analysis({
+            "text": f"Xato: {err}", "lines": [f"Xato: {err}"],
+            "timestamp": time.strftime('%H:%M:%S'),
+            "status": "xato", "loading": False,
+        })
     finally:
         if tmp_path and os.path.isfile(tmp_path):
             try:
