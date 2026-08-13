@@ -2247,22 +2247,18 @@ body::before {
   height: 100%;
   padding: 14px 12px !important;
   display: flex !important;
-  flex-direction: row !important;
+  flex-direction: column !important;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 4px;
   border-width: 2px !important;
+  text-align: center;
 }
-.left-panel .upload-ico {
-  width: 36px !important;
-  height: 36px !important;
-  font-size: 1.2rem !important;
-  border-radius: 10px !important;
-  flex-shrink: 0;
-}
+.left-panel .upload-ico { display: none !important; }
 .left-panel .upload-copy {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 2px;
   min-width: 0;
 }
@@ -2273,12 +2269,14 @@ body::before {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: center;
 }
 .left-panel .upload-hint-line {
   font-size: 0.68rem;
   font-weight: 600;
   color: #64748b;
   letter-spacing: 0.01em;
+  text-align: center;
 }
 .left-panel .micro-grid-3 {
   display: grid !important;
