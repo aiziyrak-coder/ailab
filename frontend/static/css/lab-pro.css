@@ -644,7 +644,7 @@ body::after {
   background: #f8fafc;
 }
 .report-meta-grid > div {
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-right: 1px solid #e2e8f0;
   border-bottom: 1px solid #e2e8f0;
   min-width: 0;
@@ -652,7 +652,7 @@ body::after {
 .report-meta-grid > div:nth-child(2n) { border-right: 0; }
 .report-meta-grid span {
   display: block;
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -660,7 +660,7 @@ body::after {
 }
 .report-meta-grid b {
   display: block;
-  font-size: 0.72rem;
+  font-size: 0.88rem;
   color: #0f172a;
   font-weight: 700;
   white-space: nowrap;
@@ -669,10 +669,10 @@ body::after {
 }
 
 .result-header {
-  padding: 8px 10px !important;
+  padding: 10px 12px !important;
   background: #fff !important;
 }
-.result-title { font-size: 0.82rem !important; font-weight: 800 !important; }
+.result-title { font-size: 1.02rem !important; font-weight: 800 !important; }
 #resultLabIcon {
   width: 28px;
   height: 28px;
