@@ -387,7 +387,16 @@ function currentNamunaId() {
 
 function refreshSampleId() {
   const el = document.getElementById('accSample');
-  if (el) el.value = currentNamunaId();
+  const next = currentNamunaId();
+  if (el) {
+    const prev = String(el.value || '');
+    el.value = next;
+    if (prev && prev !== next) {
+      el.classList.remove('is-fresh');
+      void el.offsetWidth;
+      el.classList.add('is-fresh');
+    }
+  }
   updateResultRegistrationId();
 }
 
@@ -1243,7 +1252,7 @@ function showLoading() {
   const m = labMeta(currentLab);
   document.getElementById('resultBody').innerHTML = `
     <div class="result-loading">
-      <div class="spinner" style="width:24px;height:24px;border-width:2px"></div>
+      <div class="load-bar" aria-hidden="true"><i></i></div>
       ${esc(m.loading)}
     </div>`;
   document.getElementById('resultTs').textContent = '';
@@ -1270,7 +1279,7 @@ function renderResult(data) {
   if (pending) {
     body.innerHTML = `
       <div class="result-loading">
-        <div class="spinner" style="width:24px;height:24px;border-width:2px"></div>
+        <div class="load-bar" aria-hidden="true"><i></i></div>
         Tahlil hali tayyor emas (ID: ${esc(currentPublicId || '—')})
       </div>`;
     ts.textContent = data.timestamp || '';

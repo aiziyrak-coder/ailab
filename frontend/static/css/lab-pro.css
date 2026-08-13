@@ -1747,3 +1747,283 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .card, .btn, .src-tab, .lab-select { transition: none !important; transform: none !important; }
 }
+
+/* ═══ Harakat qatlami — klinik, yumshoq ═══ */
+@keyframes labFadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes labPop {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes labLogoBreath {
+  0%, 100% { box-shadow: 0 8px 20px rgba(27, 58, 92, 0.18); transform: translateY(0); }
+  50% { box-shadow: 0 12px 28px rgba(14, 116, 144, 0.32); transform: translateY(-1px); }
+}
+@keyframes labShimmerSweep {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(220%); }
+}
+@keyframes labScanLine {
+  0% { top: 8%; opacity: 0; }
+  12% { opacity: 0.7; }
+  88% { opacity: 0.45; }
+  100% { top: 88%; opacity: 0; }
+}
+@keyframes labIdFlash {
+  0% { background: #dbeafe; box-shadow: 0 0 0 3px rgba(27, 58, 92, 0.12); }
+  100% { background: #f1f5f9; box-shadow: none; }
+}
+@keyframes labRowIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes labLivePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(47, 107, 79, 0.35); }
+  50% { box-shadow: 0 0 0 6px rgba(47, 107, 79, 0); }
+}
+@keyframes labBar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+@keyframes labGridSoft {
+  0% { background-position: 0 0, 0 0, 0 0, 0 0; }
+  100% { background-position: 0 32px, 32px 0, 0 0, 0 0; }
+}
+
+.header { animation: labFadeUp 0.55s var(--ios-ease) both; }
+.workbar { animation: labFadeUp 0.6s 0.05s var(--ios-ease) both; }
+.left-panel { animation: labFadeUp 0.7s 0.1s var(--ios-ease) both; }
+.center-panel { animation: labFadeUp 0.7s 0.16s var(--ios-ease) both; }
+.right-panel { animation: labFadeUp 0.7s 0.22s var(--ios-ease) both; }
+.app-footer { animation: labFadeUp 0.55s 0.28s var(--ios-ease) both; }
+
+.header-logo-wrap {
+  animation: labLogoBreath 3.8s ease-in-out infinite !important;
+}
+.header-logo-wrap svg {
+  animation: none !important;
+}
+
+body::before {
+  animation: labGridSoft 28s linear infinite !important;
+}
+
+.wb-flow li {
+  transition: background 0.35s var(--ios-ease), color 0.35s, transform 0.3s var(--ios-ease), box-shadow 0.3s;
+}
+.wb-flow li.on {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+
+.acc-form input,
+.acc-form select {
+  transition: border-color 0.22s var(--ios-ease), box-shadow 0.22s var(--ios-ease), background 0.22s !important;
+}
+.acc-form input:focus,
+.acc-form select:focus {
+  border-color: #1b3a5c !important;
+  box-shadow: 0 0 0 4px rgba(27, 58, 92, 0.12) !important;
+}
+
+.sample-id-field input.is-fresh {
+  animation: labIdFlash 0.7s var(--ios-ease);
+}
+
+.btn-ziyrakai {
+  position: relative;
+  overflow: hidden;
+}
+.btn-ziyrakai:not(:disabled)::after {
+  content: "";
+  display: block !important;
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  animation: labShimmerSweep 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+.btn-ziyrakai:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+}
+.btn:active:not(:disabled),
+.btn-small:active:not(:disabled),
+.src-tab:active {
+  transform: scale(0.97);
+}
+
+.prio {
+  transition: transform 0.2s var(--ios-ease), background 0.2s, box-shadow 0.2s !important;
+}
+.prio.on {
+  box-shadow: 0 4px 12px rgba(27, 58, 92, 0.16);
+}
+
+.upload-zone {
+  transition: border-color 0.25s, background 0.25s, transform 0.25s var(--ios-ease) !important;
+}
+.upload-zone:hover {
+  transform: translateY(-1px);
+  border-color: rgba(27, 58, 92, 0.28) !important;
+}
+
+.media-thumb {
+  transition: transform 0.22s var(--ios-ease), box-shadow 0.22s, border-color 0.22s !important;
+}
+.media-thumb:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 8px 18px rgba(27, 58, 92, 0.14);
+}
+.media-thumb.is-on {
+  box-shadow: 0 0 0 2px #1b3a5c, 0 8px 16px rgba(27, 58, 92, 0.16);
+}
+
+.analyzing-overlay {
+  background: linear-gradient(160deg, rgba(27, 58, 92, 0.42), rgba(14, 116, 144, 0.28)) !important;
+  color: #f8fafc !important;
+  text-shadow: 0 1px 8px rgba(15, 23, 42, 0.35);
+  animation: labFadeUp 0.28s var(--ios-ease) both;
+  overflow: hidden;
+}
+.analyzing-overlay::after {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(186, 230, 253, 0.95), transparent);
+  box-shadow: 0 0 16px rgba(125, 211, 252, 0.7);
+  animation: labScanLine 1.7s ease-in-out infinite;
+  pointer-events: none;
+}
+.analyzing-overlay.hidden { display: none; }
+
+.lab-scope-anim {
+  filter: drop-shadow(0 8px 18px rgba(15, 23, 42, 0.28));
+}
+.scope-ring {
+  border-top-color: #e0f2fe !important;
+  border-right-color: #7dd3fc !important;
+}
+.scope-ring.r2 { border-top-color: #67e8f9 !important; }
+.scope-ring.r3 { border-top-color: #a5f3fc !important; }
+.scope-core {
+  background: radial-gradient(circle at 35% 30%, #fff, #bae6fd 50%, #0e7490) !important;
+  box-shadow: 0 0 18px rgba(125, 211, 252, 0.55) !important;
+}
+
+.pill-connected {
+  animation: labLivePulse 2.2s ease-out infinite;
+}
+.st-live.on {
+  animation: labLivePulse 2.4s ease-out infinite;
+}
+
+.result-id:not(.hidden) {
+  animation: labPop 0.4s var(--ios-ease) both;
+}
+.btn-small.is-ok {
+  animation: labPop 0.35s var(--ios-ease) both;
+}
+
+#resultBody > .r-anim,
+#resultBody > .r-table-wrap,
+#resultBody > .result-empty,
+#resultBody > .result-loading {
+  animation: labFadeUp 0.5s var(--ios-ease) both;
+}
+#resultBody > *:nth-child(2) { animation-delay: 0.05s; }
+#resultBody > *:nth-child(3) { animation-delay: 0.1s; }
+#resultBody > *:nth-child(4) { animation-delay: 0.15s; }
+#resultBody > *:nth-child(5) { animation-delay: 0.2s; }
+#resultBody > *:nth-child(6) { animation-delay: 0.25s; }
+#resultBody > *:nth-child(7) { animation-delay: 0.3s; }
+#resultBody > *:nth-child(8) { animation-delay: 0.35s; }
+#resultBody > *:nth-child(9) { animation-delay: 0.4s; }
+#resultBody > *:nth-child(10) { animation-delay: 0.45s; }
+
+.r-table tbody tr {
+  animation: labRowIn 0.4s var(--ios-ease) both;
+}
+.r-table tbody tr:nth-child(1) { animation-delay: 0.06s; }
+.r-table tbody tr:nth-child(2) { animation-delay: 0.1s; }
+.r-table tbody tr:nth-child(3) { animation-delay: 0.14s; }
+.r-table tbody tr:nth-child(4) { animation-delay: 0.18s; }
+.r-table tbody tr:nth-child(5) { animation-delay: 0.22s; }
+.r-table tbody tr:nth-child(6) { animation-delay: 0.26s; }
+.r-table tbody tr:nth-child(7) { animation-delay: 0.3s; }
+.r-table tbody tr:nth-child(8) { animation-delay: 0.34s; }
+.r-table tbody tr:nth-child(9) { animation-delay: 0.38s; }
+.r-table tbody tr:nth-child(10) { animation-delay: 0.42s; }
+
+.result-loading {
+  flex-direction: column;
+  color: #1b3a5c !important;
+}
+.load-bar {
+  width: min(220px, 70%);
+  height: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(27, 58, 92, 0.12);
+}
+.load-bar i {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #1b3a5c, #0e7490);
+  animation: labBar 1.15s ease-in-out infinite;
+}
+
+.re-icon {
+  animation: labLogoBreath 3.2s ease-in-out infinite;
+}
+
+.hist-drawer {
+  animation: labFadeUp 0.35s var(--ios-ease) both;
+}
+.hist-card {
+  transition: transform 0.2s var(--ios-ease), box-shadow 0.2s !important;
+}
+.hist-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(27, 58, 92, 0.1);
+}
+
+.auth-page .auth-topbar { animation: labFadeUp 0.5s var(--ios-ease) both; }
+.auth-page .auth-station { animation: labFadeUp 0.7s 0.08s var(--ios-ease) both; }
+.auth-page .auth-foot { animation: labFadeUp 0.5s 0.18s var(--ios-ease) both; }
+.auth-logo-mark {
+  animation: labLogoBreath 3.8s ease-in-out infinite;
+}
+.auth-page .auth-btn {
+  position: relative;
+  overflow: hidden;
+}
+.auth-page .auth-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  animation: labShimmerSweep 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+.auth-page .auth-field input:focus {
+  border-color: #1b3a5c !important;
+  box-shadow: 0 0 0 4px rgba(27, 58, 92, 0.12) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header, .workbar, .left-panel, .center-panel, .right-panel, .app-footer,
+  .header-logo-wrap, .btn-ziyrakai:not(:disabled)::after, .analyzing-overlay,
+  .analyzing-overlay::after, .scope-ring, .scope-core, .re-icon, .r-anim,
+  .r-table tbody tr, .result-id, .auth-page .auth-station, .auth-logo-mark,
+  .auth-page .auth-btn::after, .load-bar i, body::before, .pill-connected, .st-live.on {
+    animation: none !important;
+  }
+}
