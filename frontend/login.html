@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#f4f6f9">
+  <meta name="theme-color" content="#1b3a5c">
   <title>Kirish — MedLab</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off1">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off1">
+  <link rel="stylesheet" href="/static/css/style.css?v=off6">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off6">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body class="auth-page-body">
@@ -27,29 +27,59 @@
 </svg>
 
 <div class="auth-page">
-  <div class="auth-card">
-    <div class="auth-brand">
-      <svg width="28" height="28" aria-hidden="true"><use href="#icon-microscope"/></svg>
-      <h1>MedLab</h1>
-    </div>
-    <p class="auth-sub">Klinik laboratoriya diagnostikasi · mikroskopiya stansiyasi</p>
+  <header class="auth-topbar">
+    <span class="auth-topbar-mark" aria-hidden="true"></span>
+    <span>Far’ona Jamoat Salomatligi Tibbiyot Instituti</span>
+    <span class="auth-topbar-sep">·</span>
+    <span>Klinik laboratoriya diagnostikasi</span>
+  </header>
 
-    <form id="loginForm" autocomplete="username">
-      <div class="auth-field">
-        <label for="username">Login</label>
-        <input id="username" name="username" type="text" required maxlength="150" placeholder="Login" autocapitalize="off" spellcheck="false" autocomplete="username">
+  <div class="auth-station">
+    <aside class="auth-side">
+      <div class="auth-side-kicker">LIS · MIKROSKOPIYA STANSIYASI</div>
+      <div class="auth-logo">
+        <span class="auth-logo-mark" aria-hidden="true">
+          <svg width="28" height="28"><use href="#icon-microscope"/></svg>
+        </span>
+        <div>
+          <h1>MedLab</h1>
+          <p>Laborant ish joyi</p>
+        </div>
       </div>
-      <div class="auth-field">
-        <label for="password">Parol</label>
-        <input id="password" name="password" type="password" required maxlength="128" placeholder="••••••••" autocomplete="current-password">
+      <ul class="auth-points">
+        <li>Yoqma va preparat tahlili</li>
+        <li>Klinik hisobot va PDF</li>
+        <li>Faqat vakolatli kirish</li>
+      </ul>
+      <div class="auth-station-id">
+        <span>STANSIYA</span>
+        <strong>WS-01</strong>
       </div>
-      <div class="auth-actions">
-        <button type="submit" class="auth-btn" id="submitBtn">Kirish</button>
-      </div>
-    </form>
+    </aside>
 
-    <p class="auth-msg" id="msg"></p>
+    <section class="auth-card" aria-labelledby="authTitle">
+      <p class="auth-card-kicker">Himoyalangan kirish</p>
+      <h2 id="authTitle">Stansiyani ochish</h2>
+      <p class="auth-sub">Login va parolni kiriting</p>
+
+      <form id="loginForm" autocomplete="username">
+        <div class="auth-field">
+          <label for="username">Login</label>
+          <input id="username" name="username" type="text" required maxlength="150" placeholder="" autocapitalize="off" spellcheck="false" autocomplete="username">
+        </div>
+        <div class="auth-field">
+          <label for="password">Parol</label>
+          <input id="password" name="password" type="password" required maxlength="128" placeholder="" autocomplete="current-password">
+        </div>
+        <div class="auth-actions">
+          <button type="submit" class="auth-btn" id="submitBtn">Kirish</button>
+        </div>
+      </form>
+      <p class="auth-msg" id="msg"></p>
+    </section>
   </div>
+
+  <footer class="auth-foot">MedLab · mikroskopiya · 2026</footer>
 </div>
 
 <script src="/static/js/auth.js"></script>
@@ -71,7 +101,7 @@
     if (!username || !password) { show('Login va parol kiriting', false); return; }
     btn.disabled = true;
     var prev = btn.textContent;
-    btn.textContent = 'Kutilmoqda...';
+    btn.textContent = 'Tekshirilmoqda...';
     show('');
     try {
       if (typeof ensureCsrfCookie === 'function') await ensureCsrfCookie();
@@ -80,7 +110,7 @@
       });
       const data = await r.json().catch(function() { return {}; });
       if (r.ok && data.success) {
-        show('Muvaffaqiyatli', true);
+        show('Kirish muvaffaqiyatli', true);
         var next = new URLSearchParams(location.search).get('next');
         var dest = (next && next.startsWith('/') && !next.startsWith('//')) ? next : '/';
         window.location.href = dest;
@@ -89,7 +119,7 @@
       if (r.status === 403) {
         show(data.message || 'Sahifani yangilang (F5) va qayta urining', false);
       } else {
-        show(data.message || data.detail || 'Kirish muvaffaqiyatsiz', false);
+        show(data.message || data.detail || 'Login yoki parol noto‘g‘ri', false);
       }
     } catch (err) {
       show("Server bilan aloqa yo'q", false);
