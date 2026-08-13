@@ -2483,6 +2483,7 @@ body::before {
 .left-panel .preview-header {
   flex: 0 0 auto;
   padding: 5px 8px !important;
+  border-bottom: none !important;
 }
 .left-panel .file-list {
   flex: 1 1 auto;
