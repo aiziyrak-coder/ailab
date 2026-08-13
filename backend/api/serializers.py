@@ -148,6 +148,8 @@ class AnalyzeJsonSerializer(serializers.Serializer):
     prompt = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=6000)
     source = serializers.ChoiceField(choices=("camera", "upload"), default="upload")
     microscope = MicroscopeStateSerializer(required=False)
+    patient_name = serializers.CharField(required=False, allow_blank=True, max_length=120, default="")
+    sample_id = serializers.CharField(required=False, allow_blank=True, max_length=40, default="")
 
     def validate_lab_type(self, value):
         return _normalize_lab_type(value)
@@ -172,6 +174,8 @@ class AnalysisRecordSerializer(serializers.ModelSerializer):
             "status",
             "text",
             "img_count",
+            "patient_name",
+            "sample_id",
             "created_at",
             "created_label",
             "preview",

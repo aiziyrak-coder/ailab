@@ -244,6 +244,33 @@ class AnalysisHistoryTests(TestCase):
         self.assertTrue(r.json().get("success"))
         self.assertFalse(AnalysisRecord.objects.filter(public_id=pid).exists())
 
+    def test_list_shows_patient_and_sample_id(self):
+        AnalysisRecord.create_pending(
+            self.user,
+            "hematology",
+            "upload",
+            patient_name="Aliyev Vali",
+            sample_id="40FSH7OPHEMA0001",
+        )
+        r = self.client.get("/api/analyses", secure=True)
+        self.assertEqual(r.status_code, 200)
+        row = r.json()["results"][0]
+        self.assertEqual(row["patient_name"], "Aliyev Vali")
+        self.assertEqual(row["sample_id"], "40FSH7OPHEMA0001")
+
+    def test_search_by_sample_id_and_patient_name(self):
+        AnalysisRecord.create_pending(
+            self.user,
+            "hematology",
+            "upload",
+            patient_name="Karimova Nilufar",
+            sample_id="40FSH7OPHEMA0002",
+        )
+        by_id = self.client.get("/api/analyses", {"q": "40FSH7OPHEMA0002"}, secure=True)
+        self.assertEqual(by_id.json().get("count"), 1)
+        by_name = self.client.get("/api/analyses", {"q": "Nilufar"}, secure=True)
+        self.assertEqual(by_name.json().get("count"), 1)
+
     def test_other_user_cannot_delete_analysis(self):
         rec = AnalysisRecord.create_pending(self.user, "hematology", "upload")
         pid = rec.public_id

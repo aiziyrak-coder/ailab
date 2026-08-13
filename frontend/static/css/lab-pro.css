@@ -2245,23 +2245,57 @@ body::before {
   transform: translateY(-2px);
   box-shadow: 0 10px 22px rgba(27, 58, 92, 0.1);
 }
+.hist-card {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.hist-card-main {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hist-patient {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1b3a5c;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hist-card-mid,
+.hist-card-prev,
+.hist-st {
+  display: none !important;
+}
 .hist-del {
-  flex-shrink: 0;
-  border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #b91c1c;
-  font-size: 0.62rem;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  visibility: visible !important;
+  min-width: 92px;
+  min-height: 34px;
+  border: 0;
+  background: #dc2626 !important;
+  color: #fff !important;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   border-radius: 999px;
-  padding: 3px 9px;
+  padding: 6px 14px;
   cursor: pointer;
   font-family: inherit;
+  z-index: 2;
 }
 .hist-del:hover {
-  background: #b91c1c;
-  color: #fff;
-  border-color: #b91c1c;
+  background: #b91c1c !important;
+  color: #fff !important;
 }
 
 .auth-page .auth-topbar { animation: labFadeUp 0.5s var(--ios-ease) both; }

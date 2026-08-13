@@ -13,6 +13,7 @@ import cv2
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import close_old_connections, connection
+from django.db.models import Q
 from django.db.models.functions import Substr
 from django.http import FileResponse, HttpResponse, StreamingHttpResponse
 from django.utils import timezone
@@ -70,11 +71,28 @@ def _filter_analyses(qs, q):
         return qs
     exact = _canonical_public_id(raw)
     if exact:
-        return qs.filter(public_id__iexact=exact)
+        return qs.filter(Q(public_id__iexact=exact) | Q(sample_id__iexact=raw))
     cleaned = re.sub(r"[%_\\]", "", raw).strip()
     if not cleaned:
         return qs.none()
-    return qs.filter(public_id__icontains=cleaned)
+    return qs.filter(
+        Q(public_id__icontains=cleaned)
+        | Q(sample_id__icontains=cleaned)
+        | Q(patient_name__icontains=cleaned)
+    )
+
+
+def _patient_meta(request):
+    ct = request.content_type or ""
+    if "application/json" in ct and isinstance(getattr(request, "data", None), dict):
+        name = request.data.get("patient_name") or ""
+        sid = request.data.get("sample_id") or ""
+    else:
+        name = request.POST.get("patient_name") or ""
+        sid = request.POST.get("sample_id") or ""
+    name = re.sub(r"\s+", " ", str(name or "")).strip()[:120]
+    sid = re.sub(r"[^A-Za-z0-9]", "", str(sid or "")).upper()[:40]
+    return name, sid
 
 
 def _record_to_analysis_payload(rec):
@@ -126,6 +144,7 @@ def _busy_response(request):
 
 def _attach_analysis_record(request, lab_type, source, job_id, img_count=0, status="tahlil_qilinmoqda"):
     rec = None
+    patient_name, sample_id = _patient_meta(request)
     try:
         rec = AnalysisRecord.create_pending(
             user=request.user,
@@ -134,6 +153,8 @@ def _attach_analysis_record(request, lab_type, source, job_id, img_count=0, stat
             job_id=job_id or "",
             img_count=img_count,
             status=status,
+            patient_name=patient_name,
+            sample_id=sample_id,
         )
         with eng.analysis_lock:
             if eng.latest_analysis.get("job_id") == job_id:

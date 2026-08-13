@@ -51,6 +51,8 @@ class AnalysisRecord(models.Model):
     text = models.TextField(blank=True)
     job_id = models.CharField(max_length=64, blank=True, db_index=True)
     img_count = models.PositiveSmallIntegerField(default=0)
+    patient_name = models.CharField(max_length=120, blank=True, default="")
+    sample_id = models.CharField(max_length=40, blank=True, default="", db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -64,7 +66,17 @@ class AnalysisRecord(models.Model):
         return self.public_id
 
     @classmethod
-    def create_pending(cls, user, lab_type, source, job_id="", img_count=0, status="tahlil_qilinmoqda"):
+    def create_pending(
+        cls,
+        user,
+        lab_type,
+        source,
+        job_id="",
+        img_count=0,
+        status="tahlil_qilinmoqda",
+        patient_name="",
+        sample_id="",
+    ):
         prefix = timezone.localtime().strftime("ML-%y%m%d-")
         last_err = None
         for _ in range(8):
@@ -90,6 +102,8 @@ class AnalysisRecord(models.Model):
                         status=status or "tahlil_qilinmoqda",
                         job_id=job_id or "",
                         img_count=max(0, min(int(img_count or 0), 32767)),
+                        patient_name=(patient_name or "")[:120],
+                        sample_id=(sample_id or "")[:40],
                     )
                     rec.save()
                     return rec

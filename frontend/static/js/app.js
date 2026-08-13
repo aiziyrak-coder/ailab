@@ -1089,6 +1089,8 @@ async function analyzeFile() {
   for (const f of uploadedFiles) formData.append('files[]', f);
   formData.append('lab_type', currentLab);
   formData.append('source', currentSource === 'phone' ? 'phone' : 'upload');
+  formData.append('patient_name', valOf('accName'));
+  formData.append('sample_id', valOf('accSample') || currentNamunaId());
   appendMicroscopeToFormData(formData);
 
   try {
@@ -1152,6 +1154,8 @@ async function analyzeCamera() {
     source: 'camera',
     lab_type: currentLab,
     microscope: getMicroscopePayload(),
+    patient_name: valOf('accName'),
+    sample_id: valOf('accSample') || currentNamunaId(),
   });
   if (res._httpStatus === 409 || res.busy === true) {
     toast(res.message || 'Boshqa tahlil davom etmoqda — natija kutilmoqda.', 'blue');
@@ -1914,21 +1918,14 @@ async function loadHistory() {
   }
   _histAutoOpen = false;
   const cards = rows.map((r) => {
-    const st = _histStatus(r.status, r.created_at);
-    const src = _histSource(r.source);
+    const id = r.sample_id || r.public_id || '';
+    const name = (r.patient_name || '').trim() || 'Bemor kiritilmagan';
     return `<article class="hist-card" data-public-id="${esc(r.public_id)}">
-      <div class="hist-card-top">
-        <span class="hist-id">${esc(r.public_id)}</span>
-        <span class="hist-st ${st.cls}">${st.label}</span>
-        <button type="button" class="hist-del" data-del-id="${esc(r.public_id)}" title="Tahlilni o‘chirish">O‘chirish</button>
+      <div class="hist-card-main">
+        <span class="hist-id">${esc(id)}</span>
+        <span class="hist-patient">${esc(name)}</span>
       </div>
-      <div class="hist-card-mid">
-        <span>${esc(r.lab_label || r.lab_type)}</span>
-        ${src ? `<span>·</span><span>${esc(src)}</span>` : ''}
-        <span>·</span>
-        <span>${esc(r.created_label || '')}</span>
-      </div>
-      ${r.preview ? `<div class="hist-card-prev">${esc(r.preview)}</div>` : ''}
+      <button type="button" class="hist-del" data-del-id="${esc(r.public_id)}" title="Tahlilni o‘chirish">O‘chirish</button>
     </article>`;
   }).join('');
   const more = data.has_more
