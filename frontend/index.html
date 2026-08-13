@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off13">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off13">
+  <link rel="stylesheet" href="/static/css/style.css?v=off14">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off14">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -79,7 +79,7 @@
       <div class="card">
         <div class="card-title"><span class="step-num">1</span> Bemor</div>
         <form class="acc-form" autocomplete="off" onsubmit="return false;">
-          <label class="req"><span>F.I.Sh.</span> <input id="accName" maxlength="120" required placeholder="Bemor familiyasi, ismi"></label>
+          <label class="req acc-span"><span>F.I.Sh.</span> <input id="accName" maxlength="120" required placeholder="Bemor familiyasi, ismi"></label>
           <label class="req"><span>Yosh</span> <input id="accAge" type="number" min="0" max="120" required placeholder="—"></label>
           <label class="req"><span>Jins</span>
             <select id="accSex" required>
@@ -89,10 +89,10 @@
             </select>
           </label>
           <label class="req acc-span"><span>Bo‘lim / manzil</span> <input id="accWard" maxlength="80" required placeholder="Masalan: terapiya"></label>
-          <label class="req acc-span"><span>Viloyat</span>
+          <label class="req"><span>Viloyat</span>
             <select id="daftarViloyat" required aria-label="Viloyat"></select>
           </label>
-          <label class="req acc-span"><span>Tuman / shahar</span>
+          <label class="req"><span>Tuman</span>
             <select id="daftarLocality" required aria-label="Tuman yoki shahar"></select>
           </label>
           <label class="req"><span>Klinika №</span>
@@ -100,7 +100,7 @@
           </label>
           <label class="req"><span>Muassasa</span>
             <select id="daftarType" required aria-label="Muassasa turi">
-              <option value="OP" selected>OP — Oylaviy pol.</option>
+              <option value="OP" selected>OP — Oylaviy</option>
               <option value="ST">ST — Statsionar</option>
               <option value="DM">DM — Diagnostika</option>
             </select>
@@ -116,7 +116,7 @@
         </form>
       </div>
 
-      <div class="card">
+      <div class="card card-inline">
         <div class="card-title"><span class="step-num">2</span> Tahlil turi</div>
         <select id="labSelect" class="lab-select" onchange="selectLab(this.value)" aria-label="Tahlil turi">
           <option value="hematology">🩸 Gematologiya</option>
@@ -157,7 +157,7 @@
                ondragleave="this.classList.remove('drag-active')"
                ondrop="handleDrop(event)">
             <div class="upload-ico" id="uploadIco">📎</div>
-            <div class="upload-main" id="uploadMain">Rasmni bosing yoki tashlang</div>
+            <div class="upload-main" id="uploadMain">Rasm yuklang</div>
           </div>
           <input type="file" id="fileInput" accept="image/*,video/*,.avi,.mp4,.mov,.mkv,.webm"
                  style="display:none" onchange="handleFileSelect(event)" multiple>
@@ -201,8 +201,7 @@
       </div>
 
       <div class="card micro-card">
-        <div class="card-title" id="microCardTitle"><span class="step-num">4</span> Kattalashtirish</div>
-        <div class="micro-grid micro-grid-2">
+        <div class="micro-grid micro-grid-3">
           <div class="micro-field">
             <label for="microOcularSel">Okulyar</label>
             <select id="microOcularSel" class="micro-select" onchange="onMicroChange()">
@@ -222,10 +221,10 @@
               <option value="100× (immersion)" selected>100× (moy)</option>
             </select>
           </div>
-        </div>
-        <div class="micro-total-banner" id="microTotalBanner">
-          <span class="micro-total-label">Umumiy</span>
-          <span class="micro-total-value" id="microTotalBadge">1000×</span>
+          <div class="micro-field micro-total-mini" id="microTotalBanner">
+            <span class="micro-total-label">Umumiy</span>
+            <span class="micro-total-value" id="microTotalBadge">1000×</span>
+          </div>
         </div>
       </div>
 
@@ -464,8 +463,8 @@
 </div>
 
 <div id="toast"></div>
-<script src="/static/js/uz_localities.js?v=off13"></script>
+<script src="/static/js/uz_localities.js?v=off14"></script>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=off13"></script>
+<script src="/static/js/app.js?v=off14"></script>
 </body>
 </html>

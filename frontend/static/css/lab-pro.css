@@ -2027,3 +2027,175 @@ body::before {
     animation: none !important;
   }
 }
+
+/* ═══ Chap panel — scrollsiz ixcham ═══ */
+.header {
+  margin: 4px 8px 0 !important;
+  min-height: 46px !important;
+  padding: 4px 10px !important;
+}
+.header-logo-wrap {
+  width: 34px !important;
+  height: 34px !important;
+}
+.header-logo-wrap svg { width: 18px !important; height: 18px !important; }
+.header-title { font-size: 1rem !important; }
+.workbar {
+  margin: 4px 8px 0 !important;
+  padding: 3px 10px !important;
+}
+.main-layout {
+  padding: 6px 8px !important;
+  gap: 8px !important;
+}
+.app-footer {
+  margin: 0 8px 4px !important;
+  padding: 2px 10px !important;
+}
+.left-panel {
+  padding: 6px !important;
+  gap: 6px !important;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.left-panel > .card {
+  padding: 6px 8px !important;
+  gap: 5px !important;
+  border-radius: 14px !important;
+}
+.left-panel .card:hover {
+  transform: none !important;
+}
+.left-panel .card-title {
+  font-size: 0.62rem !important;
+  margin: 0;
+  line-height: 1.1;
+}
+.left-panel .step-num {
+  width: 16px !important;
+  height: 16px !important;
+  font-size: 0.58rem !important;
+}
+.left-panel .acc-form {
+  gap: 4px 6px !important;
+  padding: 4px 0 0 !important;
+}
+.left-panel .acc-form input,
+.left-panel .acc-form select {
+  height: 24px !important;
+  min-height: 24px !important;
+  font-size: 0.7rem !important;
+  padding: 0 6px !important;
+  border-radius: 8px !important;
+}
+.left-panel .prio,
+.left-panel .case-pill {
+  padding: 3px 8px !important;
+  font-size: 0.6rem !important;
+}
+.left-panel .card-inline {
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+.left-panel .card-inline .card-title {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.left-panel .card-inline .lab-select,
+.left-panel .lab-select {
+  height: 30px !important;
+  min-height: 30px !important;
+  font-size: 0.74rem !important;
+  padding: 0 8px !important;
+  flex: 1 1 auto;
+}
+.left-panel .src-tab {
+  min-height: 28px !important;
+  padding: 4px 4px !important;
+  font-size: 0.68rem !important;
+  border-radius: 8px !important;
+}
+.left-panel .upload-zone {
+  min-height: 40px !important;
+  padding: 6px 8px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.left-panel .upload-ico {
+  width: 22px !important;
+  height: 22px !important;
+  font-size: 0.85rem !important;
+  border-radius: 6px !important;
+}
+.left-panel .upload-main {
+  font-size: 0.72rem !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.left-panel .micro-grid-3 {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr 0.9fr;
+  gap: 6px;
+  align-items: end;
+}
+.left-panel .micro-select {
+  height: 28px !important;
+  min-height: 28px !important;
+  font-size: 0.7rem !important;
+  padding: 0 6px !important;
+}
+.left-panel .micro-field label,
+.left-panel .micro-total-label {
+  margin-bottom: 2px;
+  font-size: 0.5rem !important;
+}
+.left-panel .micro-total-mini {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4px 8px !important;
+  border-radius: 10px !important;
+  background: #1b3a5c !important;
+  border: 0 !important;
+  min-height: 42px;
+  margin: 0 !important;
+  animation: none !important;
+}
+.left-panel .micro-total-mini .micro-total-value {
+  font-size: 0.92rem !important;
+  color: #fde68a !important;
+  line-height: 1.1;
+}
+.left-panel .micro-total-mini .micro-total-label {
+  color: #7dd3fc !important;
+}
+.left-panel .analyze-card {
+  padding: 6px !important;
+  box-shadow: none !important;
+}
+.left-panel .analyze-card .btn-ziyrakai,
+.left-panel .btn {
+  min-height: 34px !important;
+  height: 34px !important;
+  font-size: 0.8rem !important;
+  padding: 0 10px !important;
+}
+.left-panel .btn-pair .btn {
+  min-height: 30px !important;
+  height: 30px !important;
+}
+.left-panel .input-row select {
+  height: 30px !important;
+}
+.left-panel .file-preview {
+  padding: 4px !important;
+}
+.left-panel .file-list {
+  max-height: 52px;
+  overflow: auto;
+}
