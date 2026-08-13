@@ -87,6 +87,12 @@ class SecurityHeadersMiddleware:
             api_base = getattr(settings, "MEDLAB_PUBLIC_API_BASE", "") or ""
             if api_base:
                 connect.append(api_base)
+            connect.extend([
+                "http://127.0.0.1:8012",
+                "http://localhost:8012",
+                "http://127.0.0.1:8013",
+                "http://localhost:8013",
+            ])
             csp = (
                 "default-src 'self'; "
                 "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
