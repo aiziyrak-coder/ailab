@@ -318,13 +318,10 @@ function updateResultRegistrationId() {
 
 function emptyResultHtml() {
   const m = labMeta(currentLab);
-  const s = labSpec(currentLab);
   return `<div class="result-empty">
-      <div class="re-lis">LIS · KLINIK LABORATORIYA</div>
       <div class="re-icon">${m.icon}</div>
-      <p>${esc(m.emptyTitle)}</p>
-      <p class="re-hint">${esc(s.specimen)} · ${esc(s.stain)}</p>
-      <p class="re-hint">${esc(m.emptyHint)}</p>
+      <p>Natija shu yerda chiqadi</p>
+      <p class="re-hint">O‘ngda bemor ma’lumotini to‘ldiring, chapda rasm yuklang, keyin «Tahlil qil» ni bosing.</p>
     </div>`;
 }
 
@@ -351,31 +348,6 @@ function selectLab(lab) {
     nm.style.color = '';
   }
 
-  const brief = document.getElementById('labBrief');
-  if (brief) brief.textContent = m.brief;
-
-  const uploadIco = document.getElementById('uploadIco');
-  const uploadMain = document.getElementById('uploadMain');
-  const uploadHint = document.getElementById('uploadHint');
-  if (uploadIco) uploadIco.textContent = m.icon;
-  if (uploadMain) uploadMain.textContent = m.uploadMain;
-  if (uploadHint) uploadHint.textContent = m.uploadHint;
-
-  const phoneH = document.getElementById('phoneHint');
-  const scopeH = document.getElementById('scopeHint');
-  if (phoneH) phoneH.textContent = m.phoneHint;
-  if (scopeH) scopeH.textContent = m.scopeHint;
-
-  document.querySelectorAll('.src-tab').forEach(t => {
-    const src = t.getAttribute('data-src');
-    if (src === 'upload') t.textContent = m.srcUpload;
-    if (src === 'phone') t.textContent = m.srcPhone;
-    if (src === 'scope') t.textContent = m.srcScope;
-  });
-
-  const microTitle = document.getElementById('microCardTitle');
-  if (microTitle) microTitle.innerHTML = `<span class="step-num">3</span> ${esc(m.microTitle)}`;
-
   const oc = document.getElementById('microOcularSel');
   const ob = document.getElementById('microObjSel');
   if (oc && m.ocular) oc.value = m.ocular;
@@ -383,7 +355,7 @@ function selectLab(lab) {
   onMicroChange();
 
   const btn = document.getElementById('analyzeBtn');
-  if (btn) btn.textContent = m.analyze;
+  if (btn && !_analyzeBusy) btn.textContent = 'Tahlil qil';
 
   if (document.querySelector('#resultBody .result-empty')) {
     document.getElementById('resultBody').innerHTML = emptyResultHtml();
@@ -492,20 +464,18 @@ function tickLabClock() {
 function refreshLabPlatform() {
   let step = 0;
   if (valOf('accName') || valOf('accSample')) step = 0;
-  if (uploadedFiles.length) step = 1;
-  if (cameraRunning) step = 2;
-  if (_analyzeBusy) step = 3;
-  if (_hasResult) step = 4;
-  if (_validated) step = 4;
+  if (uploadedFiles.length || cameraRunning) step = 1;
+  if (_analyzeBusy) step = 2;
+  if (_hasResult || _validated) step = 3;
   document.querySelectorAll('#wbFlow li').forEach(li => {
     const n = Number(li.getAttribute('data-step'));
     li.classList.toggle('on', n === step);
     li.classList.toggle('done', n < step);
   });
-  let inst = 'IDLE';
+  let inst = 'Tayyor';
   let instCls = '';
-  if (_analyzeBusy) { inst = 'TAHLIL'; instCls = 'busy'; }
-  else if (cameraRunning) { inst = 'LIVE'; instCls = 'live'; }
+  if (_analyzeBusy) { inst = 'Tahlil'; instCls = 'busy'; }
+  else if (cameraRunning) { inst = 'Jonli'; instCls = 'live'; }
   const wbInst = document.getElementById('wbInst');
   if (wbInst) {
     wbInst.textContent = inst;
@@ -514,7 +484,7 @@ function refreshLabPlatform() {
   }
   const stLive = document.getElementById('stLive');
   if (stLive) {
-    stLive.textContent = cameraRunning ? 'LIVE' : 'IDLE';
+    stLive.textContent = cameraRunning ? 'Jonli' : 'Tayyor';
     stLive.classList.toggle('on', cameraRunning);
   }
   const oil = document.getElementById('stOil');
@@ -769,9 +739,9 @@ function updateOverlay() {
   const m = labMeta(currentLab);
   if (icon) icon.textContent = m.icon;
   if (!text) return;
-  if (currentSource === 'phone') text.textContent = m.overlayPhone;
-  else if (currentSource === 'scope') text.textContent = m.overlayScope;
-  else text.textContent = m.overlayUpload;
+  if (currentSource === 'phone') text.textContent = 'Telefonni yoqing';
+  else if (currentSource === 'scope') text.textContent = 'Mikroskopni yoqing';
+  else text.textContent = 'Rasm yuklang';
 }
 
 function showLivePreview(live) {
@@ -1000,9 +970,7 @@ function startAnalyzing(isVideo) {
   document.getElementById('analyzeBtn').disabled = true;
   const ov = document.getElementById('analyzeOv');
   if (ov) ov.classList.remove('hidden');
-  document.getElementById('analyzeStatus').textContent = isVideo
-    ? '🎬 Video kadrlari tahlil qilinmoqda...'
-    : '🔬 Tahlil qilinmoqda...';
+  document.getElementById('analyzeStatus').textContent = '';
   showLoading();
   refreshLabPlatform();
 }

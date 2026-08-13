@@ -1223,3 +1223,46 @@ body::after { display: none !important; }
   color: #fff !important;
   box-shadow: none !important;
 }
+
+.lab-checks, .proto-row, .lab-brief, .upload-hint, .ov-lab-hint, .re-checks {
+  display: none !important;
+}
+.src-tabs {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+}
+.src-tab {
+  text-align: center !important;
+  padding: 8px 4px !important;
+  min-height: 38px !important;
+}
+.daftar-more {
+  grid-column: 1 / -1;
+}
+.daftar-more > summary {
+  cursor: pointer;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  padding: 4px 0;
+}
+.daftar-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 8px;
+  margin-top: 6px;
+}
+.daftar-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.lab-hud[hidden] { display: none !important; }
