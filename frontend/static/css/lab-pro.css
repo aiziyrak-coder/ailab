@@ -2051,6 +2051,14 @@ body::before {
 .app-footer {
   margin: 0 8px 4px !important;
   padding: 2px 10px !important;
+  justify-content: flex-start !important;
+}
+.app-footer-text {
+  text-align: left !important;
+  flex: 1 1 auto !important;
+}
+.app-footer-right {
+  margin-left: auto;
 }
 .left-panel {
   padding: 6px !important;
