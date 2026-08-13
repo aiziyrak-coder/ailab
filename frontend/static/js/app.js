@@ -12,6 +12,8 @@ let _histAutoOpen = false;
 let _analyzeBusy = false;
 let _scanGen = 0;
 let _previewObjectUrl = '';
+let _previewIndex = 0;
+let _thumbUrls = [];
 
 const LAB_META = {
   hematology: {
@@ -622,7 +624,9 @@ function loadFiles(files) {
   document.getElementById('uploadZone').style.display  = uploadedFiles.length ? 'none' : '';
   document.getElementById('filePreview').style.display = uploadedFiles.length ? '' : 'none';
   updateAnalyzeBtn();
-  if (uploadedFiles.length) showMainPreview(uploadedFiles[0]);
+  if (_previewIndex >= uploadedFiles.length) _previewIndex = 0;
+  renderMediaThumbs();
+  if (uploadedFiles.length) showMainPreview(_previewIndex);
   setSource('upload');
   if (added) toast(`${added} ta fayl qo‘shildi`, 'green');
   else toast('Bu fayllar allaqachon qo‘shilgan', 'gray');
@@ -644,7 +648,7 @@ function renderFileList() {
       <button class="file-item-del" onclick="removeFile(${i})" title="O'chirish">✕</button>
     `;
     div.addEventListener('click', (e) => {
-      if (!e.target.classList.contains('file-item-del')) showMainPreview(f);
+      if (!e.target.classList.contains('file-item-del')) showMainPreview(i);
     });
     list.appendChild(div);
   });
@@ -655,8 +659,11 @@ function removeFile(idx) {
   if (uploadedFiles.length === 0) {
     clearFile();
   } else {
+    if (_previewIndex > idx) _previewIndex -= 1;
+    if (_previewIndex >= uploadedFiles.length) _previewIndex = uploadedFiles.length - 1;
     renderFileList();
-    showMainPreview(uploadedFiles[0]);
+    renderMediaThumbs();
+    showMainPreview(_previewIndex);
     updateAnalyzeBtn();
     refreshLabPlatform();
   }
@@ -669,9 +676,56 @@ function _revokePreviewUrl() {
   }
 }
 
-function showMainPreview(file) {
+function _revokeThumbUrls() {
+  _thumbUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (_) {} });
+  _thumbUrls = [];
+}
+
+function renderMediaThumbs() {
+  const strip = document.getElementById('mediaThumbs');
+  if (!strip) return;
+  _revokeThumbUrls();
+  strip.innerHTML = '';
+  const show = uploadedFiles.length > 0 && currentSource === 'upload' && !cameraRunning;
+  strip.classList.toggle('hidden', !show);
+  if (!show) return;
+  uploadedFiles.forEach((f, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'media-thumb' + (i === _previewIndex ? ' on' : '');
+    btn.title = f.name;
+    const url = URL.createObjectURL(f);
+    _thumbUrls.push(url);
+    if (isVideoFile(f)) {
+      const v = document.createElement('video');
+      v.src = url;
+      v.muted = true;
+      v.preload = 'metadata';
+      btn.appendChild(v);
+    } else {
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = f.name;
+      btn.appendChild(img);
+    }
+    const n = document.createElement('span');
+    n.className = 'media-thumb-n';
+    n.textContent = String(i + 1);
+    btn.appendChild(n);
+    btn.addEventListener('click', () => showMainPreview(i));
+    strip.appendChild(btn);
+  });
+}
+
+function showMainPreview(fileOrIndex) {
   const content = document.getElementById('uploadedContent');
-  if (!content || !file) return;
+  if (!content || !uploadedFiles.length) return;
+  let idx = typeof fileOrIndex === 'number' ? fileOrIndex : uploadedFiles.indexOf(fileOrIndex);
+  if (idx < 0) idx = 0;
+  if (idx >= uploadedFiles.length) idx = uploadedFiles.length - 1;
+  _previewIndex = idx;
+  const file = uploadedFiles[idx];
+  if (!file) return;
   _revokePreviewUrl();
   const url = URL.createObjectURL(file);
   _previewObjectUrl = url;
@@ -682,26 +736,36 @@ function showMainPreview(file) {
     vid.src = url;
     vid.controls = true;
     vid.preload = 'metadata';
-    vid.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain';
     content.appendChild(vid);
   } else {
     const img = document.createElement('img');
     img.src = url;
     img.alt = file.name || 'Yuklangan rasm';
-    img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain';
     content.appendChild(img);
+  }
+  document.querySelectorAll('.media-thumb').forEach((b, i) => b.classList.toggle('on', i === _previewIndex));
+  const badge = document.getElementById('mediaCount');
+  if (badge) {
+    badge.textContent = uploadedFiles.length > 1 ? `${_previewIndex + 1} / ${uploadedFiles.length}` : '';
+    badge.classList.toggle('hidden', uploadedFiles.length < 2);
   }
   showLivePreview(false);
 }
 
 function clearFile() {
   uploadedFiles = [];
+  _previewIndex = 0;
   _revokePreviewUrl();
+  _revokeThumbUrls();
   document.getElementById('uploadZone').style.display  = '';
   document.getElementById('filePreview').style.display = 'none';
   document.getElementById('fileInput').value           = '';
   updateAnalyzeBtn();
   document.getElementById('uploadedContent').innerHTML = '';
+  const thumbs = document.getElementById('mediaThumbs');
+  if (thumbs) { thumbs.innerHTML = ''; thumbs.classList.add('hidden'); }
+  const badge = document.getElementById('mediaCount');
+  if (badge) { badge.textContent = ''; badge.classList.add('hidden'); }
   if (!cameraRunning) {
     document.getElementById('uploadedContent').style.display = 'none';
     updateOverlay();
@@ -735,9 +799,11 @@ async function setSource(src) {
   document.getElementById('paneScope').style.display  = src === 'scope'  ? '' : 'none';
 
   if (src === 'upload') {
-    if (uploadedFiles.length) showMainPreview(uploadedFiles[0]);
+    renderMediaThumbs();
+    if (uploadedFiles.length) showMainPreview(_previewIndex);
     else showLivePreview(false);
   } else {
+    renderMediaThumbs();
     showLivePreview(false);
     scanCameras();
   }
@@ -782,7 +848,14 @@ function showLivePreview(live) {
   }
   updateOverlay();
   const box = document.getElementById('mediaBox');
-  if (box) box.classList.toggle('is-live', !!live && cameraRunning);
+  if (box) {
+    box.classList.toggle('is-live', !!live && cameraRunning);
+    box.classList.toggle('has-upload', !live && uploadedFiles.length > 0 && currentSource === 'upload');
+  }
+  if (live) {
+    const thumbs = document.getElementById('mediaThumbs');
+    if (thumbs) thumbs.classList.add('hidden');
+  }
   refreshLabPlatform();
 }
 

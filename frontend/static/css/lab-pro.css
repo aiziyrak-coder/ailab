@@ -1276,6 +1276,69 @@ body::after { display: none !important; }
   width: 100%;
 }
 
+.media-box.has-upload .opt-scale,
+.media-box.has-upload .opt-lamp {
+  display: none !important;
+}
+.media-count {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 7;
+  font-family: var(--lab-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: rgba(27, 58, 92, 0.82);
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.media-count.hidden { display: none !important; }
+.media-thumbs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  padding: 4px 2px 2px;
+  min-height: 64px;
+}
+.media-thumbs.hidden { display: none !important; }
+.media-thumb {
+  position: relative;
+  flex: 0 0 58px;
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border: 2px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #0f172a;
+  cursor: pointer;
+}
+.media-thumb img,
+.media-thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.media-thumb.on {
+  border-color: #1b3a5c;
+  box-shadow: 0 0 0 2px rgba(27, 58, 92, 0.25);
+}
+.media-thumb-n {
+  position: absolute;
+  left: 3px;
+  bottom: 3px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(15, 23, 42, 0.75);
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
 /* ── Login: klinik stansiya kirishi ── */
 body.auth-page-body {
   background: #d7dee8 !important;

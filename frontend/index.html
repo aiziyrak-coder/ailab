@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off5">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off5">
+  <link rel="stylesheet" href="/static/css/style.css?v=off7">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off7">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -256,6 +256,7 @@
         <div class="opt-scale" aria-hidden="true"></div>
         <img id="videoFeed" src="" alt="Jonli tasvir" data-stream-path="/video_feed" style="display:none">
         <div class="media-center" id="uploadedContent" style="display:none"></div>
+        <div class="media-count hidden" id="mediaCount"></div>
         <div class="media-scan" aria-hidden="true"></div>
         <div class="media-overlay" id="camOverlay">
           <div class="overlay-content">
@@ -272,6 +273,7 @@
           <span>Tahlil qilinmoqda...</span>
         </div>
       </div>
+      <div class="media-thumbs hidden" id="mediaThumbs" aria-label="Yuklangan rasmlar"></div>
       <div class="stage-toolbar">
         <span class="st-live" id="stLive">Tayyor</span>
       </div>
@@ -461,6 +463,6 @@
 
 <div id="toast"></div>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=off6"></script>
+<script src="/static/js/app.js?v=off7"></script>
 </body>
 </html>
