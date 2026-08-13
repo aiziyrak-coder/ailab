@@ -950,6 +950,16 @@ body::after {
   outline-offset: 0;
   background: #fff;
 }
+.acc-form label.req > span::after {
+  content: " *";
+  color: #b91c1c;
+  letter-spacing: 0;
+}
+.acc-form input.missing,
+.acc-form select.missing {
+  border-color: #b91c1c;
+  background: #fef2f2;
+}
 .prio-row {
   display: flex;
   align-items: center;

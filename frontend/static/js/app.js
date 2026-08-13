@@ -319,14 +319,12 @@ function updateResultRegistrationId() {
 function emptyResultHtml() {
   const m = labMeta(currentLab);
   const s = labSpec(currentLab);
-  const checks = (m.checks || []).map(c => `<li>${esc(c)}</li>`).join('');
   return `<div class="result-empty">
       <div class="re-lis">LIS · KLINIK LABORATORIYA</div>
       <div class="re-icon">${m.icon}</div>
       <p>${esc(m.emptyTitle)}</p>
       <p class="re-hint">${esc(s.specimen)} · ${esc(s.stain)}</p>
       <p class="re-hint">${esc(m.emptyHint)}</p>
-      <ul class="re-checks">${checks}</ul>
     </div>`;
 }
 
@@ -355,10 +353,6 @@ function selectLab(lab) {
 
   const brief = document.getElementById('labBrief');
   if (brief) brief.textContent = m.brief;
-  const checks = document.getElementById('labChecks');
-  if (checks) {
-    checks.innerHTML = (m.checks || []).map(t => `<span class="lab-chip">${esc(t)}</span>`).join('');
-  }
 
   const uploadIco = document.getElementById('uploadIco');
   const uploadMain = document.getElementById('uploadMain');
@@ -424,9 +418,25 @@ function syncLabChrome(m, s) {
   refreshLabPlatform();
 }
 
+const PATIENT_FIELDS = ['accName', 'accSample', 'accAge', 'accSex', 'accWard'];
+
+function patientFieldsComplete() {
+  return PATIENT_FIELDS.every(id => valOf(id));
+}
+
+function markPatientFields(highlight) {
+  PATIENT_FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('missing', !!(highlight && !valOf(id)));
+  });
+}
+
 function updateAnalyzeBtn() {
   const btn = document.getElementById('analyzeBtn');
-  if (btn) btn.disabled = uploadedFiles.length === 0 && !cameraRunning;
+  if (!btn) return;
+  const hasSample = uploadedFiles.length > 0 || cameraRunning;
+  btn.disabled = !hasSample || !patientFieldsComplete();
 }
 
 let _priority = 'routine';
@@ -885,6 +895,13 @@ async function stopCamera(silent) {
 
 async function analyze() {
   if (_analyzeBusy) return;
+  if (!patientFieldsComplete()) {
+    markPatientFields(true);
+    toast('Bemor ma’lumotlarini to‘ldiring: F.I.Sh., namuna, yosh, jins, bo‘lim.', 'red');
+    document.getElementById('accName')?.focus();
+    return;
+  }
+  markPatientFields(false);
   if (currentSource === 'upload' && uploadedFiles.length) {
     _analyzeBusy = true;
     try { await analyzeFile(); } finally { _analyzeBusy = false; }
@@ -1797,7 +1814,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   ['accName', 'accSample', 'accAge', 'accSex', 'accWard'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('change', refreshLabPlatform);
+    if (!el) return;
+    const onAcc = () => {
+      if (valOf(id)) el.classList.remove('missing');
+      refreshLabPlatform();
+      updateAnalyzeBtn();
+    };
+    el.addEventListener('change', onAcc);
+    el.addEventListener('input', onAcc);
   });
   const histList = document.getElementById('histList');
   if (histList) {
