@@ -1563,3 +1563,180 @@ body.auth-page-body::after {
   .auth-side { min-height: 0; padding: 22px 20px; }
   .auth-station-id { margin-top: 8px; }
 }
+
+/* ═══ Silliq / yengil / suyuq — qirralarni yumshatish ═══ */
+:root {
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
+  --radius-2xl: 32px;
+  --line: rgba(27, 58, 92, 0.09);
+  --ios-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+html { scroll-behavior: smooth; }
+body {
+  background: #e8eef5 !important;
+}
+body::before {
+  background:
+    radial-gradient(1100px 520px at 8% -8%, rgba(27, 58, 92, 0.07), transparent 58%),
+    radial-gradient(900px 480px at 100% 110%, rgba(14, 116, 144, 0.06), transparent 52%),
+    linear-gradient(180deg, #f4f7fb, #e8eef5) !important;
+}
+.official-bar {
+  height: 0 !important;
+  background: transparent !important;
+}
+.header {
+  margin: 8px 10px 0;
+  border-radius: 22px !important;
+  border: 1px solid rgba(27, 58, 92, 0.08) !important;
+  box-shadow: 0 12px 36px rgba(27, 58, 92, 0.06) !important;
+  background: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(18px) saturate(1.15);
+}
+.header-logo-wrap {
+  border-radius: 16px !important;
+  box-shadow: 0 8px 20px rgba(27, 58, 92, 0.18) !important;
+}
+.workbar {
+  margin: 8px 10px 0;
+  border-radius: 18px !important;
+  background: linear-gradient(105deg, #1b3a5c 0%, #2a4f73 100%) !important;
+  box-shadow: 0 10px 28px rgba(27, 58, 92, 0.16);
+}
+.wb-flow li.on {
+  border-radius: 999px !important;
+  padding: 3px 10px;
+}
+.wb-inst {
+  border-radius: 999px !important;
+}
+.main-layout {
+  padding: 10px !important;
+  gap: 12px !important;
+}
+.left-panel,
+.right-panel,
+.center-panel .media-box {
+  border-radius: 24px !important;
+  border: 1px solid rgba(27, 58, 92, 0.08) !important;
+  box-shadow: 0 14px 40px rgba(27, 58, 92, 0.07) !important;
+}
+.card {
+  border-radius: 18px !important;
+  border: 1px solid rgba(27, 58, 92, 0.07) !important;
+  box-shadow: 0 6px 18px rgba(27, 58, 92, 0.04) !important;
+  transition: box-shadow 0.25s var(--ios-ease), border-color 0.25s, transform 0.25s var(--ios-ease);
+}
+.card:hover {
+  border-color: rgba(27, 58, 92, 0.14) !important;
+  box-shadow: 0 10px 26px rgba(27, 58, 92, 0.08) !important;
+  transform: translateY(-1px);
+}
+.card::before { display: none !important; }
+.lab-select,
+.micro-select,
+.src-tab,
+.btn,
+.btn-icon,
+.btn-history,
+.btn-auth-logout,
+.header-id-search input,
+.header-id-search button,
+.acc-form input,
+.acc-form select,
+.upload-zone,
+.file-preview,
+.micro-total-banner,
+.prio,
+.case-pill,
+.media-thumb,
+.st-live {
+  border-radius: 14px !important;
+  transition: border-color 0.22s var(--ios-ease), box-shadow 0.22s, background 0.22s, transform 0.18s var(--ios-ease);
+}
+.src-tab,
+.btn-ziyrakai,
+.auth-page .auth-btn,
+.header-id-search button,
+.prio,
+.case-pill,
+.result-id,
+.btn-small {
+  border-radius: 999px !important;
+}
+.src-tab:hover,
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.btn-ziyrakai {
+  box-shadow: 0 10px 24px rgba(27, 58, 92, 0.22) !important;
+}
+.btn-ziyrakai:hover:not(:disabled) {
+  box-shadow: 0 14px 28px rgba(27, 58, 92, 0.28) !important;
+}
+.step-num {
+  border-radius: 10px !important;
+}
+.analyze-card {
+  border-radius: 20px !important;
+  box-shadow: 0 -12px 28px rgba(27, 58, 92, 0.06) !important;
+}
+.media-box {
+  border-radius: 24px !important;
+  overflow: hidden;
+}
+.media-center {
+  border-radius: 16px !important;
+}
+.media-thumbs { gap: 8px; }
+.media-count { border-radius: 999px !important; }
+.stage-toolbar {
+  border-radius: 16px !important;
+}
+.slide-chip,
+.slide-chip-frost,
+.obj-turret {
+  border-radius: 16px !important;
+}
+.obj-turret span {
+  border-radius: 999px !important;
+}
+.report-banner {
+  border-radius: 24px 24px 0 0 !important;
+}
+.report-meta-grid {
+  border: 0;
+}
+.r-table-wrap {
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+.result-header {
+  border-radius: 0;
+}
+.app-footer {
+  margin: 0 10px 8px;
+  border-radius: 18px !important;
+  border: 1px solid rgba(27, 58, 92, 0.08);
+  box-shadow: 0 8px 22px rgba(27, 58, 92, 0.05);
+}
+.auth-topbar {
+  border-radius: 999px !important;
+}
+.auth-station {
+  border-radius: 28px !important;
+  box-shadow: 0 22px 60px rgba(27, 58, 92, 0.12) !important;
+  border: 1px solid rgba(27, 58, 92, 0.08) !important;
+}
+.auth-page .auth-field input {
+  border-radius: 14px !important;
+}
+.auth-logo-mark {
+  border-radius: 16px !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card, .btn, .src-tab, .lab-select { transition: none !important; transform: none !important; }
+}
