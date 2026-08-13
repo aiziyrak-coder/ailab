@@ -1498,6 +1498,21 @@ def _open_dshow_named(substr):
     return None
 
 
+def _open_touptek(slot=0):
+    """WinUSB ToupTek/Euromex — OpenCV emas, toupcam.dll."""
+    if sys.platform != "win32":
+        return None
+    try:
+        from lab_core import toupcam_cam
+        cap = toupcam_cam.open_toupcam(max(0, int(slot)))
+        if cap is not None:
+            log.info("Mikroskop ToupTek SDK orqali ochildi (slot=%s)", slot)
+            return cap
+    except Exception:
+        log.exception("ToupTek SDK ochilmadi")
+    return None
+
+
 def open_camera(index):
     """Kamerani ochish: avval kadr olinishini tekshiradi (bo‘sh ochilishni rad etadi)."""
     idx = int(index)
@@ -1507,17 +1522,42 @@ def open_camera(index):
         v4l2 = getattr(cv2, "CAP_V4L2", cv2.CAP_ANY)
         backends = (v4l2, cv2.CAP_ANY)
 
-    # Eski soxta indeks 16 — USB2.0 Camera. Haqiqiy qurilma DirectShow ToupcamMicro.
-    if idx >= 16:
-        cap = _open_dshow_named("toupcammicro") or _open_dshow_named("toup")
+    names = _dshow_device_names()
+    name = names[idx] if 0 <= idx < len(names) else ""
+    n = (name or "").lower()
+    want_sdk = (
+        idx >= 16
+        or "toup" in n
+        or _classify_camera_name(name) == "microscope"
+    )
+
+    if want_sdk:
+        slot = idx - 16 if idx >= 16 else 0
+        cap = _open_touptek(slot)
         if cap is not None:
-            log.info("Mikroskop ToupcamMicro orqali ochildi (so‘ralgan index=%s)", idx)
+            return cap
+        cap = (
+            _open_dshow_named("toupcammicro")
+            or _open_dshow_named("toup")
+            or _open_dshow_named("usb2.0 camera")
+        )
+        if cap is not None:
+            log.info("Mikroskop DirectShow orqali ochildi (so‘ralgan index=%s)", idx)
             return cap
 
-    cap = _try_open_capture(idx, backends)
+    if idx < 16:
+        cap = _try_open_capture(idx, backends)
+        if cap is not None:
+            return cap
+
+    cap = _open_touptek(0)
     if cap is not None:
         return cap
-    return _open_dshow_named("toupcammicro") or _open_dshow_named("toup")
+    return (
+        _open_dshow_named("toupcammicro")
+        or _open_dshow_named("toup")
+        or _open_dshow_named("usb2.0 camera")
+    )
 
 def capture_thread():
     global camera, latest_frame, stream_active, preview_jpeg
@@ -1574,7 +1614,7 @@ def _probe_windows_microscope_usb():
         return {"found": False, "ready": False}
     ps = r"""
 $ErrorActionPreference = 'SilentlyContinue'
-$d = Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -match 'VID_0547&PID_1236' } | Select-Object -First 1
+$d = Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -match 'VID_0547' } | Select-Object -First 1
 if (-not $d) { Write-Output '{"found":false,"ready":false}'; exit 0 }
 $svc = [string]$d.Service
 $ready = ($svc -match 'usbvideo')
@@ -1642,8 +1682,19 @@ def scan_cameras():
             "kind": kind,
         })
 
+    if is_win:
+        try:
+            from lab_core import toupcam_cam
+            for slot, dev in enumerate(toupcam_cam.enum_devices()):
+                label = (dev.get("name") or dev.get("model") or "ToupcamMicro").strip()
+                _add(16 + slot, label, kind="microscope")
+        except Exception:
+            log.exception("ToupTek qurilmalar ro‘yxati olinmadi")
+
     for i, name in enumerate(names):
-        n = (name or "").lower()
+        n = (name or "").lower().strip()
+        if n.startswith("usb video device"):
+            continue
         if "toup" in n or _classify_camera_name(name) == "microscope":
             _add(i, name, kind="microscope")
 
@@ -1665,19 +1716,22 @@ def scan_cameras():
         if not opened:
             continue
         name = names[i] if i < len(names) else f"Kamera {i}"
+        if (name or "").lower().startswith("usb video device"):
+            continue
         _add(i, name, w, h)
 
     usb = _probe_windows_microscope_usb()
     already_scope = any(c.get("kind") == "microscope" for c in found)
     if already_scope:
+        usb["found"] = True
         usb["ready"] = True
-        usb["sdk"] = "dshow"
+        usb["sdk"] = "touptek"
     elif usb.get("found"):
+        _add(16, usb.get("name") or "ToupcamMicro", kind="microscope")
         usb["ready"] = True
-        usb["sdk"] = "dshow"
-        usb["hint"] = (
-            "Mikroskop USB da bor. Ro‘yxatni yangilang va ToupcamMicro ni tanlang."
-        )
+        usb["sdk"] = "touptek"
+        usb["hint"] = ""
+    usb["host"] = sys.platform
     return {"cameras": found, "microscope_usb": usb}
 
 # ─── Mikroskop konteksti (laborant kiritadi) ──────────────────────────────────

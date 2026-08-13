@@ -980,9 +980,16 @@ async function scanCameras() {
   }
   const cams = Array.isArray(res.cameras) ? res.cameras : [];
   const usb  = res.microscope_usb || {};
+  const remote = !/^(localhost|127\.0\.0\.1)$/i.test(location.hostname);
 
-  const scopes = cams.filter(c => c.kind === 'microscope');
-  const phones = cams.filter(c => c.kind !== 'microscope');
+  let scopes = cams.filter(c =>
+    c.kind === 'microscope' || /toup|microskop|microscope|cmex|euromex|usb2\.0\s*cam/i.test(c.name || '')
+  ).filter(c => !/^usb video device/i.test(c.name || ''));
+  const phones = cams.filter(c => c.kind !== 'microscope' && !scopes.includes(c));
+
+  if (!scopes.length && usb.found) {
+    scopes = [{ index: 16, name: usb.name || 'ToupcamMicro', resolution: '—' }];
+  }
 
   if (phoneSel) fillSelect(phoneSel, phones, '— Telefon / webcam tanlang —');
   if (scopeSel) fillSelect(scopeSel, scopes, '— Mikroskop tanlang —');
@@ -992,13 +999,17 @@ async function scanCameras() {
     if (scopes.length) {
       box.style.display = 'none';
       box.innerHTML = '';
+    } else if (remote) {
+      box.style.display = '';
+      box.innerHTML = `<strong>Jonli mikroskop serverda ko‘rinmaydi.</strong><br>
+        USB mikroskop shu kompyuterda ishlashi uchun MedLab ni <b>http://127.0.0.1:8000</b> da oching.`;
     } else if (usb.found) {
       box.style.display = '';
-      box.innerHTML = `<strong>Mikroskop USB da ulangan</strong> (${esc(usb.name || 'USB2.0 Camera')}).<br>
-        Ro‘yxatdan tanlab <b>Yoqish</b> ni bosing. Bu kamera oddiy «USB Video» emas — ToupTek/Euromex orqali ochiladi.`;
+      box.innerHTML = `<strong>Mikroskop USB da ulangan</strong> (${esc(usb.name || 'ToupcamMicro')}).<br>
+        Ro‘yxatdan tanlab <b>Yoqish</b> ni bosing.`;
     } else {
-      box.style.display = 'none';
-      box.innerHTML = '';
+      box.style.display = '';
+      box.innerHTML = `Mikroskop topilmadi. USB ni ulang, ToupTek/Euromex drajverini tekshiring, keyin ⟳ bosing.`;
     }
   }
 
@@ -1007,7 +1018,9 @@ async function scanCameras() {
   } else if (currentSource === 'phone' && phones.length) {
     toast(`${phones.length} ta kamera topildi`, 'green');
   } else if (currentSource === 'scope' && usb.found) {
-    toast('Mikroskop ulangan — rasmiy drajver o‘rnatilishi kerak', 'blue');
+    toast('Mikroskop ulangan — Yoqish ni bosing', 'green');
+  } else if (currentSource === 'scope' && remote) {
+    toast('Jonli mikroskop lokal kompyuterda ishlaydi: http://127.0.0.1:8000', 'red');
   } else if (currentSource !== 'upload') {
     toast('Mos kamera topilmadi', 'red');
   }
