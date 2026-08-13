@@ -5,7 +5,7 @@ from django.conf import settings
 from django.db import migrations, models
 
 
-class Migration(models.Migration):
+class Migration(migrations.Migration):
 
     dependencies = [
         ("api", "0003_expand_hudud_code_length"),
