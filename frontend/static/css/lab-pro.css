@@ -2370,10 +2370,26 @@ body::before {
   margin: 0;
   line-height: 1.1;
 }
-.left-panel .step-num {
-  width: 16px !important;
-  height: 16px !important;
-  font-size: 0.58rem !important;
+.step-num { display: none !important; }
+.left-panel .capture-card {
+  gap: 6px !important;
+}
+.left-panel .capture-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.left-panel .capture-card .lab-select {
+  width: 100%;
+  height: 34px !important;
+  min-height: 34px !important;
+  font-size: 0.8rem !important;
+  font-weight: 700;
+  padding: 0 10px !important;
+  border-radius: 12px !important;
+  border-color: rgba(27, 58, 92, 0.18) !important;
+  background: #f8fafc !important;
 }
 .left-panel .acc-form {
   gap: 4px 6px !important;
@@ -2392,22 +2408,11 @@ body::before {
   padding: 3px 8px !important;
   font-size: 0.6rem !important;
 }
-.left-panel .card-inline {
-  flex-direction: row !important;
-  align-items: center !important;
-  gap: 8px !important;
-}
-.left-panel .card-inline .card-title {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-.left-panel .card-inline .lab-select,
 .left-panel .lab-select {
-  height: 30px !important;
-  min-height: 30px !important;
-  font-size: 0.74rem !important;
-  padding: 0 8px !important;
-  flex: 1 1 auto;
+  height: 34px !important;
+  min-height: 34px !important;
+  font-size: 0.8rem !important;
+  padding: 0 10px !important;
 }
 .left-panel .src-tab {
   min-height: 28px !important;

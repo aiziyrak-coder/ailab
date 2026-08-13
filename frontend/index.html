@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off25">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off25">
+  <link rel="stylesheet" href="/static/css/style.css?v=off26">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off26">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -77,7 +77,7 @@
     <aside class="left-panel">
 
       <div class="card">
-        <div class="card-title"><span class="step-num">1</span> Bemor</div>
+        <div class="card-title">Bemor</div>
         <form class="acc-form" autocomplete="off" onsubmit="return false;">
           <label class="req acc-span"><span>F.I.Sh.</span> <input id="accName" maxlength="120" required placeholder="Bemor familiyasi, ismi"></label>
           <label class="req"><span>Yosh</span> <input id="accAge" type="number" min="0" max="120" required placeholder="—"></label>
@@ -116,36 +116,32 @@
         </form>
       </div>
 
-      <div class="card card-inline">
-        <div class="card-title"><span class="step-num">2</span> Tahlil turi</div>
-        <select id="labSelect" class="lab-select" onchange="selectLab(this.value)" aria-label="Tahlil turi">
-          <option value="hematology">🩸 Gematologiya</option>
-          <option value="urine">🧪 Siydik</option>
-          <option value="coprology">🧫 Koprologiya</option>
-          <option value="spermogram">🫧 Spermogramma</option>
-          <option value="smear">🌸 Mazok</option>
-          <option value="csf">🧠 Likvor</option>
-          <option value="lymph">🟣 Limfa</option>
-          <option value="le_cell">✴️ LE-hujayra</option>
-          <option value="prostata_sok">🟠 Prostata SOK</option>
-          <option value="myelogram">🦴 Miyelogramma</option>
-          <option value="blood_parasites">🦟 Qon parazitlari</option>
-          <option value="afb_microscopy">🫁 KOCH / AFB</option>
-          <option value="mycology">🍄 Mikologiya</option>
-          <option value="dermatology">🧴 Dermatologiya</option>
-          <option value="derm_microscopy">🕷️ Teri qirindisi</option>
-          <option value="effusion_cytology">💧 Effuziya</option>
-          <option value="histology">🧬 Gistologiya</option>
-        </select>
-      </div>
-
-      <div class="card card-grow">
-        <div class="card-title"><span class="step-num">3</span> Rasm</div>
-
-        <div class="src-tabs" role="tablist" aria-label="Rasm manbasi">
-          <button type="button" class="src-tab active" data-src="upload" role="tab" aria-selected="true" onclick="setSource('upload')">Rasm</button>
-          <button type="button" class="src-tab" data-src="phone" role="tab" aria-selected="false" onclick="setSource('phone')">Telefon</button>
-          <button type="button" class="src-tab" data-src="scope" role="tab" aria-selected="false" onclick="setSource('scope')">Mikroskop</button>
+      <div class="card card-grow capture-card">
+        <div class="capture-head">
+          <select id="labSelect" class="lab-select" onchange="selectLab(this.value)" aria-label="Tahlil turi">
+            <option value="hematology">🩸 Gematologiya</option>
+            <option value="urine">🧪 Siydik</option>
+            <option value="coprology">🧫 Koprologiya</option>
+            <option value="spermogram">🫧 Spermogramma</option>
+            <option value="smear">🌸 Mazok</option>
+            <option value="csf">🧠 Likvor</option>
+            <option value="lymph">🟣 Limfa</option>
+            <option value="le_cell">✴️ LE-hujayra</option>
+            <option value="prostata_sok">🟠 Prostata SOK</option>
+            <option value="myelogram">🦴 Miyelogramma</option>
+            <option value="blood_parasites">🦟 Qon parazitlari</option>
+            <option value="afb_microscopy">🫁 KOCH / AFB</option>
+            <option value="mycology">🍄 Mikologiya</option>
+            <option value="dermatology">🧴 Dermatologiya</option>
+            <option value="derm_microscopy">🕷️ Teri qirindisi</option>
+            <option value="effusion_cytology">💧 Effuziya</option>
+            <option value="histology">🧬 Gistologiya</option>
+          </select>
+          <div class="src-tabs" role="tablist" aria-label="Rasm manbasi">
+            <button type="button" class="src-tab active" data-src="upload" role="tab" aria-selected="true" onclick="setSource('upload')">Rasm</button>
+            <button type="button" class="src-tab" data-src="phone" role="tab" aria-selected="false" onclick="setSource('phone')">Telefon</button>
+            <button type="button" class="src-tab" data-src="scope" role="tab" aria-selected="false" onclick="setSource('scope')">Mikroskop</button>
+          </div>
         </div>
 
         <div id="paneUpload">
@@ -482,8 +478,8 @@
 </div>
 
 <div id="toast"></div>
-<script src="/static/js/uz_localities.js?v=off25"></script>
+<script src="/static/js/uz_localities.js?v=off26"></script>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=off25"></script>
+<script src="/static/js/app.js?v=off26"></script>
 </body>
 </html>
