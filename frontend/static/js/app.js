@@ -754,16 +754,42 @@ function renderFileList() {
     const isVid = isVideoFile(f);
     const div   = document.createElement('div');
     div.className = 'file-item' + (i === _previewIndex ? ' is-on' : '');
+    div.setAttribute('data-idx', String(i));
     div.innerHTML = `
       <span class="file-item-ico">${isVid ? '🎬' : '🖼'}</span>
       <span class="file-item-name" title="${esc(f.name)}">${esc(f.name)}</span>
       <span class="file-item-size">${fmtSize(f.size)}</span>
-      <button class="file-item-del" onclick="event.stopPropagation(); removeFile(${i})" title="O'chirish">✕</button>
+      <button type="button" class="file-item-del" data-idx="${i}" title="O'chirish">✕</button>
     `;
-    div.addEventListener('click', (e) => {
-      if (!e.target.classList.contains('file-item-del')) showMainPreview(i);
-    });
     list.appendChild(div);
+  });
+}
+
+function bindUploadFileActions() {
+  const pane = document.getElementById('paneUpload');
+  if (!pane || pane.dataset.boundFiles === '1') return;
+  pane.dataset.boundFiles = '1';
+  pane.addEventListener('click', (e) => {
+    const clearBtn = e.target.closest('[data-clear-files]');
+    if (clearBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      clearFile();
+      return;
+    }
+    const del = e.target.closest('.file-item-del');
+    if (del) {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number(del.getAttribute('data-idx'));
+      if (Number.isFinite(idx)) removeFile(idx);
+      return;
+    }
+    const item = e.target.closest('.file-item');
+    if (item) {
+      const idx = Number(item.getAttribute('data-idx'));
+      if (Number.isFinite(idx)) showMainPreview(idx);
+    }
   });
 }
 
@@ -2184,6 +2210,7 @@ async function refreshUserPill() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  bindUploadFileActions();
   refreshUserPill();
   daftarLoadSettings();
   refreshSampleId();

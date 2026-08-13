@@ -2462,8 +2462,20 @@ body::before {
   height: 30px !important;
 }
 .left-panel .file-preview {
+  position: relative;
+  z-index: 4;
   padding: 0 !important;
   border-radius: 12px !important;
+  pointer-events: auto !important;
+}
+.left-panel .btn-x,
+.left-panel .file-item-del {
+  position: relative;
+  z-index: 6;
+  pointer-events: auto !important;
+  min-width: 28px;
+  min-height: 26px;
+  cursor: pointer;
 }
 .left-panel .preview-header {
   flex: 0 0 auto;
