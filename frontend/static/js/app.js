@@ -1916,10 +1916,11 @@ async function loadHistory() {
   const cards = rows.map((r) => {
     const st = _histStatus(r.status, r.created_at);
     const src = _histSource(r.source);
-    return `<button type="button" class="hist-card" data-public-id="${esc(r.public_id)}">
+    return `<article class="hist-card" data-public-id="${esc(r.public_id)}">
       <div class="hist-card-top">
         <span class="hist-id">${esc(r.public_id)}</span>
         <span class="hist-st ${st.cls}">${st.label}</span>
+        <button type="button" class="hist-del" data-del-id="${esc(r.public_id)}" title="Tahlilni o‘chirish">O‘chirish</button>
       </div>
       <div class="hist-card-mid">
         <span>${esc(r.lab_label || r.lab_type)}</span>
@@ -1928,7 +1929,7 @@ async function loadHistory() {
         <span>${esc(r.created_label || '')}</span>
       </div>
       ${r.preview ? `<div class="hist-card-prev">${esc(r.preview)}</div>` : ''}
-    </button>`;
+    </article>`;
   }).join('');
   const more = data.has_more
     ? '<button type="button" class="hist-card" id="histMoreBtn" onclick="_histPage++; loadHistory()">Yana yuklash</button>'
@@ -1937,6 +1938,20 @@ async function loadHistory() {
   if (oldMore) oldMore.remove();
   if (_histPage <= 1) list.innerHTML = cards + more;
   else list.insertAdjacentHTML('beforeend', cards + more);
+}
+
+async function deleteHistoryRecord(publicId) {
+  if (!publicId) return;
+  if (!window.confirm('Bu tahlil o‘chirilsinmi? Qayta tiklanmaydi.')) return;
+  const data = await api(apiPath('/api/analyses/' + encodeURIComponent(publicId)), 'DELETE');
+  if (!data || !data.success) {
+    toast((data && data.message) || 'O‘chirilmadi', 'red');
+    return;
+  }
+  toast('Tahlil o‘chirildi', 'green');
+  if (currentPublicId === publicId) clearResult();
+  _histPage = 1;
+  loadHistory();
 }
 
 async function openHistoryRecord(publicId) {
@@ -2026,6 +2041,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const histList = document.getElementById('histList');
   if (histList) {
     histList.addEventListener('click', (e) => {
+      const del = e.target.closest('[data-del-id]');
+      if (del) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteHistoryRecord(del.getAttribute('data-del-id'));
+        return;
+      }
       const btn = e.target.closest('[data-public-id]');
       if (btn && btn.id !== 'histMoreBtn') openHistoryRecord(btn.getAttribute('data-public-id'));
     });

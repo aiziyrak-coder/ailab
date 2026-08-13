@@ -236,6 +236,23 @@ class AnalysisHistoryTests(TestCase):
         self.assertEqual(ok.status_code, 200)
         self.assertEqual(ok.json()["analysis"]["public_id"], rec.public_id)
 
+    def test_owner_can_delete_analysis(self):
+        rec = AnalysisRecord.create_pending(self.user, "hematology", "upload")
+        pid = rec.public_id
+        r = self.client.delete(f"/api/analyses/{pid}", secure=True)
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json().get("success"))
+        self.assertFalse(AnalysisRecord.objects.filter(public_id=pid).exists())
+
+    def test_other_user_cannot_delete_analysis(self):
+        rec = AnalysisRecord.create_pending(self.user, "hematology", "upload")
+        pid = rec.public_id
+        self.client.logout()
+        self.client.login(username="otheru", password="Pw2026!MedLabTest")
+        r = self.client.delete(f"/api/analyses/{pid}", secure=True)
+        self.assertEqual(r.status_code, 404)
+        self.assertTrue(AnalysisRecord.objects.filter(public_id=pid).exists())
+
     def test_invalid_lab_type_filter_is_empty(self):
         AnalysisRecord.create_pending(self.user, "hematology", "upload")
         r = self.client.get("/api/analyses", {"lab_type": "not_a_real_lab"})

@@ -701,12 +701,18 @@ class AnalysisListView(APIView):
         )
 
 
+def _user_analysis_or_none(request, public_id):
+    lookup = _canonical_public_id(public_id) or (public_id or "").strip()
+    if not lookup:
+        return None
+    return AnalysisRecord.objects.filter(user=request.user, public_id__iexact=lookup).first()
+
+
 class AnalysisDetailView(APIView):
-    """GET /api/analyses/<public_id>"""
+    """GET / DELETE /api/analyses/<public_id>"""
 
     def get(self, request, public_id):
-        lookup = _canonical_public_id(public_id) or (public_id or "").strip()
-        rec = AnalysisRecord.objects.filter(user=request.user, public_id__iexact=lookup).first()
+        rec = _user_analysis_or_none(request, public_id)
         if rec is None:
             return Response(
                 {"success": False, "message": f"Tahlil topilmadi: {public_id}"},
@@ -714,6 +720,17 @@ class AnalysisDetailView(APIView):
             )
         data = AnalysisRecordSerializer(rec).data
         return Response({"success": True, "analysis": data})
+
+    def delete(self, request, public_id):
+        rec = _user_analysis_or_none(request, public_id)
+        if rec is None:
+            return Response(
+                {"success": False, "message": f"Tahlil topilmadi: {public_id}"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        pid = rec.public_id
+        rec.delete()
+        return Response({"success": True, "message": "Tahlil o‘chirildi", "public_id": pid})
 
 
 class CaptureView(APIView):
