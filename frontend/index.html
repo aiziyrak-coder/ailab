@@ -80,7 +80,7 @@
         <div class="card-title"><span class="step-num">1</span> Bemor</div>
         <form class="acc-form" autocomplete="off" onsubmit="return false;">
           <label class="req"><span>F.I.Sh.</span> <input id="accName" maxlength="120" required placeholder="Bemor familiyasi, ismi"></label>
-          <label class="req"><span>Namuna №</span> <input id="accSample" maxlength="32" required placeholder="NP-001"></label>
+          <label><span>Namuna №</span> <input id="accSample" maxlength="32" readonly placeholder="Avtomatik"></label>
           <label class="req"><span>Yosh</span> <input id="accAge" type="number" min="0" max="120" required placeholder="—"></label>
           <label class="req"><span>Jins</span>
             <select id="accSex" required>
@@ -461,6 +461,6 @@
 
 <div id="toast"></div>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=off5"></script>
+<script src="/static/js/app.js?v=off6"></script>
 </body>
 </html>

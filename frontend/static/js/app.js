@@ -390,7 +390,23 @@ function syncLabChrome(m, s) {
   refreshLabPlatform();
 }
 
-const PATIENT_FIELDS = ['accName', 'accSample', 'accAge', 'accSex', 'accWard'];
+const PATIENT_FIELDS = ['accName', 'accAge', 'accSex', 'accWard'];
+
+function nextSampleNo() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  const day = `${String(d.getFullYear()).slice(-2)}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+  const key = 'medlab_sample_seq_' + day;
+  let n = 1;
+  try { n = (parseInt(localStorage.getItem(key) || '0', 10) || 0) + 1; } catch (_) {}
+  try { localStorage.setItem(key, String(n)); } catch (_) {}
+  return `NP-${day}-${String(n).padStart(4, '0')}`;
+}
+
+function ensureSampleNo() {
+  const el = document.getElementById('accSample');
+  if (el && !String(el.value || '').trim()) el.value = nextSampleNo();
+}
 
 function patientFieldsComplete() {
   return PATIENT_FIELDS.every(id => valOf(id));
@@ -869,11 +885,12 @@ async function analyze() {
   if (_analyzeBusy) return;
   if (!patientFieldsComplete()) {
     markPatientFields(true);
-    toast('Bemor ma’lumotlarini to‘ldiring: F.I.Sh., namuna, yosh, jins, bo‘lim.', 'red');
+    toast('Bemor ma’lumotlarini to‘ldiring: F.I.Sh., yosh, jins, bo‘lim.', 'red');
     document.getElementById('accName')?.focus();
     return;
   }
   markPatientFields(false);
+  ensureSampleNo();
   if (currentSource === 'upload' && uploadedFiles.length) {
     _analyzeBusy = true;
     try { await analyzeFile(); } finally { _analyzeBusy = false; }
@@ -1771,6 +1788,7 @@ async function refreshUserPill() {
 document.addEventListener('DOMContentLoaded', () => {
   refreshUserPill();
   daftarLoadSettings();
+  ensureSampleNo();
   selectLab('hematology');
   onMicroChange();
   setSource('upload');
