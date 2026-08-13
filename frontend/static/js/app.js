@@ -1009,7 +1009,7 @@ async function scanCameras() {
   } else if (currentSource === 'scope' && usb.found) {
     toast('Mikroskop ulangan — rasmiy drajver o‘rnatilishi kerak', 'blue');
   } else if (currentSource !== 'upload') {
-    toast('Mos kamera topilmadi', 'gray');
+    toast('Mos kamera topilmadi', 'red');
   }
 }
 
@@ -1762,20 +1762,23 @@ async function api(url, method = 'GET', body = null) {
   }
 }
 
-function toast(text, color = 'gray') {
+function toast(text, color = 'red') {
   const el = document.getElementById('toast');
   if (!el) return;
-  const map = { green: 'toast-ios--green', red: 'toast-ios--red', blue: 'toast-ios--blue', gray: 'toast-ios--gray' };
-  const cls = map[color] || map.gray;
+  const map = { green: 'toast-ios--green', red: 'toast-ios--red', blue: 'toast-ios--red', gray: 'toast-ios--red' };
+  const cls = map[color] || map.red;
   el.className = cls;
-  el.style.opacity = '1';
-  el.style.transform = 'translateY(0)';
   el.textContent = text;
+  el.style.opacity = '0';
+  el.style.transform = 'translate(-50%, -28px)';
+  void el.offsetWidth;
+  el.style.opacity = '1';
+  el.style.transform = 'translate(-50%, 0)';
   clearTimeout(el._t);
   el._t = setTimeout(() => {
     el.style.opacity = '0';
-    el.style.transform = 'translateY(12px)';
-  }, 3500);
+    el.style.transform = 'translate(-50%, -28px)';
+  }, 3800);
 }
 
 function setPublicId(id) {
