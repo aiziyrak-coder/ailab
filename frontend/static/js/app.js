@@ -747,7 +747,7 @@ function syncUploadPane() {
 function renderFileList() {
   const list = document.getElementById('fileList');
   const cnt  = document.getElementById('previewCount');
-  if (cnt) cnt.textContent = `${uploadedFiles.length} ta fayl`;
+  if (cnt) cnt.textContent = uploadedFiles.length ? `${uploadedFiles.length} ta fayl` : '';
   if (!list) return;
   list.innerHTML  = '';
   uploadedFiles.forEach((f, i) => {
@@ -899,6 +899,7 @@ function clearFile() {
   _revokeThumbUrls();
   const inp = document.getElementById('fileInput');
   if (inp) inp.value = '';
+  renderFileList();
   syncUploadPane();
   updateAnalyzeBtn();
   const content = document.getElementById('uploadedContent');

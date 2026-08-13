@@ -2300,6 +2300,9 @@ body::before {
   flex-direction: column;
 }
 .left-panel #filePreview {
+  display: none !important;
+}
+.left-panel #paneUpload.has-files #filePreview {
   flex: 1 1 auto;
   min-height: 0;
   display: flex !important;
