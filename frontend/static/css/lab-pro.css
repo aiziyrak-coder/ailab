@@ -1271,9 +1271,20 @@ body::after { display: none !important; }
   border: 0 !important;
   background: transparent !important;
 }
-.analyze-card.hidden { display: none !important; }
+.analyze-card {
+  position: sticky;
+  bottom: 0;
+  z-index: 12;
+  margin-top: auto !important;
+  background: #fff !important;
+  box-shadow: 0 -10px 18px rgba(27, 58, 92, 0.08);
+}
+.analyze-card.hidden { display: block !important; }
 .analyze-card .btn-ziyrakai {
   width: 100%;
+  min-height: 46px;
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
 }
 
 .media-box.has-upload .opt-scale,

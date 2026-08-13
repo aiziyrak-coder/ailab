@@ -357,7 +357,7 @@ function selectLab(lab) {
   onMicroChange();
 
   const btn = document.getElementById('analyzeBtn');
-  if (btn && !_analyzeBusy) btn.textContent = 'Tahlil qil';
+  if (btn && !_analyzeBusy) btn.textContent = 'Tahlil boshlash';
 
   if (document.querySelector('#resultBody .result-empty')) {
     document.getElementById('resultBody').innerHTML = emptyResultHtml();
@@ -422,13 +422,27 @@ function markPatientFields(highlight) {
   });
 }
 
+function isCsrfFail(data) {
+  const msg = String((data && (data.detail || data.message)) || '').toLowerCase();
+  return msg.includes('csrf');
+}
+
+function kickIfLoggedOut(status, data) {
+  if (status !== 401 && status !== 403) return false;
+  if (isCsrfFail(data)) return false;
+  window.location.href = '/login';
+  return true;
+}
+
 function updateAnalyzeBtn() {
   const btn = document.getElementById('analyzeBtn');
-  const card = document.getElementById('analyzeCard');
   const readyPatient = patientFieldsComplete();
   const hasSample = uploadedFiles.length > 0 || cameraRunning;
-  if (card) card.classList.toggle('hidden', !readyPatient);
-  if (btn) btn.disabled = !readyPatient || !hasSample;
+  if (!btn) return;
+  btn.disabled = !readyPatient || !hasSample;
+  btn.title = !readyPatient
+    ? 'Avval bemor ma’lumotini to‘ldiring'
+    : (!hasSample ? 'Avval rasm yuklang yoki mikroskopni yoqing' : 'Tahlilni boshlash');
 }
 
 let _priority = 'routine';
@@ -988,7 +1002,8 @@ async function analyzeFile() {
   appendMicroscopeToFormData(formData);
 
   try {
-    const r = await fetch(apiPath('/api/analyze'), {
+    if (typeof ensureCsrfCookie === 'function') await ensureCsrfCookie();
+    let r = await fetch(apiPath('/api/analyze'), {
       ...formFetchInit('POST'),
       body: formData,
     });
@@ -1000,9 +1015,20 @@ async function analyzeFile() {
       toast('Server javobi noto‘g‘ri', 'red');
       return;
     }
-    if (!r.ok && (r.status === 401 || r.status === 403)) {
+    if (r.status === 403 && isCsrfFail(res)) {
+      if (typeof ensureCsrfCookie === 'function') await ensureCsrfCookie();
+      r = await fetch(apiPath('/api/analyze'), {
+        ...formFetchInit('POST'),
+        body: formData,
+      });
+      try { res = await r.json(); } catch (_) {
+        stopAnalyzing();
+        toast('Sahifani yangilang (F5) va qayta urining', 'red');
+        return;
+      }
+    }
+    if (kickIfLoggedOut(r.status, res)) {
       stopAnalyzing();
-      window.location.href = '/login';
       return;
     }
     if (r.status === 409 || res.busy === true) {
@@ -1631,11 +1657,10 @@ async function api(url, method = 'GET', body = null) {
       return d;
     };
     if (r.status === 401 || r.status === 403) {
-      const msg = String(data.detail || data.message || '').toLowerCase();
-      if (msg.includes('csrf')) {
+      if (isCsrfFail(data)) {
         return stamp({ success: false, message: "Sahifani yangilang (CSRF). F5 bosing." });
       }
-      window.location.href = '/login';
+      kickIfLoggedOut(r.status, data);
       return stamp({ success: false, message: 'Kirish kerak' });
     }
     if (!r.ok && data.success !== false)
