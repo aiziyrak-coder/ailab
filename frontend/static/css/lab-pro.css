@@ -1012,19 +1012,22 @@ body::after {
   .opt-lamp, .btn-ziyrakai::after { animation: none !important; }
 }
 
-/* ═══ Rasmiy klinik palitra: oq / po‘lat / institut ko‘ki ═══ */
+/* ═══ Rasmiy klinik palitra: oq / yashil ═══ */
 :root {
-  --ink: #1b3a5c;
-  --ink-2: #24364d;
-  --paper: #eef1f4;
-  --line: #d4dbe3;
-  --muted: #5a6a7a;
+  --ink: #166534;
+  --ink-2: #14532d;
+  --leaf: #16a34a;
+  --mint: #4ade80;
+  --paper: #f1f7f2;
+  --line: #cfe3d4;
+  --muted: #4d6a57;
+  --green-flow: linear-gradient(90deg, #14532d, #15803d, #22c55e, #0f766e, #166534, #14532d);
 }
 body {
-  background: #e8ecf0 !important;
+  background: #e8f3ea !important;
 }
 body::before {
-  background: #eef1f4 !important;
+  background: #f1f7f2 !important;
 }
 body::after { display: none !important; }
 .lab-bench { display: none !important; }
@@ -2538,4 +2541,94 @@ body::before {
   background: #166534 !important;
   color: #fff !important;
   box-shadow: 0 14px 36px rgba(22, 101, 52, 0.32) !important;
+}
+
+/* ═══ Klinik yashil oqim ═══ */
+@keyframes medGreenFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.official-bar {
+  height: 4px !important;
+  background: var(--green-flow) !important;
+  background-size: 280% 100% !important;
+  animation: medGreenFlow 7s ease infinite;
+}
+.header-logo-wrap,
+.btn-ziyrakai,
+.header-id-search button,
+.hist-search button,
+.report-banner,
+.auth-page .auth-btn,
+.st-btn,
+.prio.on,
+.obj-turret span.on,
+.left-panel .micro-total-mini,
+.auth-logo-mark {
+  background-image: var(--green-flow) !important;
+  background-size: 240% 100% !important;
+  background-color: #166534 !important;
+  animation: medGreenFlow 6.5s ease infinite;
+  color: #fff !important;
+}
+.btn-ziyrakai:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.src-tab.active {
+  border-color: #16a34a !important;
+  color: #166534 !important;
+  box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.25);
+}
+.wb-flow li.on {
+  background: var(--green-flow) !important;
+  background-size: 220% 100% !important;
+  animation: medGreenFlow 5s ease infinite;
+  color: #fff !important;
+}
+.az-kicker,
+.ov-kicker,
+.header-kicker,
+.header-title {
+  color: #166534 !important;
+}
+.az-ring { border-top-color: #16a34a !important; }
+.az-core {
+  background: radial-gradient(circle at 35% 30%, #fff, #bbf7d0 55%, #166534) !important;
+}
+.az-bar i {
+  background: var(--green-flow) !important;
+  background-size: 200% 100% !important;
+  animation: medGreenFlow 1.35s linear infinite;
+}
+.az-halo {
+  background: radial-gradient(circle, rgba(22, 163, 74, 0.22), transparent 70%) !important;
+}
+.left-panel .upload-zone {
+  border-color: rgba(22, 101, 52, 0.28) !important;
+  background:
+    repeating-linear-gradient(-45deg, rgba(22, 163, 74, 0.06) 0 8px, transparent 8px 16px),
+    #f4fbf6 !important;
+}
+.hist-id,
+.file-item.is-on {
+  color: #166534;
+  border-color: #166534 !important;
+}
+.status-pill {
+  border-color: #bbf7d0 !important;
+}
+.pill-connected {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+}
+.st-live.on { color: #166534 !important; }
+@media (prefers-reduced-motion: reduce) {
+  .official-bar, .header-logo-wrap, .btn-ziyrakai, .header-id-search button,
+  .hist-search button, .report-banner, .auth-page .auth-btn, .st-btn, .prio.on,
+  .obj-turret span.on, .left-panel .micro-total-mini, .auth-logo-mark,
+  .wb-flow li.on, .az-bar i {
+    animation: none !important;
+    background: #166534 !important;
+  }
 }
