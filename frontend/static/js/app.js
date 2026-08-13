@@ -908,6 +908,8 @@ function updateOverlay() {
   const ov = document.getElementById('camOverlay');
   const icon = document.getElementById('overlayIcon');
   const text = document.getElementById('overlayText');
+  const hint = document.getElementById('overlayHint');
+  const kicker = document.getElementById('overlayKicker');
   const showingUpload = uploadedFiles.length && currentSource === 'upload';
   if (cameraRunning || showingUpload) {
     ov.classList.add('hidden');
@@ -916,10 +918,18 @@ function updateOverlay() {
   ov.classList.remove('hidden');
   const m = labMeta(currentLab);
   if (icon) icon.textContent = m.icon;
+  if (kicker) kicker.textContent = (m.name || 'Mikroskopiya').replace(/ Natijasi$/i, '') + ' · maydon';
   if (!text) return;
-  if (currentSource === 'phone') text.textContent = 'Telefonni yoqing';
-  else if (currentSource === 'scope') text.textContent = 'Mikroskopni yoqing';
-  else text.textContent = 'Rasm yuklang';
+  if (currentSource === 'phone') {
+    text.textContent = 'Telefon okulyari kutilmoqda';
+    if (hint) hint.textContent = 'Chapdan telefonni yoqing — preparat kadri shu maydonda ochiladi';
+  } else if (currentSource === 'scope') {
+    text.textContent = 'Mikroskop signal kutilmoqda';
+    if (hint) hint.textContent = 'Chapdan mikroskopni tanlab yoqing — yorug‘ maydon shu yerda';
+  } else {
+    text.textContent = 'Preparat kutilmoqda';
+    if (hint) hint.textContent = 'Chapdan yoqma rasmini yuklang — ko‘rish maydoni ochiladi';
+  }
 }
 
 function showLivePreview(live) {

@@ -1695,6 +1695,104 @@ body::before {
   border-radius: 24px !important;
   overflow: hidden;
 }
+.media-box:not(.is-live):not(.has-upload) {
+  background:
+    radial-gradient(circle at 50% 44%, #8aa4bb 0 18%, #24364c 52%, #0f1c2e 100%) !important;
+  border-color: #1b3a5c !important;
+  box-shadow:
+    inset 0 0 0 8px #1b3a5c,
+    inset 0 0 80px rgba(0, 0, 0, 0.35),
+    0 18px 40px rgba(15, 28, 46, 0.28) !important;
+}
+.media-box:not(.is-live):not(.has-upload) .opt-fiducial,
+.media-box:not(.is-live):not(.has-upload) .opt-scale,
+.media-box:not(.is-live):not(.has-upload) .opt-iris {
+  display: none !important;
+}
+.media-overlay {
+  background: transparent !important;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px;
+}
+.scope-idle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.scope-idle-ring {
+  width: min(56%, 260px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 12px solid #152536;
+  background:
+    radial-gradient(circle at 38% 32%, #f7fafc 0 18%, #d5e2ee 48%, #9eb4c6 78%, #6b8498 100%);
+  box-shadow:
+    inset 0 0 28px rgba(255, 255, 255, 0.45),
+    inset 0 0 60px rgba(14, 116, 144, 0.12),
+    0 0 0 2px #64748b,
+    0 16px 36px rgba(0, 0, 0, 0.35);
+  position: relative;
+}
+.scope-idle-cross::before,
+.scope-idle-cross::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: rgba(27, 58, 92, 0.28);
+}
+.scope-idle-cross::before {
+  width: 42%;
+  height: 1px;
+  transform: translate(-50%, -50%);
+}
+.scope-idle-cross::after {
+  width: 1px;
+  height: 42%;
+  transform: translate(-50%, -50%);
+}
+.scope-idle-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: rgba(27, 58, 92, 0.35);
+  box-shadow: 0 0 0 4px rgba(27, 58, 92, 0.08);
+}
+.overlay-content {
+  max-width: 340px !important;
+  padding: 10px 14px 12px;
+  border-radius: 14px;
+  background: rgba(15, 28, 46, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+.ov-kicker {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+  margin-bottom: 4px;
+}
+.overlay-content p {
+  margin: 0 !important;
+  font-size: 0.92rem !important;
+  font-weight: 800 !important;
+  color: #f8fafc !important;
+}
+.ov-idle-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  line-height: 1.35;
+}
 .media-center {
   border-radius: 16px !important;
 }
