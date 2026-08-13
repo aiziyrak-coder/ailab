@@ -2117,25 +2117,41 @@ body::before {
   border-radius: 8px !important;
 }
 .left-panel .upload-zone {
-  min-height: 40px !important;
-  padding: 6px 8px !important;
+  min-height: 72px !important;
+  padding: 10px 12px !important;
   display: flex !important;
   flex-direction: row !important;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 12px;
+  border-width: 2px !important;
 }
 .left-panel .upload-ico {
-  width: 22px !important;
-  height: 22px !important;
-  font-size: 0.85rem !important;
-  border-radius: 6px !important;
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 1.2rem !important;
+  border-radius: 10px !important;
+  flex-shrink: 0;
+}
+.left-panel .upload-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 .left-panel .upload-main {
-  font-size: 0.72rem !important;
+  font-size: 0.88rem !important;
+  font-weight: 800 !important;
+  color: #1b3a5c !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.left-panel .upload-hint-line {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.01em;
 }
 .left-panel .micro-grid-3 {
   display: grid !important;
