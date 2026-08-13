@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off28">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off28">
+  <link rel="stylesheet" href="/static/css/style.css?v=off29">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off29">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -100,9 +100,55 @@
           </label>
           <label class="req"><span>Muassasa</span>
             <select id="daftarType" required aria-label="Muassasa turi">
-              <option value="OP" selected>OP — Oylaviy</option>
-              <option value="ST">ST — Statsionar</option>
-              <option value="DM">DM — Diagnostika</option>
+              <optgroup label="Ambulatoriya">
+                <option value="OP" selected>OP — Oila poliklinikasi</option>
+                <option value="QP">QP — Qishloq poliklinikasi</option>
+                <option value="BP">BP — Bolalar poliklinikasi</option>
+                <option value="SP">SP — Stomatologiya poliklinikasi</option>
+                <option value="AK">AK — Ayollar konsultatsiyasi</option>
+                <option value="QV">QV — Qishloq vrachlik punkti</option>
+                <option value="FP">FP — Feldsher-akusherlik punkti</option>
+                <option value="OS">OS — Oila shifokori punkti</option>
+              </optgroup>
+              <optgroup label="Shifoxona">
+                <option value="ST">ST — Statsionar shifoxona</option>
+                <option value="KS">KS — Ko‘p tarmoqli shifoxona</option>
+                <option value="MX">MX — Markaziy tuman shifoxonasi</option>
+                <option value="VS">VS — Viloyat shifoxonasi</option>
+                <option value="RS">RS — Respublika shifoxonasi</option>
+                <option value="BS">BS — Bolalar shifoxonasi</option>
+                <option value="TU">TU — Tug‘ruqxona</option>
+                <option value="IS">IS — Infeksion shifoxona</option>
+                <option value="TS">TS — Travmatologiya</option>
+                <option value="XS">XS — Xususiy shifoxona</option>
+              </optgroup>
+              <optgroup label="Markaz">
+                <option value="DM">DM — Diagnostika markazi</option>
+                <option value="KT">KT — Ko‘p tarmoqli tibbiyot markazi</option>
+                <option value="VM">VM — Viloyat tibbiyot markazi</option>
+                <option value="RM">RM — Respublika ixtisoslashtirilgan markaz</option>
+                <option value="PM">PM — Perinatal markaz</option>
+                <option value="OM">OM — Onkologiya markazi</option>
+                <option value="KM">KM — Kardiologiya markazi</option>
+                <option value="EM">EM — Endokrinologiya markazi</option>
+                <option value="XM">XM — Xususiy tibbiyot markazi</option>
+                <option value="UK">UK — Universitet klinikasi</option>
+                <option value="RE">RE — Reabilitatsiya markazi</option>
+              </optgroup>
+              <optgroup label="Dispanser va boshqa">
+                <option value="SD">SD — Sil dispanseri</option>
+                <option value="ND">ND — Narkologiya dispanseri</option>
+                <option value="VD">VD — Teri-tanosil dispanseri</option>
+                <option value="PD">PD — Psixonevrologiya dispanseri</option>
+                <option value="TY">TY — Tez tibbiy yordam</option>
+                <option value="QQ">QQ — Qon quyish stansiyasi</option>
+                <option value="LM">LM — Laboratoriya</option>
+                <option value="SK">SK — Stomatologiya klinikasi</option>
+                <option value="KK">KK — Klinika</option>
+                <option value="SN">SN — Sanatoriy</option>
+                <option value="SE">SE — Sanitariya-epidemiologiya</option>
+                <option value="TB">TB — Tuman tibbiyot birlashmasi</option>
+              </optgroup>
             </select>
           </label>
           <label class="acc-span sample-id-field"><span>Namuna № / ID</span>
@@ -463,8 +509,8 @@
 </div>
 
 <div id="toast"></div>
-<script src="/static/js/uz_localities.js?v=off28"></script>
+<script src="/static/js/uz_localities.js?v=off29"></script>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=off28"></script>
+<script src="/static/js/app.js?v=off29"></script>
 </body>
 </html>
