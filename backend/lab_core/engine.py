@@ -143,17 +143,18 @@ YUZAKI JAVOB QAT'IY TAQIQLANADI, jumladan:
 "tahlil qoniqarli", "rasm yaxshi", "qo'shimcha izoh shart emas", 1-2 sahifalik qisqa umumiy gaplar.
 
 HAR BIR OSTBO'LIMDA MAJBURIY 7 ZVENOLI ZANJIR (qisqartirma yo'q):
-1) KUZATUV — nima ANIQ ko'rinadi: shakl, kontur, o'lcham (mkm yoki eritrotsit diametriga nisbat),
+1) KUZATUV — nima ANIQ ko'rinadi: shakl, kontur, o'lcham (mkm yoki shu namuna masshtabiga nisbat),
    rang (bo'yoqda qanday), zichlik, joylashuv (markaz/periferiya/to'p), qo'shni tuzilmalar.
 2) MIQDOR — son, %, maydonga nisbat; taxminiy bo'lsa "taxminiy N" deb yoz, lekin raqamsiz qoldirma.
 3) MEZON — qaysi atlas/WHO/CLSI/laborator mezon asosida baholading; nima yetarli, nima yetarli emas.
-4) ARTEFAKT FARQI — quritish, ezilish, qalin qatlam, bo'yoq cho'kmasi, immersiya, defokus, trombotsit
-   agregati, suv artefakti — nima adashtirishi mumkin va NEGA bu topilma artefakt EMAS (yoki aksincha).
+4) ARTEFAKT FARQI — quritish, ezilish, qalin qatlam, bo'yoq cho'kmasi, immersiya, defokus,
+   suv artefakti, chang — nima adashtirishi mumkin va NEGA bu topilma artefakt EMAS (yoki aksincha).
 5) KLINIK FIKRLASH — bu belgi nima anglatishi MUMKIN; 3-5 differensial yo'nalish; har biriga
    "nima mos / nima qarshi". Yakuniy tashxis qo'yma, lekin fikrni yashirma.
 6) XAVF / SHOSHILINCHLIK — bemor xavfsizligi: qaysi topilma shifokorga DARHOL yetkaziladi
    (masalan blast shubhasi, schistocyte, malyariya, anuriya belgisi, o'sma shubhasi).
-7) KEYINGI QADAM — qaysi maydon, qayta yoqma, CBC, retikulotsit, temir, PCR, maxsus bo'yoq, IHC, klinika.
+7) KEYINGI QADAM — qaysi maydon, qayta namuna, shu YO'NALISHGA MOS testlar (masalan siydikda kultura,
+   gistologiyada IHC, gematologiyada CBC) — boshqa yo'nalish testlarini aralashtirma.
 
 CHUQURLIK (minimal):
 - Global landshaft: kamida 22-30 to'liq jumla (yorug'lik, bo'yoq, qatlam qalinligi, fokus, zichlik).
@@ -1208,6 +1209,211 @@ Ko'rinmagan organni uydirma. Bitta maydon salbiy bo'lsa, butun preparat "norma" 
 
 ALLOWED_LAB_TYPES = frozenset(LAB_PROMPTS.keys())
 
+# Har tahlil turi o'z protokolida qolishi shart — model "hamma narsa qon yoqmasi" deb yozmasin.
+LAB_IDENTITY = {
+    "hematology": {
+        "label": "Gematologiya — periferik qon yoqmasi",
+        "specimen": "Bo'yalgan qon yoqmasi (Giemsa / Romanovskiy)",
+        "role": "katta gematolog-morfolog",
+        "count": "eritrotsit (hajm/rang/shakl), leykosit turlari va formula, trombotsit, inklyuziya, qon paraziti",
+        "forbid": "Siydik cho'kmasi, H&E to'qima, najas tuxumi, spermogramma yoki KOH qirindi protokolini yozma.",
+    },
+    "urine": {
+        "label": "Siydik cho'kmasi mikroskopiyasi",
+        "specimen": "Siydik cho'kmasi (native)",
+        "role": "klinik laborant-nefroloji mikroskopist",
+        "count": "leykosit/HPF, eritrotsit (dismorfik %), yassi/o'tish/RTE epiteliy, silindr turlari, kristall, flora, Trichomonas, shilim",
+        "forbid": "QON YOQMASI TAQIQLANADI: leykosit formulasi (neytrofil/limfotsit %), poikilositoz, trombotsit soni, Giemsa yoqma, blast. Siydikdagi RBC — cho'kma eritrotsiti, periferik qon emas.",
+    },
+    "coprology": {
+        "label": "Koprologiya — najas mikroskopiyasi",
+        "specimen": "Najas / koprogramma preparati",
+        "role": "parazitolog va koprologiya laboranti",
+        "count": "tuxum/sista/lerva, protozoa, hazm qoldiqlari (kraxmal, muskul, yog'), flora, shilim, qon izi",
+        "forbid": "Qon yoqmasi formulasi, eritrotsit poikilositoz, trombotsit, Giemsa gematologiya protokoli YOZILMAYDI.",
+    },
+    "spermogram": {
+        "label": "Spermogramma mikroskopiyasi",
+        "specimen": "Eyakulyat / spermogramma",
+        "role": "andrologiya laboranti",
+        "count": "spermatozoid zichligi, harakat, shakl (bosh/bo'yin/dum), leykosit, spermatid, flora, shilim",
+        "forbid": "Qon yoqmasi, leykosit formulasi, poikilositoz, trombotsit protokoli YOZILMAYDI.",
+    },
+    "smear": {
+        "label": "Ginekologik mazok (sitologiya)",
+        "specimen": "Servikal/vaginal mazok",
+        "role": "sitolog-laborant",
+        "count": "yassi epiteliy, endoserviks, flora (Doderlein, kokk), leykosit, Trichomonas, Candida, atipik hujayra",
+        "forbid": "Periferik qon yoqmasi, gematologik formula, trombotsit, poikilositoz YOZILMAYDI.",
+    },
+    "csf": {
+        "label": "Likvor (orqa miya suyuqligi) mikroskopiyasi",
+        "specimen": "Likvor / CSF",
+        "role": "likvor sitologiya laboranti",
+        "count": "pleositoz, limfotsit/neytrofil nisbati, eritrotsit (travmatik vs haqiqiy), o'sma hujayrasi, mikroorganizmlar",
+        "forbid": "Periferik qon yoqmasi protokoli (poikilositoz, trombotsit aggregati, Giemsa formula) YOZILMAYDI.",
+    },
+    "lymph": {
+        "label": "Limfa / limfa tuguni sitologiyasi",
+        "specimen": "Limfa surtmasi yoki punktsiya",
+        "role": "limfa sitologi laboranti",
+        "count": "limfotsit populyatsiyasi, reaktiv vs blast, makrofag, granuloma, epiteliy, mitoz",
+        "forbid": "Oddiy periferik qon yoqmasi (eritrotsit poikilositoz, trombotsit soni) asosiy hisobot qilma.",
+    },
+    "le_cell": {
+        "label": "LE-hujayra (lupus cell) qidiruvi",
+        "specimen": "LE-hujayra preparati",
+        "role": "LE-hujayra morfologi",
+        "count": "LE-hujayra, tart-hujayra, yadro massasi, neytrofil, fon",
+        "forbid": "To'liq gematologik formula va poikilositoz protokolini asosiy qilma — faqat LE mezoni.",
+    },
+    "prostata_sok": {
+        "label": "Prostata sekreti (SOK) mikroskopiyasi",
+        "specimen": "Prostata soki",
+        "role": "urologiya laboranti",
+        "count": "leykosit, lechitin donachalari, eritrotsit, flora, amiloid tana, spermatozoid",
+        "forbid": "Qon yoqmasi, gematologik formula, poikilositoz, trombotsit YOZILMAYDI.",
+    },
+    "myelogram": {
+        "label": "Miyelogramma — suyak ko'pigi",
+        "specimen": "Suyak ko'pigi yoqmasi",
+        "role": "gematolog-miyelolog",
+        "count": "blast, mieloid/eritroid nisbat, megakariotsit, dispoez, yog' hujayrasi, tashqi hujayra",
+        "forbid": "Faqat periferik qon formulasi bilan cheklanma; bu miyelogramma. Siydik/gistologiya protokolini yozma.",
+    },
+    "blood_parasites": {
+        "label": "Qon parazitlari (qalin/yupqa tomchi)",
+        "specimen": "Qon tomchisi / yoqma parazit qidiruvi",
+        "role": "parazitolog-gematolog",
+        "count": "Plasmodium shakllari, Babesia, mikrofilariya, zichlik, qalin vs yupqa tomchi",
+        "forbid": "To'liq CBC/poikilositoz protokolini asosiy qilma. Siydik yoki H&E yozma.",
+    },
+    "afb_microscopy": {
+        "label": "KOCH / AFB kislotaga chidamli tayoqchalar",
+        "specimen": "AFB (Ziehl–Neelsen / floroxrom) preparati",
+        "role": "mikobakteriya mikroskopisti",
+        "count": "KCX tayoqcha soni/maydon, fondagi hujayra, artefakt vs haqiqiy tayoqcha",
+        "forbid": "Gematologiya formulasi, poikilositoz, trombotsit, siydik silindrlari YOZILMAYDI.",
+    },
+    "mycology": {
+        "label": "Mikologiya mikroskopiyasi",
+        "specimen": "Zamburug' / KOH yoki bo'yalgan mikologiya preparati",
+        "role": "mikolog-laborant",
+        "count": "gifa, soxta-gifa, blastospora, dermatofit, maye, artefakt (tolalar)",
+        "forbid": "Qon yoqmasi, leykosit formulasi, poikilositoz, trombotsit YOZILMAYDI.",
+    },
+    "dermatology": {
+        "label": "Dermatologiya mikroskopiyasi / teri preparati",
+        "specimen": "Teri / dermatologik mikroskopiya",
+        "role": "dermatolog-morfolog laborant",
+        "count": "epidermis/dermis belgilari, yallig'lanish, zamburug', parazit, kist",
+        "forbid": "Periferik qon yoqmasi protokoli (formula, poikilositoz, trombotsit) YOZILMAYDI.",
+    },
+    "derm_microscopy": {
+        "label": "Teri qirindisi (KOH) mikroskopiyasi",
+        "specimen": "Teri qirindisi / KOH",
+        "role": "dermatologik mikroskopist",
+        "count": "gifa, spora, Demodex, Sarcoptes, tola vs parazit, epiteliy",
+        "forbid": "Qon yoqmasi, gematologik formula, poikilositoz YOZILMAYDI.",
+    },
+    "effusion_cytology": {
+        "label": "Effuziya / seroz suyuqlik sitologiyasi",
+        "specimen": "Plevra / periton / periard suyuqligi",
+        "role": "effuziya sitologi",
+        "count": "mezotel, makrofag, neytrofil, limfotsit, eritrotsit, atipik hujayra, oqsil fondi",
+        "forbid": "Periferik qon yoqmasi (poikilositoz, trombotsit aggregati, to'liq Giemsa formula) asosiy hisobot qilma.",
+    },
+    "histology": {
+        "label": "Gistologiya — to'qima kesmasi",
+        "specimen": "To'qima kesmasi (odatda H&E)",
+        "role": "gistopatolog-morfolog",
+        "count": "arxitektura, epiteliy, stroma, bez/naysimon tuzilma, yallig'lanish, atipiya, mitoz, qon tomir, nekroz, bo'yoq (H&E)",
+        "forbid": "QON YOQMASI TAQIQLANADI: leykosit formulasi, eritrotsit poikilositoz, trombotsit soni, Giemsa periferik qon protokoli YOZILMAYDI. Bu H&E/kesma, qon surtmasi emas.",
+    },
+}
+
+_BLOOD_SMEAR_LABS = frozenset({"hematology", "blood_parasites", "le_cell", "myelogram"})
+_BLOOD_SMEAR_MARKERS = (
+    "poikilositoz",
+    "leykosit formulasi",
+    "trombotsitlar",
+    "rouleaux",
+    "schistocyte",
+    "giemsa / romanovskiy",
+    "neytrofil segm",
+    "anulotsit",
+    "dakriosit",
+)
+
+assert set(LAB_IDENTITY) == set(LAB_PROMPTS), "LAB_IDENTITY har lab turini qamrab olishi kerak"
+
+
+def _lab_meta(lab_type):
+    return LAB_IDENTITY.get(lab_type) or LAB_IDENTITY["hematology"]
+
+
+def _lab_lock_text(lab_type):
+    m = _lab_meta(lab_type)
+    return (
+        "#### QAT'IY YO'NALISH QULFI (buzilsa hisobot yaroqsiz)\n"
+        f"Tanlangan tahlil turi: {m['label']}.\n"
+        f"Namuna: {m['specimen']}.\n"
+        f"Sen: {m['role']}. Faqat SHU protokol bo'yicha yoz.\n"
+        f"Jadvallarda o'lchanadigan narsalar: {m['count']}.\n"
+        f"{m['forbid']}\n"
+        "Agar tasvir boshqa namuna (masalan qon yoqmasi) ga o'xshasa HAM, tanlangan tur bo'yicha yoz: "
+        "nima mos kelmasligini ayt, lekin boshqa yo'nalish hisobotini KO'CHIRMA. "
+        "Gematologiya bo'lmagan tahlilda qon yoqmasi xulosasi — XATO.\n"
+    )
+
+
+def _analysis_system(lab_type):
+    m = _lab_meta(lab_type)
+    return (
+        f"Sen MedLab — {m['role']}. Ichki LIS hisobot: {m['label']}. Namuna: {m['specimen']}. "
+        "Faqat shu yo'nalish protokolini yoz; boshqa lab turini aralashtirma. "
+        "Javobni kamida 4 markdown JADVALLARDAN boshlaysan; birinchisi 12+ qator, HAR QATORDA RAQAM. "
+        "Har topilma: kuzatuv → miqdor → mezon → artefakt → shu yo'nalish differensiali → ishonch → keyingi test. "
+        f"{m['forbid']} "
+        "Qisqa 'norma' taqiqlanadi. Ko'rinmagan narsani uydirma. Rasmiy ICD tashxis qo'yma. "
+        "Rad etma. Faqat MedLab."
+    )
+
+
+def _worksheet_user(lab_type):
+    m = _lab_meta(lab_type)
+    return (
+        f"Bu {m['specimen']} maydoni. {m['label']} varaqasini TO'LIQ to'ldir. "
+        f"Sen {m['role']}. Yakuniy ICD tashxis YOZMA.\n\n"
+        f"{m['forbid']}\n\n"
+        "Avval markdown jadval (kamida 12 qator). Har qatorda RAQAM (ta/maydon yoki %):\n"
+        "| Ko'rsatkich | Topilgan | Normal orientir | Baho | Ishonch |\n"
+        f"Qatorlar faqat shu namuna uchun: {m['count']}. "
+        "Ko'rinmagan MUHIM ko'rsatkichlar uchun ham qator: '0 / ko'rinmadi' + sabab.\n"
+        "Keyin 28-40 jumla: fon/bo'yoq, qatlam, fokus, zichlik, shu yo'nalish tuzilmalari. "
+        "Yulduzcha ** yo'q. :--- yo'q. Boshqa lab turini yozma."
+    )
+
+
+def _describe_user(lab_type):
+    m = _lab_meta(lab_type)
+    return (
+        f"Microscope field of {m['specimen']}. Report in Uzbek as {m['role']}. "
+        f"ONLY {m['label']}. {m['forbid']}\n"
+        "First a markdown table (12+ rows) then 28-40 sentences.\n"
+        "| Turi | Taxminiy son | Belgilari | Ishonch |\n"
+        f"Count: {m['count']}. If absent, write 0 and why. No blood-smear CBC unless this is hematology."
+    )
+
+
+def _looks_like_wrong_blood_smear(text, lab_type):
+    if not text or lab_type in _BLOOD_SMEAR_LABS:
+        return False
+    low = text.lower()
+    hits = sum(1 for m in _BLOOD_SMEAR_MARKERS if m in low)
+    return hits >= 3
+
+
 TABLES_FIRST_UZ = """
 JAVOBNI JADVALLARDAN BOSHLA. Uzun matnni jadvallardan OLDIN yozma.
 Jadvalsiz, raqamsiz yoki 5-6 qatorlik "oddiy" jadval TAQIQLANADI.
@@ -1257,11 +1463,14 @@ CHIQISH QOIDALARI (majburiy tartibda, hech birini o'tkazma):
 def _append_output_format(prompt):
     return (prompt or "").rstrip() + "\n\n" + OUTPUT_FORMAT_RULES_UZ
 
-def _full_analysis_prompt(base, microscope_prefix):
+def _full_analysis_prompt(base, microscope_prefix, lab_type=None):
     """Mikroskop + laborator prompt + klinik sifat prefiksi + chiqish qoidalari."""
     merged = _merge_prompt_with_microscope(base, microscope_prefix)
+    lock = _lab_lock_text(lab_type or "hematology")
     return _append_output_format(
-        TABLES_FIRST_UZ.strip()
+        lock
+        + "\n"
+        + TABLES_FIRST_UZ.strip()
         + "\n\n"
         + CLINICAL_EXCELLENCE_PREFIX_UZ.strip()
         + "\n\n"
@@ -1874,38 +2083,17 @@ _ANALYSIS_SYSTEM = (
 )
 
 _WORKSHEET_SYSTEM = (
-    "Sen MedLab katta morfologsisan. ICHKI mikroskopiya VARAQASINI to'ldirasan: har tur hujayra "
-    "uchun son, %, yadro xromatini, yadrocha, sitoplazma, granula, shakl, o'lcham, bo'yoq sifati, "
-    "artefakt, ishonch. Bemorga maslahat emas. O'zbek tilida. Avval 12+ qatorli sonli jadval, "
-    "keyin 28-40 jumla. Yuzaki 'hujayralar ko'rinadi' taqiqlanadi. Rad etma. Faqat MedLab."
-)
-
-_WORKSHEET_USER = (
-    "Bu bo'yalgan optik mikroskop namunasining maydoni. Katta laborant varaqasini TO'LIQ to'ldir. "
-    "Kasallik nomi va yakuniy tashxis YOZMA, lekin morfologiyani CHUQUR va ANIQ yoz.\n\n"
-    "Avval markdown jadval (kamida 12 qator). Har qatorda RAQAM (ta/maydon yoki %):\n"
-    "| Ko'rsatkich | Topilgan | Normal orientir | Baho | Ishonch |\n"
-    "Ko'rinadigan HAR TUR hujayra/tuzilmani alohida qator qil (eritrotsit hajmi/rangi/shakli, "
-    "neytrofil, tayoqcha, limfotsit, monotsit, eozinofil, bazofil, trombotsit, epiteliy, "
-    "kristall, flora, parazit, inklyuziya). Ko'rinmagan muhim turlar uchun ham qator: "
-    "'0 / ko'rinmadi' + sabab.\n"
-    "Keyin 28-40 jumla: fon/bo'yoq, qatlam, fokus, zichlik, yadro xromatini, sitoplazma, granula, "
-    "shakl o'zgarishi, agregat, artefakt, qaysi zona baholandi. Yulduzcha ** yo'q. :--- yo'q."
+    "Sen MedLab katta laborantsan. ICHKI mikroskopiya VARAQASINI to'ldirasan. "
+    "Faqat foydalanuvchi tanlagan tahlil turi bo'yicha. Bemorga maslahat emas. O'zbek tilida. "
+    "Avval 12+ qatorli sonli jadval, keyin 28-40 jumla. Boshqa yo'nalish (ayniqsa qon yoqmasi) ni aralashtirma. "
+    "Rad etma. Faqat MedLab."
 )
 
 _DESCRIBE_SYSTEM = (
-    "You are a senior clinical laboratory morphologist filling an internal worksheet. "
-    "Describe stained optical-microscope photographs in Uzbek with cell counts, %, nuclear "
-    "chromatin, nucleoli, cytoplasm, granules, stain quality and artefacts. No final ICD diagnosis. "
-    "Never refuse. Start with a 12+ row numeric table. Never write a 3-sentence summary."
-)
-
-_DESCRIBE_USER = (
-    "Stained microscope-field photo. Uzbek. First a markdown table (12+ rows) then 28-40 sentences.\n"
-    "| Turi | Taxminiy son | Rang / yadro | Shakl | Ishonch |\n"
-    "Count pink discs, purple-nucleus leukocytes by type, platelets, inclusions, crystals, flora. "
-    "Note stain, focus, thickness, artefacts. If a cell type is absent, write 0 and why. "
-    "No final diagnosis name."
+    "You are a senior clinical laboratory morphologist filling an internal worksheet for the SELECTED lab type only. "
+    "Describe the optical-microscope photograph in Uzbek with counts relevant to THAT specimen. "
+    "Do not write a peripheral-blood smear CBC unless the selected type is hematology. "
+    "No final ICD diagnosis. Never refuse. Start with a 12+ row numeric table."
 )
 
 _SHALLOW_MARKERS = (
@@ -1921,6 +2109,7 @@ _SHALLOW_MARKERS = (
 _EXPAND_DEEP_USER = (
     "Quyida mikroskop maydonining ICHKI VARAQASI berilgan. Shu varaqa VA biriktirilgan original "
     "rasmlarni QAYTA, piksel darajasida ko'rib, KATTA MUTAXASSIS protokoli yoz. "
+    "Faqat TANLANGAN tahlil turi bo'yicha — boshqa yo'nalish (ayniqsa qon yoqmasi) ni qo'shma. "
     "Yuzaki qisqa hisobot TAQIQLANADI. Avval 4 sonli jadval, keyin barcha bo'limlar. "
     "Har topilma: kuzatuv, miqdor, mezon, artefakt farqi, klinik differensial, ishonch, keyingi qadam. "
     "Ko'rinmagan narsani uydirma. Rasmiy tashxis qo'yma. O'zbek tili. Yulduzcha ** yo'q.\n\n"
@@ -2034,10 +2223,12 @@ def _vision_user(prompt, image_parts):
     return [{"type": "text", "text": prompt}] + image_parts
 
 
-def _expand_full_report(observation, full_prompt, kwargs, image_parts=None):
+def _expand_full_report(observation, full_prompt, kwargs, image_parts=None, lab_type="hematology"):
     """Varaqa + original rasmlardan to'liq laborator hisobot."""
     user_text = (
-        _EXPAND_DEEP_USER
+        _lab_lock_text(lab_type)
+        + "\n"
+        + _EXPAND_DEEP_USER
         + "==== KUZATUV / JADVAL ====\n"
         + (observation or "")[:14000]
         + "\n==== TUGADI ====\n\n"
@@ -2046,16 +2237,25 @@ def _expand_full_report(observation, full_prompt, kwargs, image_parts=None):
     content = _vision_user(user_text, image_parts) if image_parts else user_text
     return _chat_complete(
         [
-            {"role": "system", "content": _ANALYSIS_SYSTEM},
+            {"role": "system", "content": _analysis_system(lab_type)},
             {"role": "user", "content": content},
         ],
         kwargs,
     )
 
 
-def _deepen_report(shallow, full_prompt, kwargs, image_parts=None):
+def _deepen_report(shallow, full_prompt, kwargs, image_parts=None, lab_type="hematology"):
+    extra = ""
+    if _looks_like_wrong_blood_smear(shallow, lab_type):
+        extra = (
+            "OLDINGI MATN NOTO'G'RI YO'NALISHDA: u qon yoqmasi/gematologiya kabi yozilgan. "
+            "BUNI TAKRORLAMA. Faqat tanlangan tahlil turi protokolini yoz.\n\n"
+        )
     user_text = (
-        _RETRY_DEEP_USER
+        _lab_lock_text(lab_type)
+        + "\n"
+        + extra
+        + _RETRY_DEEP_USER
         + (shallow or "")[:8000]
         + "\n==== TUGADI ====\n\n"
         + full_prompt
@@ -2063,14 +2263,14 @@ def _deepen_report(shallow, full_prompt, kwargs, image_parts=None):
     content = _vision_user(user_text, image_parts) if image_parts else user_text
     return _chat_complete(
         [
-            {"role": "system", "content": _ANALYSIS_SYSTEM},
+            {"role": "system", "content": _analysis_system(lab_type)},
             {"role": "user", "content": content},
         ],
         kwargs,
     )
 
 
-def _openai_generate(content_list):
+def _openai_generate(content_list, lab_type="hematology"):
     if openai_client is None:
         raise RuntimeError(
             "%s sozlanmagan: xizmat kaliti o'rnatilmagan — administrator .env faylida "
@@ -2090,31 +2290,36 @@ def _openai_generate(content_list):
 
     sheet = ""
     if image_parts:
-        log.info("%s: 1-bosqich varaqa (rasm)", ZIYRAKAI_DISPLAY_NAME)
+        log.info("%s: 1-bosqich varaqa (rasm) lab=%s", ZIYRAKAI_DISPLAY_NAME, lab_type)
         sheet = _chat_complete(
             [
                 {"role": "system", "content": _WORKSHEET_SYSTEM},
-                {"role": "user", "content": _vision_user(_WORKSHEET_USER, image_parts)},
+                {"role": "user", "content": _vision_user(_worksheet_user(lab_type), image_parts)},
             ],
             kwargs,
         )
-        if not _usable(sheet, 400):
-            log.warning("%s: varaqa rad, vizual tavsif", ZIYRAKAI_DISPLAY_NAME)
+        if not _usable(sheet, 400) or _looks_like_wrong_blood_smear(sheet, lab_type):
+            log.warning("%s: varaqa rad/noto'g'ri yo'nalish, vizual tavsif lab=%s", ZIYRAKAI_DISPLAY_NAME, lab_type)
             sheet = _chat_complete(
                 [
                     {"role": "system", "content": _DESCRIBE_SYSTEM},
-                    {"role": "user", "content": _vision_user(_DESCRIBE_USER, image_parts)},
+                    {"role": "user", "content": _vision_user(_describe_user(lab_type), image_parts)},
                 ],
                 kwargs,
             )
 
     source = sheet if _usable(sheet, 200) else ""
     if source:
-        log.info("%s: 2-bosqich to'liq hisobot (rasm+matn, %s belgi)", ZIYRAKAI_DISPLAY_NAME, len(source))
-        report = _expand_full_report(source, full_prompt, kwargs, image_parts)
-        if _too_shallow(report) and image_parts:
-            log.warning("%s: hisobot yuzaki (%s belgi), chuqurlashtirish", ZIYRAKAI_DISPLAY_NAME, len(report or ""))
-            deeper = _deepen_report(report or source, full_prompt, kwargs, image_parts)
+        log.info("%s: 2-bosqich to'liq hisobot (rasm+matn, %s belgi) lab=%s", ZIYRAKAI_DISPLAY_NAME, len(source), lab_type)
+        report = _expand_full_report(source, full_prompt, kwargs, image_parts, lab_type)
+        if (_too_shallow(report) or _looks_like_wrong_blood_smear(report, lab_type)) and image_parts:
+            log.warning(
+                "%s: hisobot yuzaki yoki noto'g'ri yo'nalish (%s belgi), chuqurlashtirish lab=%s",
+                ZIYRAKAI_DISPLAY_NAME,
+                len(report or ""),
+                lab_type,
+            )
+            deeper = _deepen_report(report or source, full_prompt, kwargs, image_parts, lab_type)
             if _usable(deeper, 2200):
                 report = deeper
         if _usable(report, 800):
@@ -2171,7 +2376,7 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None)
             raise ValueError("Rasmlarni qayta ishlash muvaffaqiyatsiz")
 
         base = custom_prompt if custom_prompt and custom_prompt.strip() else LAB_PROMPTS.get(lab_type, "Bu mikroskopiya tasvirini O'zbek tilida batafsil tahlil qil.")
-        prompt = _full_analysis_prompt(base, microscope_prefix)
+        prompt = _full_analysis_prompt(base, microscope_prefix, lab_type)
 
         if len(imgs) > 1:
             prefix = (
@@ -2184,7 +2389,7 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None)
         else:
             content = [prompt, imgs[0]]
 
-        text = _openai_generate(content)
+        text = _openai_generate(content, lab_type)
         lines = [l.strip() for l in text.split('\n') if l.strip()]
 
         _publish_analysis({
@@ -2221,7 +2426,7 @@ def do_analyze_video(
             latest_analysis.update({"status": "video_tahlil_qilinmoqda", "lab_type": lab_type})
 
         base = custom_prompt if custom_prompt and custom_prompt.strip() else LAB_PROMPTS.get(lab_type, "Bu mikroskopiya videosini O'zbek tilida batafsil tahlil qilish.")
-        prompt = _full_analysis_prompt(base, microscope_prefix)
+        prompt = _full_analysis_prompt(base, microscope_prefix, lab_type)
 
         import tempfile
         suf = _video_temp_suffix(original_filename)
@@ -2268,7 +2473,7 @@ def do_analyze_video(
         content = [f"Bu {len(frames_data)} ta mikroskopiya video/rasm kadri. " + prompt]
         content.extend(frames_data)
 
-        text = _openai_generate(content)
+        text = _openai_generate(content, lab_type)
         lines = [l.strip() for l in text.split('\n') if l.strip()]
 
         _publish_analysis({
