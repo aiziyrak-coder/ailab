@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off43">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off43">
+  <link rel="stylesheet" href="/static/css/style.css?v=off44">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off44">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body class="auth-page-body">
@@ -27,59 +27,33 @@
 </svg>
 
 <div class="auth-page">
-  <header class="auth-topbar">
-    <span class="auth-topbar-mark" aria-hidden="true"></span>
-    <span>Far’ona Jamoat Salomatligi Tibbiyot Instituti</span>
-    <span class="auth-topbar-sep">·</span>
-    <span>Klinik laboratoriya diagnostikasi</span>
-  </header>
-
-  <div class="auth-station">
-    <aside class="auth-side">
-      <div class="auth-side-kicker">LIS · MIKROSKOPIYA STANSIYASI</div>
-      <div class="auth-logo">
-        <span class="auth-logo-mark" aria-hidden="true">
-          <svg width="28" height="28"><use href="#icon-microscope"/></svg>
-        </span>
-        <div>
-          <h1>MedLab</h1>
-          <p>Laborant ish joyi</p>
-        </div>
+  <section class="auth-card" aria-labelledby="authTitle">
+    <div class="auth-logo">
+      <span class="auth-logo-mark" aria-hidden="true">
+        <svg width="26" height="26"><use href="#icon-microscope"/></svg>
+      </span>
+      <div>
+        <h1>MedLab</h1>
+        <p>Laboratoriya tahlili</p>
       </div>
-      <ul class="auth-points">
-        <li>Yoqma va preparat tahlili</li>
-        <li>Klinik hisobot va PDF</li>
-        <li>Faqat vakolatli kirish</li>
-      </ul>
-      <div class="auth-station-id">
-        <span>STANSIYA</span>
-        <strong>WS-01</strong>
+    </div>
+    <h2 id="authTitle">Kirish</h2>
+    <p class="auth-sub">Login va parolni yozing</p>
+    <form id="loginForm" autocomplete="username">
+      <div class="auth-field">
+        <label for="username">Login</label>
+        <input id="username" name="username" type="text" required maxlength="150" placeholder="Login" autocapitalize="off" spellcheck="false" autocomplete="username">
       </div>
-    </aside>
-
-    <section class="auth-card" aria-labelledby="authTitle">
-      <p class="auth-card-kicker">Himoyalangan kirish</p>
-      <h2 id="authTitle">Stansiyani ochish</h2>
-      <p class="auth-sub">Login va parolni kiriting</p>
-
-      <form id="loginForm" autocomplete="username">
-        <div class="auth-field">
-          <label for="username">Login</label>
-          <input id="username" name="username" type="text" required maxlength="150" placeholder="" autocapitalize="off" spellcheck="false" autocomplete="username">
-        </div>
-        <div class="auth-field">
-          <label for="password">Parol</label>
-          <input id="password" name="password" type="password" required maxlength="128" placeholder="" autocomplete="current-password">
-        </div>
-        <div class="auth-actions">
-          <button type="submit" class="auth-btn" id="submitBtn">Kirish</button>
-        </div>
-      </form>
-      <p class="auth-msg" id="msg"></p>
-    </section>
-  </div>
-
-  <footer class="auth-foot">MedLab · mikroskopiya · 2026</footer>
+      <div class="auth-field">
+        <label for="password">Parol</label>
+        <input id="password" name="password" type="password" required maxlength="128" placeholder="Parol" autocomplete="current-password">
+      </div>
+      <div class="auth-actions">
+        <button type="submit" class="auth-btn" id="submitBtn">Kirish</button>
+      </div>
+    </form>
+    <p class="auth-msg" id="msg"></p>
+  </section>
 </div>
 
 <script src="/static/js/auth.js"></script>

@@ -2543,3 +2543,115 @@ body::before {
   color: #fff !important;
   box-shadow: 0 14px 36px rgba(22, 101, 52, 0.32) !important;
 }
+
+/* ═══ Login: oddiy, katta, o‘qiladigan ═══ */
+body.auth-page-body {
+  background: #e8ecf0 !important;
+}
+body.auth-page-body::before,
+body.auth-page-body::after {
+  display: none !important;
+}
+.auth-page {
+  min-height: 100dvh;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px !important;
+}
+.auth-page .auth-card {
+  width: min(440px, 100%) !important;
+  max-width: 440px !important;
+  padding: 36px 32px 28px !important;
+  border: 1px solid #d4dbe3 !important;
+  border-radius: 20px !important;
+  box-shadow: 0 16px 40px rgba(27, 58, 92, 0.10) !important;
+  background: #fff !important;
+}
+.auth-page .auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.auth-page .auth-logo-mark {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 14px !important;
+  background: #1b3a5c !important;
+  color: #fff !important;
+  display: grid;
+  place-items: center;
+}
+.auth-page .auth-logo h1 {
+  margin: 0;
+  font-size: 1.85rem !important;
+  font-weight: 800 !important;
+  color: #1b3a5c !important;
+  letter-spacing: -0.03em;
+}
+.auth-page .auth-logo p {
+  margin: 2px 0 0;
+  font-size: 0.95rem !important;
+  font-weight: 600;
+  color: #5a6a7a !important;
+}
+.auth-page .auth-card h2 {
+  margin: 0 0 6px;
+  font-size: 1.55rem !important;
+  font-weight: 800 !important;
+  color: #1b3a5c !important;
+}
+.auth-page .auth-sub {
+  margin: 0 0 22px !important;
+  font-size: 1rem !important;
+  font-weight: 500;
+  color: #5a6a7a !important;
+}
+.auth-page .auth-field {
+  margin-bottom: 14px;
+}
+.auth-page .auth-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: #1b3a5c !important;
+}
+.auth-page .auth-field input {
+  width: 100%;
+  height: 48px !important;
+  padding: 0 14px !important;
+  font-size: 1.05rem !important;
+  font-weight: 600;
+  border-radius: 12px !important;
+  border: 1px solid #c5d0dc !important;
+  background: #f8fafc !important;
+  color: #1b3a5c !important;
+}
+.auth-page .auth-field input::placeholder {
+  color: #94a3b8;
+  font-weight: 500;
+}
+.auth-page .auth-btn {
+  width: 100%;
+  height: 50px !important;
+  margin-top: 8px;
+  font-size: 1.1rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  border-radius: 12px !important;
+  background: #1b3a5c !important;
+  color: #fff !important;
+}
+.auth-page .auth-msg {
+  min-height: 1.4em;
+  margin-top: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.auth-page .auth-msg.err { color: #b91c1c; }
+.auth-page .auth-msg.ok { color: #166534; }
