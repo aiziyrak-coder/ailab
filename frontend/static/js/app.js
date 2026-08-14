@@ -932,7 +932,7 @@ function fillSelect(sel, items, placeholder) {
     opt.textContent = c.name || ('Kamera ' + c.index);
     sel.appendChild(opt);
   });
-  const prefer = items.findIndex(c => /toup|microskop|microscope|cmex|euromex|usb2\.0/i.test(c.name || ''));
+  const prefer = items.findIndex(c => /toup|microskop|microscope|cmex|euromex|usb2\.0|obs virtual/i.test(c.name || ''));
   if (prefer >= 0) sel.selectedIndex = prefer + 1;
   else if (items.length === 1) sel.selectedIndex = 1;
 }
@@ -940,8 +940,28 @@ function fillSelect(sel, items, placeholder) {
 function _camNameIsUsbVideo(name) {
   return /^usb video device/i.test(name || '');
 }
+function _camNameIsPlugin(name) {
+  return /camera plug-?in/i.test(name || '');
+}
 function _camNameIsDummy(name) {
-  return /usb video device|camera plug-?in|virtual cam|many ?cam|droidcam|obs virtual|nvidia broadcast|iriun|splitcam/i.test(name || '');
+  return /usb video device|camera plug-?in|many ?cam|droidcam|nvidia broadcast|iriun|splitcam/i.test(name || '');
+}
+function _camNameIsObs(name) {
+  return /obs virtual|virtual camera/i.test(name || '') && !_camNameIsPlugin(name);
+}
+function _camNameIsMicro(name) {
+  return /toup|microskop|microscope|cmex|euromex|bioblue|tucsen|usb2\.0\s*cam|amcam/i.test(name || '');
+}
+function _camNameIsLaptop(name) {
+  return /integrated|facetime|hd webcam|laptop|built-?in|realtek|lenovo|dell webcam/i.test(name || '');
+}
+function _camRank(c) {
+  const n = (c && c.name) || '';
+  if (_camNameIsMicro(n)) return 0;
+  if (_camNameIsObs(n)) return 1;
+  if (!_camNameIsDummy(n) && !_camNameIsLaptop(n)) return 2;
+  if (_camNameIsLaptop(n)) return 3;
+  return 4;
 }
 
 async function probeLocalCamAgent() {
@@ -1020,20 +1040,6 @@ async function captureLocalBlobs(n) {
   return out;
 }
 
-function _camNameIsMicro(name) {
-  return /toup|microskop|microscope|cmex|euromex|bioblue|tucsen|usb2\.0\s*cam|amcam/i.test(name || '');
-}
-function _camNameIsLaptop(name) {
-  return /integrated|facetime|hd webcam|laptop|built-?in|realtek|lenovo|dell webcam|obs virtual/i.test(name || '');
-}
-function _camRank(c) {
-  const n = c && c.name || '';
-  if (_camNameIsMicro(n) && !_camNameIsDummy(n)) return 0;
-  if (!_camNameIsDummy(n) && !_camNameIsLaptop(n)) return 1;
-  if (!_camNameIsDummy(n)) return 2;
-  return 3;
-}
-
 function _stopBrowserStream() {
   if (_browserStream) {
     try { _browserStream.getTracks().forEach(t => t.stop()); } catch (_) {}
@@ -1052,7 +1058,7 @@ function _mediaCamMsg(e) {
     return 'Brauzer kameraga ruxsat bermadi. Manzil yonidagi kamera belgisidan ruxsatni yoqing.';
   }
   if (name === 'NotReadableError' || name === 'TrackStartError') {
-    return 'Kamera band yoki dreyver ochilmadi. ToupView / Windows Camera ni yoping, USB ni qayta ulang.';
+    return 'Kamera ochilmadi. Ro‘yxatdan OBS Virtual Camera yoki ToupcamMicro ni tanlang.';
   }
   if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
     return 'Brauzer kamera topilmadi. USB mikroskopni ulang.';
@@ -1077,7 +1083,7 @@ function _mapVideoInputs(all) {
     index: i,
     deviceId: d.deviceId,
     name: (d.label || ('Kamera ' + (i + 1))).trim(),
-    kind: _camNameIsMicro(d.label) ? 'microscope' : 'webcam',
+    kind: (_camNameIsMicro(d.label) || _camNameIsObs(d.label)) ? 'microscope' : 'webcam',
     resolution: '—',
   }));
 }
@@ -1237,12 +1243,7 @@ async function scanCameras() {
   if (scopeSel) scopeSel.innerHTML = '<option>Qidirilmoqda...</option>';
 
   let cams = [];
-  let usb = {};
   let browserErr = '';
-  let local = null;
-  try {
-    local = await probeLocalCamAgent();
-  } catch (_) { local = null; }
   try {
     cams = await listBrowserCameras();
   } catch (e) {
@@ -1250,41 +1251,14 @@ async function scanCameras() {
   }
   if (my !== _scanGen) return;
 
-  const localCams = ((local && local.data && local.data.cameras) || []).map(c => ({
-    ...c,
-    localPort: local.port,
-    localBase: local.base,
-  }));
-  const localScopes = localCams.filter(c =>
-    c.kind === 'microscope' || _camNameIsMicro(c.name)
-  );
-  if (local && local.data && local.data.microscope_usb) {
-    usb = local.data.microscope_usb;
-  }
-
-  if (!localScopes.length && !cams.length) {
-    const res = await api(apiPath('/api/scan_cameras'));
-    if (my !== _scanGen) return;
-    if (res && Array.isArray(res.cameras)) cams = res.cameras;
-    usb = (res && res.microscope_usb) || usb;
-  }
-
   const ranked = cams.slice().sort((a, b) => _camRank(a) - _camRank(b));
-  let scopes = localScopes.length ? localScopes : ranked.filter(c => _camRank(c) === 0);
-  let phones = ranked.filter(c => !scopes.includes(c) && !_camNameIsDummy(c.name));
+  let scopes = ranked.filter(c => _camRank(c) <= 2);
+  let phones = ranked.filter(c => _camRank(c) >= 2 && _camRank(c) <= 3 && !scopes.includes(c));
   if (!scopes.length) {
-    scopes = ranked.filter(c => !_camNameIsDummy(c.name) && !_camNameIsLaptop(c.name));
-    phones = ranked.filter(c => !scopes.includes(c) && !_camNameIsDummy(c.name));
+    scopes = ranked.filter(c => _camRank(c) <= 3);
+    phones = ranked.filter(c => !scopes.includes(c));
   }
-  if (!scopes.length && usb.found) {
-    scopes = [{
-      index: 16,
-      name: usb.name || 'ToupcamMicro',
-      resolution: '—',
-      localPort: local && local.port,
-      localBase: local && local.base,
-    }].filter(c => c.localPort);
-  }
+  if (!scopes.length) scopes = ranked.slice();
 
   if (phoneSel) fillSelect(phoneSel, phones, '— Telefon / webcam tanlang —');
   if (scopeSel) fillSelect(scopeSel, scopes, '— Mikroskop tanlang —');
@@ -1300,12 +1274,9 @@ async function scanCameras() {
       box.innerHTML = perm
         ? `<strong>Kamera ruxsati kerak.</strong><br>${esc(browserErr)}`
         : `<strong>Kamera ochilmadi.</strong><br>${esc(browserErr)}`;
-    } else if (!local) {
-      box.style.display = '';
-      box.innerHTML = `USB mikroskop brauzerda ko‘rinmaydi. Shu kompyuterda kamera yordamchisini yoqing (start_medlab_cam.bat), keyin ⟳ bosing.`;
     } else {
       box.style.display = '';
-      box.innerHTML = `Mikroskop topilmadi. USB ni ulang, ToupTek/Euromex ni tanlang, keyin ⟳ bosing.`;
+      box.innerHTML = `Mikroskop topilmadi. USB ni ulang, Chrome da kamera ruxsatini yoqing, keyin ⟳ bosing.`;
     }
   }
 
@@ -1313,8 +1284,6 @@ async function scanCameras() {
     toast(`${scopes.length} ta mikroskop topildi`, 'green');
   } else if (currentSource === 'phone' && phones.length) {
     toast(`${phones.length} ta kamera topildi`, 'green');
-  } else if (currentSource === 'scope' && usb.found) {
-    toast('Mikroskop ulangan — Yoqish ni bosing', 'green');
   } else if (currentSource !== 'upload') {
     toast(browserErr || 'Mos kamera topilmadi', 'red');
   }
@@ -1454,22 +1423,32 @@ async function startLive(kind) {
 
   const idx = parseInt(val.replace(/^s:/, ''), 10);
   if (isNaN(idx)) { if (startBtn) startBtn.disabled = false; toast('Avval qurilmani tanlang', 'red'); return; }
-  _stopBrowserStream();
-  _liveMode = 'server';
-  const res = await api(apiPath('/api/start_camera'), 'POST', { index: idx });
-  if (res.success) {
+  try {
+    _stopBrowserStream();
+    await new Promise(r => setTimeout(r, 180));
+    const opened = await _openBrowserCam('');
+    const stream = opened.stream || opened;
+    const openedCam = opened.cam;
+    if (openedCam && openedCam.deviceId && sel) {
+      const want = 'b:' + openedCam.deviceId;
+      if ([...sel.options].some(o => o.value === want)) sel.value = want;
+    }
+    _browserStream = stream;
+    _liveMode = 'browser';
     cameraRunning = true;
     if (stopBtn) stopBtn.disabled = false;
     document.getElementById('connPill').textContent = kind === 'scope' ? '● Mikroskop ulangan' : '● Telefon ulangan';
     document.getElementById('connPill').classList.add('pill-connected');
-    msg(msgId, res.message, 'green');
-    toast(res.message, 'green');
+    msg(msgId, 'Jonli tasvir ochildi', 'green');
+    toast(kind === 'scope' ? 'Mikroskop yoqildi' : 'Telefon yoqildi', 'green');
     updateAnalyzeBtn();
     showLivePreview(true);
-  } else {
+    return;
+  } catch (e) {
     if (startBtn) startBtn.disabled = false;
-    msg(msgId, res.message, 'red');
-    toast(res.message, 'red');
+    const m = _mediaCamMsg(e);
+    msg(msgId, m, 'red');
+    toast(m, 'red');
   }
 }
 
