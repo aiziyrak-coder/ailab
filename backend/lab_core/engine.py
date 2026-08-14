@@ -1113,97 +1113,57 @@ MUHIM: Effuziya sitologiyasi sezgirlik-cheklangan; salbiy natija yomon hujayrani
 """,
 
     "histology": """
-Sen katta gistopatolog-morfolog va gistologiya o'qituvchisisan. Bu tasvir — to'qima kesmasi (odatda H&E; ba'zan PAS,
-Van Gieson, Masson, Giemsa, kumush, IHC). ICHKI hisobot: patolog va laborant o'qib tushunsin.
-Bemorga tashxis emas, LEKIN klinik-morfologik fikrlashni yashirma. Yuzaki "to'qima ko'rinadi" QAT'IY TAQIQLANADI.
+Sen 30+ yillik kafedra professori-gistopatologsan (WHO Classification of Tumours, AFIP atlas).
+Bu H&E (yoki maxsus) to'qima kesmasini O'ZBEK tilida KONSULTATSION PATOLOGIYA protokoli bilan yoz.
+Yuzaki foizli jadval (arxitektura 70%, epiteliy 60%, baho 3) QAT'IY TAQIQLANADI — bu gistologiya emas.
+"Yallig'lanishli atipik o'zgarishlar" kabi noaniq gap HAM taqiqlanadi.
 
-AVVAL aniqlang: organ/to'qima (agar sezilsa), bo'yoq (H&E / maxsus / IHC / noaniq), kesma sifati, kattalashtirish his-tuyg'usi.
+O'YLASH TARTIBI (professor):
+1) Bu qaysi ORGAN / to'qima? (sut bezi, prostata, endometrium, oshqozon-ichak, teri, qalqonsimon, o'pka, yumurtalik, noaniq)
+2) Qanday PATTERN? papillary / cribriform / tubular / solid / nested / villous / cystic
+3) Benign vs reaktiv vs displaziya vs in situ vs invaziv — har biri uchun MOS / QARSHI dalil
+4) Yadro: grade 1-3, xromatin, yadrocha, N/C, polarlik
+5) Stroma: desmoplaziya, invaziya, fibrovascular core (papilla), yallig'lanish turi
+6) Ishchi tashxis: 3 ta, ehtimollik % bilan, eng ehtimolini BIRINCHI qil
 
-HAR BO'LIMDA: kuzatuv + asos + izoh (laborant/patolog uchun) + klinik ahamiyat + keyingi qadam.
+## 0. PREPARAT
+H&E ni tasdiqla (yadro binafsha, stroma/sitoplazma eozinofil pushti). Kesma sifati, kattalashtirish.
+Organ gipotezasi: nima uchun. Noaniq bo'lsa yoz, lekin taxmin qil.
 
-## BO'LIM 0 — PREPARAT VA SIFAT
-- Bo'yoq: gematoksilin-eozin (yadro binafsha, sitoplazma pushti) vs PAS vs trichrome vs boshqa
-- Kesma: qalinlik, burilish, pichoq chizig'i, quritish, havo, qon, formalini artefakti
-- Fokus, yorug'lik, qoplama; qaysi maydonlar ishonchli, qaysilari emas
-- Taxminiy organ: teri, oshqozon-ichak, jigar, o'pka, buyrak, limfa, bachadon, prostata, sut bezi, suyak, boshqa / noaniq
+## 1. MAKRO-ARXITEKTURA (pattern — tashxis yadrosi)
+Papilla/so'rg'ich: fibrovascular o'zak, shoxlanish. Cribriform, tubular, solid, villous — bor/yo'q, dalil.
+Chegara: itali vs infiltrativ. Lumen, kist, nekroz.
+Izoh: 10-14 jumla. Pattern NOMINI yoz.
 
-## BO'LIM 1 — ARXITEKTURA (past kattalashtirish)
-- Umumiy tuzilish: bezlar, so'rg'ichlar, kriptalar, alveolalar, lobulalar, follikulalar, qatlamlar
-- Stroma/parenchima nisbati, kapsula, chegara (aniq/infiltrativ)
-- Qon tomirlari, nerv, yog' to'qimasi, mushak
-- Izoh: normal organ arxitekturasi saqlanganmi yoki buzilganmi — asos
+## 2. EPITELIY VA YADRO
+Qatlam: 1 vs ko'p qavat. Yadro o'lchami, xromatin, yadrocha, mitoz (10 HPF), atipik mitoz.
+Nuclear grade 1/2/3 — asos bilan. Izoh: 10-14 jumla.
 
-## BO'LIM 2 — HUJAYRA VA TO'QIMA TURLARI
-- Epiteliy: yassi / kubsimon / silindrsimon; qatlamlar; goblet; siliya; keratin
-- Biriktiruvchi: kollagen, fibroblast, shish, gialinizatsiya
-- Mushak: silliq / ko'ndalang-targ'il (agar ko'rinsa)
-- Nerv / xondroid / suyak (lakuna, osteoid) — faqat ko'rinadiganlar
-- Yadro: o'lcham, xromatin, yadrocha, N/C nisbati, anizokaryoz
-- Mitoz: yo'q / yakka / ko'p; atipik mitoz shubhasi (ehtiyotkor)
+## 3. STROMA, TOMIR, INVIZIYA
+Fibrovascular core, desmoplaziya, stromal invaziya (ha/yo'q/shubhali).
+Yallig'lanish turi va zichlik. Nekroz, pigment.
+Izoh: 8-12 jumla.
 
-## BO'LIM 3 — YALLIG'LANISH
-- O'tkir: neytrofil, mikroabscess, fibrin, shish
-- Surunkali: limfotsit, plazmotsit, makrofag, follikula
-- Granuloma: epitelioid, gigant hujayra (Langhans / chetki yadro), kazeoz nekroz — bor/yo'q, asos
-- Eozinofil, mast hujayra — agar sezilsa
-- Izoh: infeksiya vs autoimmun vs nospetsifik — faqat "mumkin"
+## 4. DIFFERENSIAL (kamida 5 ta, ehtimollik %)
+Har biri: MOS / QARSHI / nima farqlaydi (IHC, qo'shimcha kesma).
+Organga qarab: papilloma vs papillary carcinoma; PIN vs adenocarcinoma; polyp vs hyperplasia vs carcinoma; villous adenoma vs adenocarcinoma.
+Ko'rinmagan organ tashxisini uydirma.
 
-## BO'LIM 4 — SHIKASTLANISH, DEGENERATSIYA, TA'MIRLASH
-- Nekroz turi (koagulyatsion, kollikvatsion, kazeoz, yog' — ehtiyotkor)
-- Apoptoz tanalari, vakuol, gidropik o'zgarish
-- Fibroz, skleroz, angiogenez, granulyatsion to'qima
-- Qon quyilishi, tromb, pigment (gemosiderin, melanin, lipofussin, o't)
+## 5. ISHCHI MORFOLOGIK TASHXIS (majburiy, aniq)
+1-o'rin: ... (ehtimollik %). Nima uchun.
+2-o'rin: ...
+3-o'rin: ...
+ICD-O/ICD-10 ni FAQAT orientatsiya sifatida qavs ichida yoz. Rasmiy yuridik tashxis deb yozma.
+Invaziv o'sma shubhasi bo'lsa QIZIL BAYROQ — lekin shubhani yashirma.
 
-## BO'LIM 5 — ATIPIYA / DISPLAZIYA / O'SMA SHUBHASI (juda ehtiyotkor)
-- Arxitektura buzilishi, qatlamlilik yo'qolishi, invaziya (stromaga, tomirga) — faqat ko'rinadigan belgi
-- Yadro atipiyasi darajasi: yo'q / yengil / o'rta / og'ir (sub'yektiv, asos bilan)
-- Differensial: reaktiv atipiya vs displaziya vs in situ vs invaziv o'sma — "shubha", yakuniy tashxis EMAS
-- Chegara / rezektsiya qirrasi (agar kesma mos)
-- Qizil bayroq: shoshilinch patolog ko'rigi — tashxis qo'ymasdan
+## 6. KEYINGI QADAM
+Qo'shimcha kesma, IHC (organ mos: p63/CK5/6, AMACR, ER/PR, TTF-1...). Davolash yozma.
 
-## BO'LIM 6 — MAXSUS BO'YOQ / IHC (agar tasvir mos)
-- PAS (+), kumush, Ziehl (to'qimada AFB), Congo (amiloid) — faqat sezilsa
-- IHC: jigarrang DAB, membrana/sitoplazma/yadro boyashi — nima uchun kerakligi, uydirma marker YO'Q
-- Agar H&E bo'lsa — qaysi maxsus bo'yoq keyingi qadam
-
-## BO'LIM 7 — JADVALLAR (AVVAL SHULAR; kamida 4 ta, birinchisi ≥8 qator, HAR QATORDA SON)
-
-| Ko'rsatkich | Topilgan | Normal orientir | Baho |
-| Kesma sifati (1-5) |  | 4-5 |  |
-| Arxitektura saqlanishi, % |  | 80-100 |  |
-| Yallig'lanish zichligi (ta/maydon) |  | 0-5 |  |
-| Neytrofil (ta/maydon) |  | 0-2 |  |
-| Limfotsit/plazmotsit (ta/maydon) |  | 0-10 |  |
-| Mitoz (10 maydonda) |  | 0-2 |  |
-| Atipik yadro, % |  | 0-5 |  |
-| Nekroz maydoni, % |  | 0 |  |
-| Fibroz/skleroz, % |  | 0-10 |  |
-
-| To'qima / struktura | Kuzatuv | Miqdor / daraja | Izoh |
-| Epiteliy |  |  |  |
-| Stroma |  |  |  |
-| Tomirlar |  |  |  |
-| Yallig'lanish |  |  |  |
-
-| Differensial | Nima mos | Nima qarshi | Qaysi usul farqlaydi |
-| (1) |  |  |  |
-| (2) |  |  |  |
-| (3) |  |  |  |
-
-| Keyingi qadam | Nima uchun | Muddat / shoshilinchlik | Izoh |
-| Qayta kesma / chuqur blok |  |  |  |
-| Maxsus bo'yoq |  |  |  |
-| IHC panel |  |  |  |
-| Klinika / shoshilinch patolog |  |  |  |
-
-## BO'LIM 8 — KLINIK-MORFOLOGIK FIKRLASH
-- Asosiy topilmalar (har biri 2-4 jumla asos bilan)
-- 3-5 differensial yo'nalish: yallig'lanish, regeneratsiya, displaziya, o'sma shubhasi, artefakt
-- Qaysi qo'shimcha kesma, bo'yoq, IHC, klinika farqlaydi
-- Rasmiy gistologik tashxis va davolash YOZILMAYDI — faqat morfologik orientatsiya
-
-MUHIM: "Saraton", "karsinoma", "melanoma" ni yakuniy tashxis qilib qo'yma. "Shubha / patolog tasdiqlashi kerak" deb yoz.
-Ko'rinmagan organni uydirma. Bitta maydon salbiy bo'lsa, butun preparat "norma" deb yopma.
+AVVAL jadvallar (baho 1-5 EMAS):
+A | Belgi | Topilma | Mezon | Ishonch |  — pattern, grade, mitoz, invaziya (12+ qator)
+B | Kompartment | Kuzatuv | Daraja | Izoh |
+C | Differensial | Ehtimollik % | Mos | Qarshi |
+D | Qadam | Nima uchun | Muddat |
 """
 }
 
@@ -1214,35 +1174,35 @@ LAB_IDENTITY = {
     "hematology": {
         "label": "Gematologiya — periferik qon yoqmasi",
         "specimen": "Bo'yalgan qon yoqmasi (Giemsa / Romanovskiy)",
-        "role": "katta gematolog-morfolog",
+        "role": "kafedra professori-gematolog-morfolog",
         "count": "eritrotsit (hajm/rang/shakl), leykosit turlari va formula, trombotsit, inklyuziya, qon paraziti",
         "forbid": "Siydik cho'kmasi, H&E to'qima, najas tuxumi, spermogramma yoki KOH qirindi protokolini yozma.",
     },
     "urine": {
         "label": "Siydik cho'kmasi mikroskopiyasi",
         "specimen": "Siydik cho'kmasi (native)",
-        "role": "klinik laborant-nefroloji mikroskopist",
+        "role": "kafedra professori-nefroloji mikroskopist",
         "count": "leykosit/HPF, eritrotsit (dismorfik %), yassi/o'tish/RTE epiteliy, silindr turlari, kristall, flora, Trichomonas, shilim",
         "forbid": "QON YOQMASI TAQIQLANADI: leykosit formulasi (neytrofil/limfotsit %), poikilositoz, trombotsit soni, Giemsa yoqma, blast. Siydikdagi RBC — cho'kma eritrotsiti, periferik qon emas.",
     },
     "coprology": {
         "label": "Koprologiya — najas mikroskopiyasi",
         "specimen": "Najas / koprogramma preparati",
-        "role": "parazitolog va koprologiya laboranti",
+        "role": "kafedra professori-parazitolog",
         "count": "tuxum/sista/lerva, protozoa, hazm qoldiqlari (kraxmal, muskul, yog'), flora, shilim, qon izi",
         "forbid": "Qon yoqmasi formulasi, eritrotsit poikilositoz, trombotsit, Giemsa gematologiya protokoli YOZILMAYDI.",
     },
     "spermogram": {
         "label": "Spermogramma mikroskopiyasi",
         "specimen": "Eyakulyat / spermogramma",
-        "role": "andrologiya laboranti",
+        "role": "kafedra professori-androlog",
         "count": "spermatozoid zichligi, harakat, shakl (bosh/bo'yin/dum), leykosit, spermatid, flora, shilim",
         "forbid": "Qon yoqmasi, leykosit formulasi, poikilositoz, trombotsit protokoli YOZILMAYDI.",
     },
     "smear": {
         "label": "Ginekologik mazok (sitologiya)",
         "specimen": "Servikal/vaginal mazok",
-        "role": "sitolog-laborant",
+        "role": "kafedra professori-sitolog",
         "count": "yassi epiteliy, endoserviks, flora (Doderlein, kokk), leykosit, Trichomonas, Candida, atipik hujayra",
         "forbid": "Periferik qon yoqmasi, gematologik formula, trombotsit, poikilositoz YOZILMAYDI.",
     },
@@ -1324,11 +1284,12 @@ LAB_IDENTITY = {
         "forbid": "Periferik qon yoqmasi (poikilositoz, trombotsit aggregati, to'liq Giemsa formula) asosiy hisobot qilma.",
     },
     "histology": {
-        "label": "Gistologiya — to'qima kesmasi",
-        "specimen": "To'qima kesmasi (odatda H&E)",
-        "role": "gistopatolog-morfolog",
-        "count": "arxitektura, epiteliy, stroma, bez/naysimon tuzilma, yallig'lanish, atipiya, mitoz, qon tomir, nekroz, bo'yoq (H&E)",
-        "forbid": "QON YOQMASI TAQIQLANADI: leykosit formulasi, eritrotsit poikilositoz, trombotsit soni, Giemsa periferik qon protokoli YOZILMAYDI. Bu H&E/kesma, qon surtmasi emas.",
+        "label": "Gistologiya — H&E to'qima kesmasi",
+        "specimen": "To'qima kesmasi (H&E / maxsus bo'yoq)",
+        "role": "kafedra professori-gistopatolog (WHO/AFIP)",
+        "count": "organ gipotezasi, pattern (papillary/cribriform/tubular/solid), fibrovascular core, nuclear grade, mitoz/10HPF, stromal invaziya, yallig'lanish turi, nekroz",
+        "forbid": "Qon yoqmasi formulasi TAQIQLANADI. Foizli 'arxitektura 70% / epiteliy 60% / baho 3' jadvali TAQIQLANADI. Noaniq 'yallig'lanishli atipik o'zgarishlar' TAMOM.",
+        "dx": "Ishchi morfologik tashxis 3 ta, ehtimollik % bilan majburiy. Pattern NOMI va organ gipotezasi majburiy.",
     },
 }
 
@@ -1354,44 +1315,46 @@ def _lab_meta(lab_type):
 
 def _lab_lock_text(lab_type):
     m = _lab_meta(lab_type)
+    dx = m.get("dx") or (
+        "Ishchi tashxis 3 ta, ehtimollik bilan majburiy. Yuzaki 'o'zgarishlar bor' TAMOM."
+    )
     return (
         "#### QAT'IY YO'NALISH QULFI (buzilsa hisobot yaroqsiz)\n"
         f"Tanlangan tahlil turi: {m['label']}.\n"
         f"Namuna: {m['specimen']}.\n"
-        f"Sen: {m['role']}. Faqat SHU protokol bo'yicha yoz.\n"
-        f"Jadvallarda o'lchanadigan narsalar: {m['count']}.\n"
+        f"Sen: {m['role']} — o'sha sohaning ENG KUCHLI professori kabi fikrla.\n"
+        f"Jadvallarda: {m['count']}. 'Baho 1-5' o'rniga klinik atama va son yoz.\n"
         f"{m['forbid']}\n"
-        "Agar tasvir boshqa namuna (masalan qon yoqmasi) ga o'xshasa HAM, tanlangan tur bo'yicha yoz: "
-        "nima mos kelmasligini ayt, lekin boshqa yo'nalish hisobotini KO'CHIRMA. "
-        "Gematologiya bo'lmagan tahlilda qon yoqmasi xulosasi — XATO.\n"
+        f"{dx}\n"
+        "Boshqa lab turini KO'CHIRMA. Gematologiya bo'lmagan tahlilda qon yoqmasi xulosasi — XATO.\n"
     )
 
 
 def _analysis_system(lab_type):
     m = _lab_meta(lab_type)
     return (
-        f"Sen MedLab — {m['role']}. Ichki LIS hisobot: {m['label']}. Namuna: {m['specimen']}. "
-        "Faqat shu yo'nalish protokolini yoz; boshqa lab turini aralashtirma. "
-        "Javobni kamida 4 markdown JADVALLARDAN boshlaysan; birinchisi 12+ qator, HAR QATORDA RAQAM. "
-        "Har topilma: kuzatuv → miqdor → mezon → artefakt → shu yo'nalish differensiali → ishonch → keyingi test. "
+        f"Sen MedLab — {m['role']}. Ichki LIS: {m['label']}. Namuna: {m['specimen']}. "
+        "Shu sohaning kafedra professori kabi chuqur, aniq, differensial asosli yoz. "
+        "Kamida 4 markdown jadval; birinchisi 12+ qator. "
+        "Har topilma: kuzatuv → miqdor/atama → mezon → artefakt → differensial → ishonch → keyingi test. "
         f"{m['forbid']} "
-        "Qisqa 'norma' taqiqlanadi. Ko'rinmagan narsani uydirma. Rasmiy ICD tashxis qo'yma. "
-        "Rad etma. Faqat MedLab."
+        "Yuzaki 'norma' va noaniq umumiy gap taqiqlanadi. "
+        "Ishchi morfologik tashxis 3 ta (ehtimollik %) MAJBURIY. "
+        "Rasmiy yuridik ICD ni yakuniy qonuniy tashxis deb yozma, lekin professor tashxisini BER. "
+        "Ko'rinmagan narsani uydirma. Rad etma. Faqat MedLab."
     )
 
 
 def _worksheet_user(lab_type):
     m = _lab_meta(lab_type)
     return (
-        f"Bu {m['specimen']} maydoni. {m['label']} varaqasini TO'LIQ to'ldir. "
-        f"Sen {m['role']}. Yakuniy ICD tashxis YOZMA.\n\n"
+        f"Bu {m['specimen']} maydoni. {m['label']}. Sen {m['role']}.\n\n"
         f"{m['forbid']}\n\n"
-        "Avval markdown jadval (kamida 12 qator). Har qatorda RAQAM (ta/maydon yoki %):\n"
-        "| Ko'rsatkich | Topilgan | Normal orientir | Baho | Ishonch |\n"
-        f"Qatorlar faqat shu namuna uchun: {m['count']}. "
-        "Ko'rinmagan MUHIM ko'rsatkichlar uchun ham qator: '0 / ko'rinmadi' + sabab.\n"
-        "Keyin 28-40 jumla: fon/bo'yoq, qatlam, fokus, zichlik, shu yo'nalish tuzilmalari. "
-        "Yulduzcha ** yo'q. :--- yo'q. Boshqa lab turini yozma."
+        "Avval markdown jadval (kamida 12 qator). Baho 1-5 ISHLATMA.\n"
+        "| Belgi | Topilma (atama yoki son) | Mezon | Ishonch |\n"
+        f"Qatorlar: {m['count']}. "
+        "Keyin 28-40 jumla: pattern/tuzilma NOMLARI bilan. "
+        "Oxirida 3 ta ishchi tashxis, ehtimollik %. Yulduzcha ** yo'q."
     )
 
 
@@ -1404,6 +1367,22 @@ def _describe_user(lab_type):
         "| Turi | Taxminiy son | Belgilari | Ishonch |\n"
         f"Count: {m['count']}. If absent, write 0 and why. No blood-smear CBC unless this is hematology."
     )
+
+
+def _looks_like_weak_generic(text, lab_type):
+    if not text:
+        return True
+    low = text.lower()
+    if lab_type == "histology":
+        named = any(x in low for x in (
+            "papillar", "papilla", "cribriform", "tubular", "villous",
+            "intraductal", "adenom", "karsinom", "carcinom",
+        ))
+        if not named and ("yallig'lanishli atipik" in low or "to'qima o'zgarishi" in low):
+            return True
+        if low.count("%") >= 8 and "baho" in low:
+            return True
+    return False
 
 
 def _looks_like_wrong_blood_smear(text, lab_type):
@@ -1420,9 +1399,8 @@ Jadvalsiz, raqamsiz yoki 5-6 qatorlik "oddiy" jadval TAQIQLANADI.
 
 #### NATIJA JADVALLARI (kamida 4 ta)
 
-Jadval A — miqdoriy morfometriya (kamida 12 qator):
-| Ko'rsatkich | Topilgan | Normal orientir | Baho | Ishonch |
-| (nom) | (SON: ta/maydon yoki %) | (orientir) | norma/oz/ko'p/shubhali | yuqori/o'rta/past |
+Jadval A — asosiy belgilari (kamida 12 qator; "Baho 1-5" ISHLATMA):
+| Belgi | Topilma (atama yoki son) | Mezon | Ishonch |
 
 Jadval B — sifat/morfologiya (kamida 8 qator):
 | Tuzilma | Belgilari | Daraja | Artefakt ehtimoli | Izoh |
@@ -1452,12 +1430,12 @@ CHIQISH QOIDALARI (majburiy tartibda, hech birini o'tkazma):
    Kuzatuv → Mezon → Artefakt farqi → Klinik ahamiyat → Ishonch darajasi → Keyingi qadam.
 6. "#### DIFFERENSIAL TALQIN VA TEKSHIRUV REJASI" — kamida 5 yo'nalish; har biri: mos / qarshi / test /
    shoshilinchlik. Kamida 16-22 band.
-7. "#### YAKUNIY XULOSA VA TAVSIYALAR" — kamida 28-40 to'liq jumla: topilmalar, laborator baho,
-   klinik orientatsiya (ICD tashxis qo'ymasdan), xavfli belgilar, takroriy tekshiruvlar.
-8. "#### QISQACHA KLINIK XULOSA (laborant uchun)" — 10-14 jumla, amaliy, lekin dalilsiz emas.
-9. "#### HUQUQIY VA TIBBIY ESKLATMA" — 4-7 jumla: MedLab yordamchi; yakuniy qaror mutaxassisniki.
-10. Qisqa umumiy gaplar taqiqlanadi. Bu inson salomatligi: noaniq bo'lsa — noaniqligini va sababini yoz,
-    lekin yuzaki yopma. Hisobot katta mutaxassis protokoli darajasida bo'lsin.
+7. "#### YAKUNIY XULOSA VA TAVSIYALAR" — kamida 28-40 to'liq jumla.
+   MAJBURIY: 3 ta ISHCHI MORFOLOGIK TASHXIS, ehtimollik % bilan, 1-o'rin eng ehtimol.
+   Rasmiy yuridik tashxis emas deb 2 jumla yoz, lekin professor tashxisini BER (yashirma).
+8. "#### QISQACHA KLINIK XULOSA (laborant uchun)" — 10-14 jumla: aniq tashxis nomlari, na foizli umumiy gap.
+9. "#### HUQUQIY VA TIBBIY ESKLATMA" — 4-7 jumla: MedLab yordamchi; yakuniy imzo mutaxassisniki.
+10. "Baho 1-5" va "arxitektura 70%" uslubi TAQIQLANADI. Pattern va kasallik NOMI yoziladi.
 """
 
 def _append_output_format(prompt):
@@ -2104,6 +2082,8 @@ _SHALLOW_MARKERS = (
     "o'ziga xos o'zgarish yo'q",
     "qo'shimcha izoh shart emas",
     "tahlil qoniqarli",
+    "yallig'lanishli atipik",
+    "to'qima o'zgarishi",
 )
 
 _EXPAND_DEEP_USER = (
@@ -2112,7 +2092,8 @@ _EXPAND_DEEP_USER = (
     "Faqat TANLANGAN tahlil turi bo'yicha — boshqa yo'nalish (ayniqsa qon yoqmasi) ni qo'shma. "
     "Yuzaki qisqa hisobot TAQIQLANADI. Avval 4 sonli jadval, keyin barcha bo'limlar. "
     "Har topilma: kuzatuv, miqdor, mezon, artefakt farqi, klinik differensial, ishonch, keyingi qadam. "
-    "Ko'rinmagan narsani uydirma. Rasmiy tashxis qo'yma. O'zbek tili. Yulduzcha ** yo'q.\n\n"
+    "Ko'rinmagan narsani uydirma. Ishchi tashxis 3 ta (ehtimollik %) majburiy. "
+    "Rasmiy yuridik imzo emas, lekin professor tashxisini yashirma. O'zbek tili. Yulduzcha ** yo'q.\n\n"
 )
 
 _RETRY_DEEP_USER = (
@@ -2312,7 +2293,7 @@ def _openai_generate(content_list, lab_type="hematology"):
     if source:
         log.info("%s: 2-bosqich to'liq hisobot (rasm+matn, %s belgi) lab=%s", ZIYRAKAI_DISPLAY_NAME, len(source), lab_type)
         report = _expand_full_report(source, full_prompt, kwargs, image_parts, lab_type)
-        if (_too_shallow(report) or _looks_like_wrong_blood_smear(report, lab_type)) and image_parts:
+        if (_too_shallow(report) or _looks_like_wrong_blood_smear(report, lab_type) or _looks_like_weak_generic(report, lab_type)) and image_parts:
             log.warning(
                 "%s: hisobot yuzaki yoki noto'g'ri yo'nalish (%s belgi), chuqurlashtirish lab=%s",
                 ZIYRAKAI_DISPLAY_NAME,
