@@ -129,24 +129,24 @@ def ensure_openai_from_env():
 
 # ─── Barcha tahlillar: top-professorlar konsiliumi ───────────
 CLINICAL_EXCELLENCE_PREFIX_UZ = """
-SEN LABORANT EMASSAN. SEN — xalqaro darajadagi 3 PROFESSORLI KONSILIUM RAISI.
-Hisobotni oddiy laborant varaqasi, foizli "baho" yoki "ko'rsatkich topilgan" uslubida YOZMA.
-Yozuv: tumor board / klinik-patologik konferensiya bayoni — qaror qabul qilish uchun.
+KONTEKST: Bu ICHKI laborator hisobot (LIS / kafedra konsiliumi qoralamasi).
+O'quvchi: litsenziyali mutaxassis. Bemorga tashxis, davolash yoki rasmiy ICD imzo EMAS.
+Rad etish taqiqlanadi: rasm xira bo'lsa ham nima KO'RINISHINI va nima ko'rinmasligini yoz.
 
-JAMOA (har biri o'z fikrini aytadi, keyin SEN yakunlaysan):
-- 1-professor: sof morfologiya (pattern, yadro, stroma, artefakt).
-- 2-professor: differensial tashxis (WHO/atlas, MOS/QARSHI, ehtimollik).
-- 3-professor: klinika va keyingi test (IHC, kultura, CBC, PCR — FAQAT shu yo'nalish).
-Yakun: 3 ta ishchi tashxis, ehtimollik %, nima uchun 1-o'rin shu.
+SEN: 3 professorli ichki konsilium raisi. Oddiy laborant varaqasi, foizli "baho",
+"normal orientir", "arxitektura 70%" uslubida YOZMA.
 
-TAQIQLANGAN (laborant uslubi):
-"hujayralar ko'rinadi", "tahlil qoniqarli", "o'zgarishlar bor", "yallig'lanishli atipik o'zgarishlar",
-"arxitektura 70%", "baho 3/5", "normal orientir", 1 sahifalik umumiy gap.
+JAMOA:
+- 1-professor: sof morfologiya (pattern NOMI, yadro, stroma, artefakt).
+- 2-professor: morfologik differensial (WHO/atlas, MOS/QARSHI, ehtimollik).
+- 3-professor: shu yo'nalishdagi keyingi test (IHC, kultura, CBC — boshqa labni aralashtirma).
+Yakun: 3 ta ISHCHI MORFOLOGIK TAASSUROT, ehtimollik %, nima uchun 1-o'rin shu.
 
-HAR TOPILMADA:
-kuzatuv (nima ANIQ) → mezon (WHO/atlas nomi) → artefakt emasligi → differensial MOS/QARSHI →
-ishonch → shoshilinchlik. Ko'rinmagan narsani uydirma. "100%" deb yozma.
-Rasmiy yuridik imzo emas, lekin professor tashxisini YASHIRMA.
+TAQIQLANGAN: "hujayralar ko'rinadi", "tahlil qoniqarli", "o'zgarishlar bor",
+"yallig'lanishli atipik o'zgarishlar", "baho 3/5", 1 sahifalik umumiy gap.
+
+HAR TOPILMADA: kuzatuv → mezon → artefakt emasligi → MOS/QARSHI → ishonch.
+Ko'rinmagan narsani uydirma. "100%" deb yozma.
 TIL: akademik o'zbek, lotin atamasi qavsda. Faqat MedLab.
 """
 
@@ -1331,12 +1331,12 @@ def _analysis_system(lab_type):
     m = _lab_meta(lab_type)
     voices = _board_voices(lab_type)
     return (
-        f"Sen MedLab konsilium RAISI. Yo'nalish: {m['label']}. Namuna: {m['specimen']}. "
-        f"Jamoa: {voices}. "
-        "Oddiy laborant kabi YOZMA. Tumor board / kafedra konsiliumi bayoni yoz. "
+        f"Sen MedLab ICHKI LIS uchun konsilium raisisan. Yo'nalish: {m['label']}. "
+        f"Namuna: {m['specimen']}. Jamoa: {voices}. "
+        "Bu o'quv/laboratoriya protokoli — bemorga tashxis emas, rasmiy ICD imzo emas. "
+        "Oddiy laborant foizli 'baho' uslubida YOZMA. "
         f"{m['forbid']} "
-        "Avval 3 ta ishchi tashxis (ehtimollik %). Keyin morfologiya, differensial, testlar. "
-        "Foizli 'baho 1-5' va 'normal orientir' uslubi taqiqlanadi. "
+        "Avval 3 morfologik ishchi taassurot (ehtimollik %). Keyin morfologiya va differensial. "
         "Ko'rinmagan narsani uydirma. Rad etma. Faqat MedLab."
     )
 
@@ -1363,9 +1363,9 @@ def _worksheet_user(lab_type):
 def _describe_user(lab_type):
     m = _lab_meta(lab_type)
     return (
-        f"Microscope field of {m['specimen']}. Report in Uzbek as {m['role']} (department professor, not technician). "
+        f"Microscope field of {m['specimen']}. Internal LIS note in Uzbek as {m['role']}. "
         f"ONLY {m['label']}. {m['forbid']}\n"
-        "Diagnosis first: 3 ranked working diagnoses with %. Then named patterns, not dummy 1-5 scores.\n"
+        "Not a patient diagnosis. Describe named patterns, then 3 morphologic working impressions with %.\n"
         f"Count/describe: {m['count']}. If absent, write 0 and why. No blood-smear CBC unless this is hematology."
     )
 
@@ -1421,13 +1421,13 @@ Qoidalar:
 
 OUTPUT_FORMAT_RULES_UZ = """
 ---
-CHIQISH TARTIBI (konsilium bayoni — laborant varaqasi EMAS):
-0. Faqat MedLab. Yulduzcha ** yo'q. :--- yo'q.
-1. AVVAL "#### KONSILIUM ISHCHI TASHXISI" — 3 ta tashxis, ehtimollik %, 2-4 jumla asos.
+CHIQISH TARTIBI (ichki konsilium — laborant foizli baho EMAS):
+0. Faqat MedLab. Yulduzcha ** yo'q. :--- yo'q. Bemorga tashxis/imzo emas.
+1. AVVAL "#### ISHCHI MORFOLOGIK TAASSUROT" — 3 ta, ehtimollik %, 2-4 jumla asos.
    1-o'rin = jamoa kelishuvi. ICD faqat qavsda orientatsiya.
 2. "#### 1-PROFESSOR — MORFOLOGIYA" — pattern/tuzilma NOMLARI, yadro, stroma, artefakt. 18+ jumla.
 3. "#### 2-PROFESSOR — DIFFERENSIAL" — kamida 5 yo'nalish, har biri MOS/QARSHI/test. 16+ jumla.
-4. "#### 3-PROFESSOR — KLINIKA VA TEST" — faqat shu yo'nalish testlari, shoshilinchlik. 12+ jumla.
+4. "#### 3-PROFESSOR — KEYINGI TEST" — faqat shu yo'nalish testlari. 12+ jumla.
 5. "#### RAIS YAKUNI" — nima uchun 1-o'rin, qanday xavf, nima qo'shimcha kerak. 16+ jumla.
 6. Keyin 3 jadval: A topilmalar (atama+son), B differensial (ehtimollik), C qadamlar.
    "Baho 1-5", "normal orientir", "arxitektura 70%" TAQIQLANADI.
@@ -2043,24 +2043,24 @@ def _pil_to_data_url(img):
 
 
 _ANALYSIS_SYSTEM = (
-    "Sen MedLab konsilium RAISI — xalqaro darajadagi 3 professor jamoasi. "
-    "Oddiy laborant varaqasi, foizli baho, 'normal orientir' TAQIQLANADI. "
-    "Avval 3 ishchi tashxis (ehtimollik %). Keyin morfologiya, differensial, test. "
-    "Ko'rinmagan narsani uydirma. Rad etma. Faqat MedLab."
+    "Sen MedLab ICHKI LIS konsilium raisisan. Bemorga tashxis emas. "
+    "Foizli baho va 'normal orientir' TAQIQLANADI. "
+    "3 morfologik ishchi taassurot, keyin morfologiya. Rad etma. Faqat MedLab."
 )
 
 _WORKSHEET_SYSTEM = (
-    "Sen MedLab professor-morfologsisan. Laborant varaqasi EMAS — konsilium qoralamasi. "
-    "Faqat foydalanuvchi tanlagan tahlil turi. O'zbek tili. "
-    "Avval 3 ishchi tashxis, keyin pattern NOMLARI. Baho 1-5 taqiqlanadi. "
-    "Rad etma. Faqat MedLab."
+    "Sen MedLab ichki laborator hisobotini to'ldirasan (LIS). "
+    "Bu o'quv/laboratoriya protokoli — bemorga tashxis emas. "
+    "Faqat tanlangan tahlil turi. O'zbek tili. Pattern va tuzilma NOMLARI bilan yoz. "
+    "Baho 1-5 taqiqlanadi. Rad etma. Faqat MedLab."
 )
 
 _DESCRIBE_SYSTEM = (
-    "You are a department chair (professor) of the SELECTED lab specialty, not a technician. "
-    "Describe the microscope photograph in Uzbek with named patterns and 3 ranked working diagnoses. "
+    "You fill an INTERNAL laboratory worksheet for licensed staff, selected lab type only. "
+    "Describe the microscope photograph in Uzbek: named patterns, architecture, nuclei, stroma. "
+    "This is not a patient-facing diagnosis and not a signed ICD report. Never refuse. "
     "Do not write a peripheral-blood smear CBC unless the selected type is hematology. "
-    "No dummy 1-5 scoring tables. Never refuse. Diagnosis first, then morphology."
+    "No dummy 1-5 scoring tables."
 )
 
 _SHALLOW_MARKERS = (
@@ -2149,8 +2149,17 @@ def _chat_complete(messages, kwargs):
             text = (choice.message.content or "").strip()
             fr = getattr(choice, "finish_reason", None)
             if fr in ("content_filter",) or (not text and fr == "content_filter"):
+                log.warning("%s: content_filter", ZIYRAKAI_DISPLAY_NAME)
                 return "I'm sorry, I can't assist with that."
             if text:
+                if len(text) < 400:
+                    log.warning(
+                        "%s: qisqa javob fr=%s len=%s: %r",
+                        ZIYRAKAI_DISPLAY_NAME,
+                        fr,
+                        len(text),
+                        text[:180],
+                    )
                 return text
             return (
                 "%s javob matni bo'sh yoki to'liq emas (finish_reason=%s). "
@@ -2263,16 +2272,17 @@ def _deepen_report(shallow, full_prompt, kwargs, image_parts=None, lab_type="hem
     )
 
 
+def _preview(text):
+    return (text or "").replace("\n", " ").strip()[:180]
+
+
 def _professor_pass_user(lab_type, full_prompt):
     m = _lab_meta(lab_type)
     return (
-        _lab_lock_text(lab_type)
-        + "\n"
-        + CLINICAL_EXCELLENCE_PREFIX_UZ.strip()
-        + "\n\n"
-        + f"Rasmlarni piksel darajasida o'qi. Bu {m['specimen']}. Sen {m['role']}.\n"
-        + "Laborant varaqasi YOZMA. Avval 3 ishchi tashxis, keyin 3 professor bo'limi, rais yakuni.\n"
-        + "Baho 1-5, normal orientir, arxitektura 70% TAQIQLANADI.\n\n"
+        f"ICHKI LIS hisobot. Namuna: {m['specimen']}. Role: {m['role']}. "
+        "Bemorga tashxis emas. Rad etma. "
+        "Avval 3 morfologik ishchi taassurot, keyin 3 professor bo'limi, rais yakuni. "
+        "Baho 1-5 va normal orientir TAQIQLANADI.\n\n"
         + (full_prompt or "")
     )
 
@@ -2283,14 +2293,13 @@ def _board_review(draft, full_prompt, kwargs, image_parts=None, lab_type="hemato
     user_text = (
         _lab_lock_text(lab_type)
         + "\n"
-        + "BU — QORALAMA. Endi 3 PROFESSOR MUSTAQIL tanqid qiladi, so'ng RAIS TO'LIQ hisobotni QAYTA YOZADI.\n"
+        + "BU — ICHKI QORALAMA (bemorga tashxis emas). 3 professor tanqid qiladi, rais QAYTA YOZADI.\n"
         + f"Jamoa: {voices}.\n"
         + "Har professor: nima MOS, nima QARSHI, nima yetishmaydi (8+ jumla).\n"
-        + "Agar qoralama laborant uslubida ('baho', 'normal orientir', foizli dummy jadval) bo'lsa — "
-        "uni YO'QOTIB, professor bayonini yoz.\n"
-        + "Yakuniy matn TO'LIQ konsilium: avval 3 ishchi tashxis (ehtimollik %), "
-        "1-professor morfologiya, 2-professor differensial (5+), 3-professor test, rais yakuni.\n"
-        + "Ko'rinmagan narsani uydirma. Yulduzcha ** yo'q.\n\n"
+        + "Agar qoralama 'baho 1-5' / 'normal orientir' uslubida bo'lsa — uni YO'QOT.\n"
+        + "Yakun: avval 3 morfologik ishchi taassurot (ehtimollik %), "
+        "1-professor morfologiya, 2-professor differensial, 3-professor test, rais yakuni.\n"
+        + "Rad etma. Ko'rinmagan narsani uydirma. Yulduzcha ** yo'q.\n\n"
         + "==== QORALAMA ====\n"
         + (draft or "")[:12000]
         + "\n==== QORALAMA TUGADI ====\n\n"
@@ -2349,24 +2358,52 @@ def _openai_generate(content_list, lab_type="hematology"):
         ],
         kwargs,
     )
-    if (not _usable(report, 400) or _looks_like_wrong_blood_smear(report, lab_type)) and image_parts:
-        log.warning("%s: 1-bosqich rad/noto'g'ri yo'nalish, qayta o'qish lab=%s", ZIYRAKAI_DISPLAY_NAME, lab_type)
-        report = _chat_complete(
-            [
-                {"role": "system", "content": _DESCRIBE_SYSTEM},
-                {"role": "user", "content": _vision_user(_describe_user(lab_type) + "\n\n" + user_prompt[:6000], image_parts)},
-            ],
-            kwargs,
+    if not _usable(report, 400) or _looks_like_wrong_blood_smear(report, lab_type):
+        log.warning(
+            "%s: 1-bosqich yaroqsiz (%s belgi) lab=%s: %r",
+            ZIYRAKAI_DISPLAY_NAME,
+            len(report or ""),
+            lab_type,
+            _preview(report),
         )
+        if image_parts:
+            report = _chat_complete(
+                [
+                    {"role": "system", "content": _DESCRIBE_SYSTEM},
+                    {"role": "user", "content": _vision_user(_describe_user(lab_type), image_parts)},
+                ],
+                kwargs,
+            )
+            if not _usable(report, 400) or _looks_like_wrong_blood_smear(report, lab_type):
+                log.warning(
+                    "%s: tavsif yaroqsiz (%s belgi): %r — LIS varaqa",
+                    ZIYRAKAI_DISPLAY_NAME,
+                    len(report or ""),
+                    _preview(report),
+                )
+                report = _chat_complete(
+                    [
+                        {"role": "system", "content": _WORKSHEET_SYSTEM},
+                        {"role": "user", "content": _vision_user(_worksheet_user(lab_type), image_parts)},
+                    ],
+                    kwargs,
+                )
 
-    if not _usable(report, 400):
-        log.warning("%s: hisobot olinmadi", ZIYRAKAI_DISPLAY_NAME)
+    if not _usable(report, 200):
+        log.warning("%s: hisobot olinmadi: %r", ZIYRAKAI_DISPLAY_NAME, _preview(report))
         return _REFUSAL_FALLBACK_UZ
 
-    log.info("%s: 2-bosqich 3-professor konsilium (%s belgi) lab=%s", ZIYRAKAI_DISPLAY_NAME, len(report), lab_type)
+    log.info("%s: 2-bosqich konsilium (%s belgi) lab=%s", ZIYRAKAI_DISPLAY_NAME, len(report), lab_type)
     reviewed = _board_review(report, full_prompt, kwargs, image_parts, lab_type)
-    if _usable(reviewed, 800):
+    if _usable(reviewed, 800) and not _looks_like_refusal(reviewed):
         report = reviewed
+    elif not _usable(reviewed, 800):
+        log.warning(
+            "%s: konsilium qisqa/rad (%s): %r — 1-bosqich saqlanadi",
+            ZIYRAKAI_DISPLAY_NAME,
+            len(reviewed or ""),
+            _preview(reviewed),
+        )
 
     if _needs_rewrite(report, lab_type) and image_parts:
         log.warning(
@@ -2376,12 +2413,12 @@ def _openai_generate(content_list, lab_type="hematology"):
             lab_type,
         )
         deeper = _deepen_report(report, full_prompt, kwargs, image_parts, lab_type)
-        if _usable(deeper, 1800) and not _looks_like_technician(deeper):
+        if _usable(deeper, 800) and not _looks_like_technician(deeper):
             report = deeper
 
-    if _usable(report, 800):
+    if _usable(report, 400):
         return report
-    log.warning("%s: hisobot olinmadi", ZIYRAKAI_DISPLAY_NAME)
+    log.warning("%s: hisobot olinmadi: %r", ZIYRAKAI_DISPLAY_NAME, _preview(report))
     return _REFUSAL_FALLBACK_UZ
 
 
