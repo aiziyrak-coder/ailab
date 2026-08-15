@@ -1294,6 +1294,38 @@ body::after { display: none !important; }
   box-shadow: none !important;
   min-height: 0 !important;
 }
+.analyze-actions {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+.analyze-actions .btn-ghost-sm {
+  flex: 1;
+  min-height: 28px !important;
+  height: auto !important;
+  padding: 4px 8px !important;
+  font-size: 0.72rem !important;
+  font-weight: 650 !important;
+  border: 1px solid rgba(27, 58, 92, 0.22) !important;
+  background: #fff !important;
+  color: #1b3a5c !important;
+  border-radius: 8px !important;
+  cursor: pointer;
+}
+.analyze-actions .btn-ghost-sm:hover:not(:disabled) {
+  background: #f0f5fa !important;
+}
+.analyze-actions .btn-ghost-sm:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.analyze-actions .btn-ghost-sm.hidden {
+  display: none !important;
+}
+.left-panel .analyze-actions .btn-ghost-sm {
+  min-height: 28px !important;
+  height: 28px !important;
+}
 .analyze-card.hidden { display: flex !important; }
 .analyze-card .btn-ziyrakai {
   width: 100%;

@@ -552,13 +552,68 @@ function kickIfLoggedOut(status, data) {
 
 function updateAnalyzeBtn() {
   const btn = document.getElementById('analyzeBtn');
+  const cancelBtn = document.getElementById('cancelAnalysisBtn');
+  const newBtn = document.getElementById('newAnalysisBtn');
   const readyPatient = patientFieldsComplete();
   const hasSample = uploadedFiles.length > 0 || cameraRunning;
+  if (cancelBtn) cancelBtn.classList.toggle('hidden', !_analyzeBusy);
+  if (newBtn) newBtn.disabled = !!_analyzeBusy;
   if (!btn) return;
+  if (_analyzeBusy) {
+    btn.disabled = true;
+    btn.textContent = 'Tahlil qilinmoqda…';
+    btn.title = 'Tahlil davom etmoqda — bekor qilish mumkin';
+    return;
+  }
   btn.disabled = !readyPatient || !hasSample;
-  btn.title = !readyPatient
-    ? 'Avval bemor ma’lumotini to‘ldiring'
-    : (!hasSample ? 'Avval rasm yuklang yoki mikroskopni yoqing' : 'Tahlilni boshlash');
+  if (_hasResult && hasSample) {
+    btn.textContent = 'Qayta tahlil';
+    btn.title = 'Shu rasm bilan qayta tahlil qilish';
+  } else {
+    btn.textContent = 'Tahlil boshlash';
+    btn.title = !readyPatient
+      ? 'Avval bemor ma’lumotini to‘ldiring'
+      : (!hasSample ? 'Avval rasm yuklang yoki mikroskopni yoqing' : 'Tahlilni boshlash');
+  }
+}
+
+function cancelAnalysis() {
+  _pollGen++;
+  _analyzeBusy = false;
+  const ov = document.getElementById('analyzeOv');
+  if (ov) ov.classList.add('hidden');
+  const st = document.getElementById('analyzeStatus');
+  if (st) st.textContent = '';
+  updateAnalyzeBtn();
+  refreshLabPlatform();
+  if (!_hasResult) {
+    const body = document.getElementById('resultBody');
+    if (body && body.querySelector('.result-loading')) {
+      body.innerHTML = emptyResultHtml();
+    }
+  }
+  toast('Tahlil bekor qilindi — yangi tahlil boshlashingiz mumkin', 'blue');
+}
+
+function startNewAnalysis() {
+  _pollGen++;
+  _analyzeBusy = false;
+  const ov = document.getElementById('analyzeOv');
+  if (ov) ov.classList.add('hidden');
+  clearResult();
+  // Yangi namuna raqami (oldingi natija bilan aralashmasin)
+  _sampleSeq = 0;
+  allocateSampleSeq();
+  refreshSampleId();
+  setPriority('routine');
+  updateAnalyzeBtn();
+  refreshLabPlatform();
+  const name = document.getElementById('accName');
+  if (name) {
+    name.focus();
+    name.select();
+  }
+  toast('Yangi tahlil: bemor/rasmni tekshirib «Tahlil boshlash»ni bosing', 'green');
 }
 
 let _priority = 'routine';
@@ -1530,16 +1585,28 @@ async function analyze() {
   ensureSampleNo();
   if (currentSource === 'upload' && uploadedFiles.length) {
     _analyzeBusy = true;
-    try { await analyzeFile(); } finally { _analyzeBusy = false; }
+    updateAnalyzeBtn();
+    try {
+      await analyzeFile();
+    } catch (e) {
+      _analyzeBusy = false;
+      stopAnalyzing();
+      toast((e && e.message) || 'Tahlil xatosi', 'red');
+    }
     return;
   }
   if (cameraRunning) {
     _analyzeBusy = true;
+    updateAnalyzeBtn();
     try {
       if (_liveMode === 'browser') await analyzeBrowserLive();
       else if (_liveMode === 'local') await analyzeLocalLive();
       else await analyzeCamera();
-    } finally { _analyzeBusy = false; }
+    } catch (e) {
+      _analyzeBusy = false;
+      stopAnalyzing();
+      toast((e && e.message) || 'Tahlil xatosi', 'red');
+    }
     return;
   }
   toast('Avval rasm yuklang yoki qurilmani yoqing', 'red');
@@ -1700,15 +1767,18 @@ async function analyzeCamera() {
 }
 
 function startAnalyzing(isVideo) {
+  _analyzeBusy = true;
   document.getElementById('analyzeBtn').disabled = true;
   const ov = document.getElementById('analyzeOv');
   if (ov) ov.classList.remove('hidden');
   document.getElementById('analyzeStatus').textContent = '';
+  updateAnalyzeBtn();
   showLoading();
   refreshLabPlatform();
 }
 
 function stopAnalyzing() {
+  _analyzeBusy = false;
   updateAnalyzeBtn();
   const ov = document.getElementById('analyzeOv');
   if (ov) ov.classList.add('hidden');
@@ -1759,11 +1829,13 @@ function pollResult(jobId) {
           setTimeout(() => { st.textContent = ''; }, 5000);
         }
         if (currentPublicId && data.public_id && data.public_id !== currentPublicId) {
+          stopAnalyzing();
           toast('Yangi tahlil tayyor: ' + data.public_id + ' — Tarixdan oching', 'green');
           return;
         }
         if (data.public_id) setPublicId(data.public_id);
         renderResult(data);
+        updateAnalyzeBtn();
       }
     } catch (e) {
       // tarmoq xatosi — davom etamiz
@@ -1773,7 +1845,7 @@ function pollResult(jobId) {
       if (t) clearInterval(t);
       if (myGen === _pollGen) {
         stopAnalyzing();
-        toast('Vaqt tugadi — server javobi kelmadi', 'red');
+        toast('Vaqt tugadi — server javobi kelmadi. «Bekor qilish» yoki «Yangi tahlil»ni bosing.', 'red');
       }
     }
   };

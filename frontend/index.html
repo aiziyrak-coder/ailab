@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off45">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off45">
+  <link rel="stylesheet" href="/static/css/style.css?v=off47">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off47">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -282,6 +282,10 @@
         <button class="btn btn-ziyrakai" id="analyzeBtn" onclick="analyze()" disabled>
           Tahlil boshlash
         </button>
+        <div class="analyze-actions" id="analyzeActions">
+          <button type="button" class="btn btn-ghost-sm" id="newAnalysisBtn" onclick="startNewAnalysis()">Yangi tahlil</button>
+          <button type="button" class="btn btn-ghost-sm hidden" id="cancelAnalysisBtn" onclick="cancelAnalysis()">Bekor qilish</button>
+        </div>
         <div id="analyzeStatus" class="analyze-status" aria-live="polite"></div>
       </div>
     </aside>
@@ -359,7 +363,8 @@
         <div class="result-meta">
           <span id="resultTs" class="result-ts"></span>
           <div class="result-actions">
-            <button class="btn-small btn-sm-clear" onclick="clearResult()">Tozalash</button>
+            <button class="btn-small btn-sm-clear" onclick="startNewAnalysis()" title="Natijani tozalab yangi tahlilga o‘tish">Yangi tahlil</button>
+            <button class="btn-small btn-sm-clear" onclick="clearResult()" title="Faqat natijani tozalash">Tozalash</button>
             <button class="btn-small btn-sm-ok" id="validateBtn" onclick="validateReport()" disabled title="Laborant tasdiqlashi">Tasdiqlash</button>
             <button class="btn-small btn-sm-pdf btn-sm-pdf-clinic" onclick="savePDF('clinic')" id="pdfClinicBtn" disabled title="Shifokor uchun: to‘liq AI hisobot, xulosa va tavsiyalar">Klinik PDF</button>
             <button class="btn-small btn-sm-pdf btn-sm-pdf-patient" onclick="savePDF('patient')" id="pdfPatientBtn" disabled title="Bemor uchun: faqat tahlil natijalari">Tahlil PDF</button>
@@ -521,8 +526,8 @@
 </div>
 
 <div id="toast"></div>
-<script src="/static/js/uz_localities.js?v=off45"></script>
+<script src="/static/js/uz_localities.js?v=off47"></script>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=off45"></script>
+<script src="/static/js/app.js?v=off47"></script>
 </body>
 </html>
