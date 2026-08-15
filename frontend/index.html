@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off44">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off44">
+  <link rel="stylesheet" href="/static/css/style.css?v=off45">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off45">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -89,6 +89,12 @@
             </select>
           </label>
           <label class="req acc-span"><span>Bo‘lim / manzil</span> <input id="accWard" maxlength="80" required placeholder="Masalan: terapiya"></label>
+          <label class="req acc-span"><span>Namuna joyi (organ)</span>
+            <input id="accSite" maxlength="80" required placeholder="Masalan: sut bezi, qovuq, prostata, qon">
+          </label>
+          <label class="acc-span"><span>Klinik izoh / shikoyat</span>
+            <input id="accClinical" maxlength="200" placeholder="Shifokor yozuvi, qisqa klinik kontekst">
+          </label>
           <label class="req"><span>Viloyat</span>
             <select id="daftarViloyat" required aria-label="Viloyat"></select>
           </label>
@@ -515,8 +521,8 @@
 </div>
 
 <div id="toast"></div>
-<script src="/static/js/uz_localities.js?v=off44"></script>
+<script src="/static/js/uz_localities.js?v=off45"></script>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=off44"></script>
+<script src="/static/js/app.js?v=off45"></script>
 </body>
 </html>

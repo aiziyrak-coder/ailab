@@ -95,6 +95,31 @@ def _patient_meta(request):
     return name, sid
 
 
+def _patient_context_from_request(request):
+    """Bemor kartasidagi barcha maydonlar — tahlil promptiga kiradi."""
+    ct = request.content_type or ""
+    src = request.data if ("application/json" in ct and isinstance(getattr(request, "data", None), dict)) else request.POST
+
+    def g(key, maxlen=120):
+        return eng._truncate_field(src.get(key) if hasattr(src, "get") else "", maxlen)
+
+    name, sid = _patient_meta(request)
+    return {
+        "patient_name": name,
+        "sample_id": sid,
+        "age": g("age", 8),
+        "sex": g("sex", 16),
+        "ward": g("ward", 80),
+        "specimen_site": g("specimen_site", 80),
+        "clinical_note": g("clinical_note", 200),
+        "region": g("region", 40),
+        "locality": g("locality", 80),
+        "clinic": g("clinic", 8),
+        "facility_type": g("facility_type", 8),
+        "priority": g("priority", 16),
+    }
+
+
 def _record_to_analysis_payload(rec):
     pending = rec.status in ("tahlil_qilinmoqda", "video_tahlil_qilinmoqda")
     ts = ""
@@ -460,6 +485,7 @@ class AnalyzeView(APIView):
             )
 
         micro_pfx = eng._microscope_prompt_prefix(micro_d)
+        patient_ctx = _patient_context_from_request(request)
         job_id = ""
         rec = None
         spawned = False
@@ -498,7 +524,7 @@ class AnalyzeView(APIView):
                 )
                 _spawn_analyze(
                     eng.do_analyze,
-                    ([pil_img], lab_type, custom_prompt, micro_pfx),
+                    ([pil_img], lab_type, custom_prompt, micro_pfx, patient_ctx),
                     rec.pk if rec else None,
                     job_id=job_id,
                 )
@@ -611,6 +637,7 @@ class AnalyzeView(APIView):
                         pil_images,
                         micro_pfx,
                         vname,
+                        patient_ctx,
                     ),
                     rec.pk if rec else None,
                     job_id=job_id,
@@ -623,7 +650,7 @@ class AnalyzeView(APIView):
             else:
                 _spawn_analyze(
                     eng.do_analyze,
-                    (pil_images, lab_type, custom_prompt, micro_pfx),
+                    (pil_images, lab_type, custom_prompt, micro_pfx, patient_ctx),
                     rec.pk if rec else None,
                     job_id=job_id,
                 )

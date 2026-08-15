@@ -1472,8 +1472,27 @@ def _parse_histology_organ(raw):
     return {"organ": organ, "confidence": conf, "reason_uz": reason}
 
 
-def _lock_histology_organ(image_parts):
-    """Papillar lesiyada organ sakrashini kamaytirish — past temperaturada bitta organ."""
+def _lock_histology_organ(image_parts, patient_context=None):
+    """Klinik namuna joyi + morfologiya — bitta organ qulfi."""
+    p = _normalize_patient_context(patient_context)
+    site_forced = _organ_from_specimen_site(p.get("specimen_site"))
+    sex = _patient_sex_norm(p.get("sex"))
+    if site_forced:
+        # Klinik joy eng ishonchli manba
+        if site_forced == "sut_bezi" and sex == "erkak" and "sut" not in (p.get("specimen_site") or "").lower() and "breast" not in (p.get("specimen_site") or "").lower():
+            pass
+        log.info(
+            "%s: histology organ FROM SITE=%s site=%r",
+            ZIYRAKAI_DISPLAY_NAME,
+            site_forced,
+            p.get("specimen_site"),
+        )
+        return {
+            "organ": site_forced,
+            "confidence": "high",
+            "reason_uz": f"Klinik namuna joyi: {p.get('specimen_site')}",
+        }
+
     if not image_parts:
         return None
     try:
@@ -1483,13 +1502,19 @@ def _lock_histology_organ(image_parts):
             low_parts.append(
                 {"type": "image_url", "image_url": {"url": url, "detail": "high"}}
             )
+        sex_line = f"Patient sex={p.get('sex') or 'unknown'}; age={p.get('age') or 'unknown'}."
+        note = p.get("clinical_note") or ""
         raw = _chat_complete(
             [
                 {"role": "system", "content": _HISTOLOGY_ORGAN_GATE_SYSTEM},
                 {
                     "role": "user",
                     "content": _vision_user(
-                        "Classify the most likely organ for this H&E papillary/tissue field. JSON only.",
+                        "Classify the most likely organ for this H&E field. JSON only. "
+                        + sex_line
+                        + (f" Clinical note: {note}." if note else "")
+                        + " Respect sex: male → avoid female-only organs unless morphology forces; "
+                        "female → avoid prostate.",
                         low_parts,
                     ),
                 },
@@ -1500,6 +1525,22 @@ def _lock_histology_organ(image_parts):
         if not parsed:
             log.warning("%s: organ lock parse fail: %r", ZIYRAKAI_DISPLAY_NAME, _preview(raw))
             return None
+        # Sex hard filter
+        if sex == "erkak" and parsed["organ"] in ("sut_bezi", "yumurtalik", "endometrium"):
+            parsed = {
+                "organ": "qovuq" if parsed["organ"] == "sut_bezi" else "noaniq",
+                "confidence": "medium",
+                "reason_uz": (
+                    (parsed.get("reason_uz") or "")
+                    + " (erkak jinsi: ayol organi asosiy qilib olinmadi)"
+                ).strip(),
+            }
+        if sex == "ayol" and parsed["organ"] == "prostata":
+            parsed = {
+                "organ": "noaniq",
+                "confidence": "low",
+                "reason_uz": "Ayol bemorda prostata asosiy organ qilib olinmadi.",
+            }
         log.info(
             "%s: histology organ lock=%s conf=%s",
             ZIYRAKAI_DISPLAY_NAME,
@@ -1532,24 +1573,11 @@ def _histology_report_organs_conflict(text):
     if not text:
         return False
     low = text.lower()
-    families = {
-        "sut": ("sut bezi", "intraductal papilloma", "papillary dcis", "encapsulated papillary"),
-        "qovuq": ("qovuq", "punlmp", "urothelial", "urotel"),
-        "prostata": ("prostata", "hgpin", "prostatic"),
-        "qalqon": ("qalqon", "ptc", "niftp"),
-    }
-    hits = []
-    for key, markers in families.items():
-        if sum(1 for m in markers if m in low) >= 1:
-            # Stronger: need diagnostic name or organ word in impressions area
-            if any(m in low for m in markers[:2]) or markers[0] in low:
-                hits.append(key)
-    # Conflict if breast + bladder both strongly present in working impressions
     strong_breast = ("intraductal papilloma" in low) or (
-        "sut bezi" in low and ("papilloma" in low or "dcis" in low)
+        "sut bezi" in low and ("papilloma" in low or "dcis" in low or "encapsulated papillary" in low)
     )
-    strong_bladder = ("punlmp" in low) or ("urothelial" in low) or (
-        "qovuq" in low and "papillar" in low
+    strong_bladder = ("punlmp" in low) or ("urothelial" in low) or ("urotel" in low) or (
+        "qovuq" in low and ("papillar" in low or "papilloma" in low)
     )
     return strong_breast and strong_bladder
 
@@ -1671,17 +1699,195 @@ CHIQISH TARTIBI (ichki konsilium — laborant foizli baho EMAS):
 def _append_output_format(prompt):
     return (prompt or "").rstrip() + "\n\n" + OUTPUT_FORMAT_RULES_UZ
 
-def _full_analysis_prompt(base, microscope_prefix, lab_type=None):
-    """Konsilium prefiksi + yo'nalish protokoli (laborant varaqasi yo'q)."""
+def _full_analysis_prompt(base, microscope_prefix, lab_type=None, patient_context=None):
+    """Bemor konteksti + yo'nalish protokoli."""
     merged = _merge_prompt_with_microscope(base, microscope_prefix)
     lock = _lab_lock_text(lab_type or "hematology")
-    return _append_output_format(
-        lock
-        + "\n"
-        + CLINICAL_EXCELLENCE_PREFIX_UZ.strip()
-        + "\n\n"
-        + merged
+    patient = _patient_prompt_prefix(patient_context, lab_type or "hematology")
+    parts = [lock]
+    if patient:
+        parts.append(patient)
+    parts.append(CLINICAL_EXCELLENCE_PREFIX_UZ.strip())
+    parts.append(merged)
+    return _append_output_format("\n\n".join(parts))
+
+
+_SITE_ORGAN_HINTS = (
+    ("sut bezi", "sut_bezi"),
+    ("sut", "sut_bezi"),
+    ("breast", "sut_bezi"),
+    ("mamma", "sut_bezi"),
+    ("qovuq", "qovuq"),
+    ("siydik pufak", "qovuq"),
+    ("bladder", "qovuq"),
+    ("urotel", "qovuq"),
+    ("prostata", "prostata"),
+    ("prostate", "prostata"),
+    ("qalqon", "qalqonsimon"),
+    ("thyroid", "qalqonsimon"),
+    ("endometr", "endometrium"),
+    ("bachadon", "endometrium"),
+    ("ichak", "ichak"),
+    ("colon", "ichak"),
+    ("yumurtalik", "yumurtalik"),
+    ("ovary", "yumurtalik"),
+    ("buyrak", "buyrak"),
+    ("kidney", "buyrak"),
+    ("teri", "teri"),
+    ("skin", "teri"),
+    ("o'pka", "opka"),
+    ("opka", "opka"),
+    ("lung", "opka"),
+)
+
+
+def _normalize_patient_context(patient_context):
+    if not patient_context or not isinstance(patient_context, dict):
+        return {}
+    out = {}
+    for k, maxlen in (
+        ("patient_name", 120),
+        ("sample_id", 40),
+        ("age", 8),
+        ("sex", 16),
+        ("ward", 80),
+        ("specimen_site", 80),
+        ("clinical_note", 200),
+        ("region", 40),
+        ("locality", 80),
+        ("clinic", 8),
+        ("facility_type", 8),
+        ("priority", 16),
+    ):
+        out[k] = _truncate_field(patient_context.get(k), maxlen)
+    return out
+
+
+def _patient_sex_norm(sex):
+    s = (sex or "").strip().lower()
+    if s.startswith("ayol") or s in ("f", "female", "woman"):
+        return "ayol"
+    if s.startswith("erkak") or s in ("m", "male", "man"):
+        return "erkak"
+    return ""
+
+
+def _organ_from_specimen_site(site):
+    low = (site or "").strip().lower()
+    if not low:
+        return None
+    for hint, code in _SITE_ORGAN_HINTS:
+        if hint in low:
+            return code
+    return None
+
+
+def _patient_lab_mismatch_message(lab_type, patient_context):
+    """Jins / lab turi ziddiyati — tahlilni to'xtatish."""
+    p = _normalize_patient_context(patient_context)
+    sex = _patient_sex_norm(p.get("sex"))
+    if not sex:
+        return None
+    if lab_type == "spermogram" and sex == "ayol":
+        return (
+            "#### BEMOR MA'LUMOTI VA TAHLIL TURI MOS EMAS\n\n"
+            "Jins: **Ayol**, tanlangan tahlil: **Spermogramma**.\n"
+            "Bu kombinatsiya klinik jihatdan noto'g'ri. Jinsni yoki tahlil turini tuzating."
+        )
+    if lab_type == "prostata_sok" and sex == "ayol":
+        return (
+            "#### BEMOR MA'LUMOTI VA TAHLIL TURI MOS EMAS\n\n"
+            "Jins: **Ayol**, tanlangan tahlil: **Prostata SOK**.\n"
+            "Jinsni yoki tahlil turini tuzating."
+        )
+    if lab_type == "smear" and sex == "erkak":
+        return (
+            "#### BEMOR MA'LUMOTI VA TAHLIL TURI MOS EMAS\n\n"
+            "Jins: **Erkak**, tanlangan tahlil: **Ginekologik mazok**.\n"
+            "Jinsni yoki tahlil turini tuzating."
+        )
+    if lab_type == "histology":
+        site = (p.get("specimen_site") or "").strip()
+        if not site:
+            return (
+                "#### NAMUNA JOYI KERAK\n\n"
+                "Gistologiya uchun **Namuna joyi (organ)** majburiy "
+                "(masalan: sut bezi, qovuq, prostata).\n"
+                "Chapdagi bemor formasida namuna joyini to'ldirib, qayta tahlil qiling.\n"
+                "Kliniksiz organ taxmin qilish — xato xavfi yuqori, shuning uchun to'xtatildi."
+            )
+        site_organ = _organ_from_specimen_site(site)
+        if site_organ == "sut_bezi" and sex == "erkak":
+            # male breast exists but rare — allow with note, don't block
+            return None
+        if site_organ == "prostata" and sex == "ayol":
+            return (
+                "#### BEMOR MA'LUMOTI VA NAMUNA JOYI MOS EMAS\n\n"
+                f"Jins: **Ayol**, namuna joyi: **{site}** (prostata).\n"
+                "Jins yoki namuna joyini tuzating."
+            )
+    return None
+
+
+def _patient_prompt_prefix(patient_context, lab_type="hematology"):
+    p = _normalize_patient_context(patient_context)
+    if not any(p.values()):
+        return ""
+    lines = [
+        "### BEMOR VA NAMUNA KONTEKSTI (majburiy — e'tiborsiz qoldirma)",
+        "Quyidagi ma'lumotlar LIS kartasidan. Tasvirga zid bo'lsa — ziddiyatni YOZ, "
+        "lekin bemor jinsi/yoshi/namuna joyini IGNORE QILMA. Random organ tanlama.",
+    ]
+    if p.get("patient_name"):
+        lines.append(f"- F.I.Sh.: {p['patient_name']}")
+    if p.get("sample_id"):
+        lines.append(f"- Namuna №: {p['sample_id']}")
+    if p.get("age"):
+        lines.append(f"- Yosh: {p['age']}")
+    if p.get("sex"):
+        lines.append(f"- Jins: {p['sex']}")
+    if p.get("ward"):
+        lines.append(f"- Bo'lim: {p['ward']}")
+    if p.get("specimen_site"):
+        lines.append(f"- Namuna joyi (klinik organ): {p['specimen_site']}")
+    if p.get("clinical_note"):
+        lines.append(f"- Klinik izoh: {p['clinical_note']}")
+    if p.get("priority"):
+        lines.append(f"- Ustuvorlik: {p['priority']}")
+    loc = " / ".join(x for x in (p.get("region"), p.get("locality"), p.get("clinic")) if x)
+    if loc:
+        lines.append(f"- Muassasa: {loc} ({p.get('facility_type') or '—'})")
+
+    sex = _patient_sex_norm(p.get("sex"))
+    site_organ = _organ_from_specimen_site(p.get("specimen_site"))
+    lines.append("")
+    lines.append("QAT'IY QOIDALAR:")
+    if site_organ:
+        name = _HISTOLOGY_ORGAN_UZ.get(site_organ, site_organ)
+        lines.append(
+            f"- Namuna joyi → yetakchi organ QULFI: {name}. "
+            "3 ta ishchi taassurot FAQAT shu organ. Boshqa organ faqat differensialda."
+        )
+    if sex == "erkak":
+        lines.append(
+            "- Bemor ERKAK: sut bezi (ayol) asosiy tashxisini qo'yma, "
+            "agar namuna joyi aniq 'sut bezi/breast' deb yozilmagan bo'lsa."
+        )
+        lines.append("- Yumurtalik / endometrium / ginekologik organ — asosiy qilma.")
+    if sex == "ayol":
+        lines.append(
+            "- Bemor AYOL: prostata asosiy tashxisini qo'yma "
+            "(namuna joyi aniq prostata bo'lmasa)."
+        )
+    if lab_type == "histology":
+        lines.append(
+            "- Gistologiyada klinik namuna joyi morfologik 'taxmin'dan ustun. "
+            "Bir xil rasmda bir marta sut bezi, keyin qovuq deb sakrama."
+        )
+    lines.append(
+        "- Hisobot boshida qisqa 'Bemor: yosh, jins, namuna joyi' qatorini yoz."
     )
+    return "\n".join(lines)
 
 # ─── Global state ─────────────────────────────────────────────────────────────
 camera        = None
@@ -2563,22 +2769,24 @@ def _needs_rewrite(text, lab_type):
     )
 
 
-def _safe_expand(draft, kwargs, image_parts=None, lab_type="hematology", organ_lock=None):
+def _safe_expand(draft, kwargs, image_parts=None, lab_type="hematology", organ_lock=None, patient_context=None):
     """Uzaytirish: tashxis so'zisiz, filtr rad etmasin."""
     protocol = _HISTOLOGY_SAFE_PROTOCOL if lab_type == "histology" else (
         "Ichki LIS protokoli. 50+ jumla. 3 ishchi taassurot (nom+%), MOS/QARSHI. Rad etma."
     )
     lock = _histology_organ_lock_text(organ_lock) if lab_type == "histology" else ""
+    patient = _patient_prompt_prefix(patient_context, lab_type)
     user_text = (
         _lab_lock_text(lab_type)
         + "\n"
+        + (patient + "\n" if patient else "")
         + lock
         + protocol
         + "\n\n==== QISQA QORALAMA (shu asosda UZAYTIR, qisqartirma) ====\n"
         + (draft or "")[:8000]
         + "\n==== TUGADI ====\n"
         "Kamida 70 jumla. BIR organ. 3 taassurot SHU organ oilasidan. "
-        "Sut bezi va qovuqni birgalikda 1-2-3 o'ringa qo'yma. "
+        "Bemor jinsi va namuna joyiga zid yozma. "
         "Yolg'iz 'papillary adenoma' yo'q."
     )
     content = _vision_user(user_text, image_parts) if image_parts else user_text
@@ -2749,13 +2957,19 @@ def _gate_specimen_match(image_parts, lab_type):
         return None
 
 
-def _openai_generate(content_list, lab_type="hematology"):
+def _openai_generate(content_list, lab_type="hematology", patient_context=None):
     if openai_client is None:
         raise RuntimeError(
             "%s sozlanmagan: xizmat kaliti o'rnatilmagan — administrator .env faylida "
             "OPENAI_API_KEY ni belgilashi kerak."
             % ZIYRAKAI_DISPLAY_NAME
         )
+    patient_context = _normalize_patient_context(patient_context)
+    mismatch_pt = _patient_lab_mismatch_message(lab_type, patient_context)
+    if mismatch_pt:
+        log.warning("%s: patient/lab mismatch lab=%s", ZIYRAKAI_DISPLAY_NAME, lab_type)
+        return mismatch_pt
+
     full_prompt = "\n\n".join(item for item in content_list if isinstance(item, str))
     image_parts = [
         {
@@ -2777,17 +2991,22 @@ def _openai_generate(content_list, lab_type="hematology"):
 
     organ_lock = None
     if lab_type == "histology" and image_parts:
-        organ_lock = _lock_histology_organ(image_parts)
+        organ_lock = _lock_histology_organ(image_parts, patient_context)
+
+    patient_block = _patient_prompt_prefix(patient_context, lab_type)
 
     # Professor/konsilium so'rovi gpt-4o da tibbiy filtr bilan rad etiladi.
     # Avval ishlagan ichki morfologiya yozuvi, keyin xavfsiz uzaytirish.
     log.info("%s: 1-bosqich ichki morfologiya lab=%s", ZIYRAKAI_DISPLAY_NAME, lab_type)
     report = ""
+    describe_prompt = _describe_user(lab_type, organ_lock)
+    if patient_block:
+        describe_prompt = patient_block + "\n\n" + describe_prompt
     if image_parts:
         report = _chat_complete(
             [
                 {"role": "system", "content": _SAFE_SYSTEM},
-                {"role": "user", "content": _vision_user(_describe_user(lab_type, organ_lock), image_parts)},
+                {"role": "user", "content": _vision_user(describe_prompt, image_parts)},
             ],
             kwargs,
         )
@@ -2798,10 +3017,13 @@ def _openai_generate(content_list, lab_type="hematology"):
                 len(report or ""),
                 _preview(report),
             )
+            ws = _worksheet_user(lab_type, organ_lock)
+            if patient_block:
+                ws = patient_block + "\n\n" + ws
             report = _chat_complete(
                 [
                     {"role": "system", "content": _WORKSHEET_SYSTEM},
-                    {"role": "user", "content": _vision_user(_worksheet_user(lab_type, organ_lock), image_parts)},
+                    {"role": "user", "content": _vision_user(ws, image_parts)},
                 ],
                 kwargs,
             )
@@ -2809,7 +3031,7 @@ def _openai_generate(content_list, lab_type="hematology"):
         report = _chat_complete(
             [
                 {"role": "system", "content": _analysis_system(lab_type)},
-                {"role": "user", "content": full_prompt},
+                {"role": "user", "content": (patient_block + "\n\n" if patient_block else "") + full_prompt},
             ],
             kwargs,
         )
@@ -2825,11 +3047,11 @@ def _openai_generate(content_list, lab_type="hematology"):
         or len(report) < 2800
     ):
         log.info("%s: 2-bosqich uzaytirish (%s belgi) lab=%s", ZIYRAKAI_DISPLAY_NAME, len(report), lab_type)
-        expanded = _safe_expand(report, kwargs, image_parts, lab_type, organ_lock)
+        expanded = _safe_expand(report, kwargs, image_parts, lab_type, organ_lock, patient_context)
         if _usable(expanded, 1200) and not _looks_like_refusal(expanded):
             if lab_type == "histology" and _histology_report_organs_conflict(expanded):
                 log.warning("%s: uzaytirishda organ konflikti — qayta qulf bilan", ZIYRAKAI_DISPLAY_NAME)
-                fixed = _safe_expand(expanded, kwargs, image_parts, lab_type, organ_lock)
+                fixed = _safe_expand(expanded, kwargs, image_parts, lab_type, organ_lock, patient_context)
                 if _usable(fixed, 1200) and not _histology_report_organs_conflict(fixed):
                     report = fixed
                 else:
@@ -2844,7 +3066,8 @@ def _openai_generate(content_list, lab_type="hematology"):
                 _preview(expanded),
             )
             deepen_prompt = (
-                (_histology_organ_lock_text(organ_lock) + _HISTOLOGY_SAFE_PROTOCOL)
+                (_patient_prompt_prefix(patient_context, lab_type) + "\n"
+                 + _histology_organ_lock_text(organ_lock) + _HISTOLOGY_SAFE_PROTOCOL)
                 if lab_type == "histology"
                 else full_prompt
             )
@@ -2876,7 +3099,7 @@ def _resize_img(img, max_px=None):
         img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
     return img
 
-def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None):
+def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None, patient_context=None):
     """Ko'p rasm tahlili — pil_images: list of PIL.Image (loading=True allaqachon API da)."""
     global latest_analysis
     if not isinstance(pil_images, list):
@@ -2899,7 +3122,7 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None)
             raise ValueError("Rasmlarni qayta ishlash muvaffaqiyatsiz")
 
         base = custom_prompt if custom_prompt and custom_prompt.strip() else LAB_PROMPTS.get(lab_type, "Bu mikroskopiya tasvirini O'zbek tilida batafsil tahlil qil.")
-        prompt = _full_analysis_prompt(base, microscope_prefix, lab_type)
+        prompt = _full_analysis_prompt(base, microscope_prefix, lab_type, patient_context)
 
         if len(imgs) > 1:
             prefix = (
@@ -2912,7 +3135,7 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None)
         else:
             content = [prompt, imgs[0]]
 
-        text = _openai_generate(content, lab_type)
+        text = _openai_generate(content, lab_type, patient_context)
         lines = [l.strip() for l in text.split('\n') if l.strip()]
 
         _publish_analysis({
@@ -2940,6 +3163,7 @@ def do_analyze_video(
     extra_images=None,
     microscope_prefix=None,
     original_filename=None,
+    patient_context=None,
 ):
     """Video faylni OpenAI bilan tahlil qilish (loading=True allaqachon API da)."""
     global latest_analysis
@@ -2949,7 +3173,7 @@ def do_analyze_video(
             latest_analysis.update({"status": "video_tahlil_qilinmoqda", "lab_type": lab_type})
 
         base = custom_prompt if custom_prompt and custom_prompt.strip() else LAB_PROMPTS.get(lab_type, "Bu mikroskopiya videosini O'zbek tilida batafsil tahlil qilish.")
-        prompt = _full_analysis_prompt(base, microscope_prefix, lab_type)
+        prompt = _full_analysis_prompt(base, microscope_prefix, lab_type, patient_context)
 
         import tempfile
         suf = _video_temp_suffix(original_filename)
@@ -2996,7 +3220,7 @@ def do_analyze_video(
         content = [f"Bu {len(frames_data)} ta mikroskopiya video/rasm kadri. " + prompt]
         content.extend(frames_data)
 
-        text = _openai_generate(content, lab_type)
+        text = _openai_generate(content, lab_type, patient_context)
         lines = [l.strip() for l in text.split('\n') if l.strip()]
 
         _publish_analysis({

@@ -490,7 +490,36 @@ function syncLabChrome(m, s) {
   refreshLabPlatform();
 }
 
-const PATIENT_FIELDS = ['accName', 'accAge', 'accSex', 'accWard', 'daftarViloyat', 'daftarLocality', 'daftarClinic', 'daftarType'];
+const PATIENT_FIELDS = [
+  'accName', 'accAge', 'accSex', 'accWard', 'accSite',
+  'daftarViloyat', 'daftarLocality', 'daftarClinic', 'daftarType',
+];
+
+function patientPayload() {
+  const d = daftarGet();
+  return {
+    patient_name: valOf('accName'),
+    sample_id: valOf('accSample') || currentNamunaId(),
+    age: valOf('accAge'),
+    sex: valOf('accSex'),
+    ward: valOf('accWard'),
+    specimen_site: valOf('accSite'),
+    clinical_note: valOf('accClinical'),
+    region: d.regionKey || d.region || '',
+    locality: d.locality || '',
+    clinic: d.clinic || '',
+    facility_type: d.type || '',
+    priority: _priority || 'routine',
+    lab_type: currentLab,
+  };
+}
+
+function appendPatientToFormData(fd) {
+  const p = patientPayload();
+  Object.keys(p).forEach(k => {
+    if (p[k] != null && p[k] !== '') fd.append(k, String(p[k]));
+  });
+}
 
 function ensureSampleNo() {
   allocateSampleSeq();
@@ -1493,7 +1522,7 @@ async function analyze() {
   if (_analyzeBusy) return;
   if (!patientFieldsComplete()) {
     markPatientFields(true);
-    toast('Bemor ma’lumotlarini to‘ldiring: F.I.Sh., yosh, jins, bo‘lim, viloyat, tuman, klinika.', 'red');
+    toast('Bemor ma’lumotlarini to‘ldiring: F.I.Sh., yosh, jins, bo‘lim, namuna joyi, viloyat, tuman, klinika.', 'red');
     document.getElementById('accName')?.focus();
     return;
   }
@@ -1548,8 +1577,7 @@ async function analyzeLocalLive() {
   files.forEach(f => formData.append('files[]', f));
   formData.append('lab_type', currentLab);
   formData.append('source', 'upload');
-  formData.append('patient_name', valOf('accName'));
-  formData.append('sample_id', valOf('accSample') || currentNamunaId());
+  appendPatientToFormData(formData);
   appendMicroscopeToFormData(formData);
   await postAnalyzeForm(formData);
 }
@@ -1568,8 +1596,7 @@ async function analyzeBrowserLive() {
   files.forEach(f => formData.append('files[]', f));
   formData.append('lab_type', currentLab);
   formData.append('source', currentSource === 'phone' ? 'phone' : 'upload');
-  formData.append('patient_name', valOf('accName'));
-  formData.append('sample_id', valOf('accSample') || currentNamunaId());
+  appendPatientToFormData(formData);
   appendMicroscopeToFormData(formData);
   await postAnalyzeForm(formData);
 }
@@ -1582,8 +1609,7 @@ async function analyzeFile() {
   for (const f of uploadedFiles) formData.append('files[]', f);
   formData.append('lab_type', currentLab);
   formData.append('source', currentSource === 'phone' ? 'phone' : 'upload');
-  formData.append('patient_name', valOf('accName'));
-  formData.append('sample_id', valOf('accSample') || currentNamunaId());
+  appendPatientToFormData(formData);
   appendMicroscopeToFormData(formData);
   await postAnalyzeForm(formData);
 }
@@ -1650,8 +1676,7 @@ async function analyzeCamera() {
     source: 'camera',
     lab_type: currentLab,
     microscope: getMicroscopePayload(),
-    patient_name: valOf('accName'),
-    sample_id: valOf('accSample') || currentNamunaId(),
+    ...patientPayload(),
   });
   if (res._httpStatus === 409 || res.busy === true) {
     toast(res.message || 'Boshqa tahlil davom etmoqda — natija kutilmoqda.', 'blue');
@@ -2521,7 +2546,7 @@ document.addEventListener('DOMContentLoaded', () => {
     el.addEventListener('change', onDaftar);
     el.addEventListener('input', onDaftar);
   });
-  ['accName', 'accAge', 'accSex', 'accWard'].forEach(id => {
+  ['accName', 'accAge', 'accSex', 'accWard', 'accSite', 'accClinical'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const onAcc = () => {

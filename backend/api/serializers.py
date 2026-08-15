@@ -150,6 +150,16 @@ class AnalyzeJsonSerializer(serializers.Serializer):
     microscope = MicroscopeStateSerializer(required=False)
     patient_name = serializers.CharField(required=False, allow_blank=True, max_length=120, default="")
     sample_id = serializers.CharField(required=False, allow_blank=True, max_length=40, default="")
+    age = serializers.CharField(required=False, allow_blank=True, max_length=8, default="")
+    sex = serializers.CharField(required=False, allow_blank=True, max_length=16, default="")
+    ward = serializers.CharField(required=False, allow_blank=True, max_length=80, default="")
+    specimen_site = serializers.CharField(required=False, allow_blank=True, max_length=80, default="")
+    clinical_note = serializers.CharField(required=False, allow_blank=True, max_length=200, default="")
+    region = serializers.CharField(required=False, allow_blank=True, max_length=40, default="")
+    locality = serializers.CharField(required=False, allow_blank=True, max_length=80, default="")
+    clinic = serializers.CharField(required=False, allow_blank=True, max_length=8, default="")
+    facility_type = serializers.CharField(required=False, allow_blank=True, max_length=8, default="")
+    priority = serializers.CharField(required=False, allow_blank=True, max_length=16, default="")
 
     def validate_lab_type(self, value):
         return _normalize_lab_type(value)
