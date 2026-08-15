@@ -1096,18 +1096,23 @@ MUHIM: Effuziya sitologiyasi sezgirlik-cheklangan; salbiy natija yomon hujayrani
 """,
 
     "histology": """
-Sen 30+ yillik kafedra professori-gistopatologsan (WHO Classification of Tumours, AFIP atlas).
+Sen 30+ yillik kafedra professori-gistopatologsan.
+Standartlar (uslub, matn nusxasi EMAS): Junqueira's Basic Histology (Mescher);
+McKee's Pathology of the Skin; Langman's Medical Embryology (Sadler);
+Molecular Biology of the Cell (Alberts); WHO Classification of Tumours.
 Bu H&E (yoki maxsus) to'qima kesmasini O'ZBEK tilida KONSULTATSION PATOLOGIYA protokoli bilan yoz.
 Yuzaki foizli jadval (arxitektura 70%, epiteliy 60%, baho 3) QAT'IY TAQIQLANADI — bu gistologiya emas.
 "Yallig'lanishli atipik o'zgarishlar" kabi noaniq gap HAM taqiqlanadi.
 
 O'YLASH TARTIBI (professor):
+0) Junqueira: qaysi TO'QIMA TIPI? (epiteliy/biriktiruvchi/mushak/nerv…)
 1) Bu qaysi ORGAN / to'qima? (sut bezi, prostata, endometrium, oshqozon-ichak, teri, qalqonsimon, o'pka, yumurtalik, noaniq)
-2) Qanday PATTERN? papillary / cribriform / tubular / solid / nested / villous / cystic
+2) Qanday PATTERN? papillary / cribriform / tubular / solid / nested / villous / cystic / papillomatosis
 3) Benign vs reaktiv vs displaziya vs in situ vs invaziv — har biri uchun MOS / QARSHI dalil
-4) Yadro: grade 1-3, xromatin, yadrocha, N/C, polarlik
+4) Yadro (MBOC): grade 1-3, xromatin, yadrocha, N/C, polarlik
 5) Stroma: desmoplaziya, invaziya, fibrovascular core (papilla), yallig'lanish turi
-6) 3 ta WHO ishchi taassurot, ehtimollik % bilan, eng ehtimolini BIRINCHI qil
+6) Teri bo'lsa McKee: epidermis / junction / dermis / adneks alohida
+7) 3 ta WHO/McKee ishchi taassurot, ehtimollik % bilan, eng ehtimolini BIRINCHI qil
 
 ## 0. PREPARAT
 H&E ni tasdiqla (yadro binafsha, stroma/sitoplazma eozinofil pushti). Kesma sifati, kattalashtirish.
@@ -1131,15 +1136,16 @@ Izoh: 8-12 jumla.
 ## 4. DIFFERENSIAL (kamida 5 ta, ehtimollik %)
 Har biri: MOS / QARSHI / nima farqlaydi (IHC, qo'shimcha kesma).
 FAQAT yetakchi organ oilasidan: papilloma vs papillary carcinoma; PIN vs adenocarcinoma;
-polyp vs hyperplasia vs carcinoma; villous adenoma vs adenocarcinoma; teri lezyonlari o'rtasida.
+polyp vs hyperplasia vs carcinoma; villous adenoma vs adenocarcinoma;
+teri (McKee): seborrheic keratosis vs verruca vs SCC in situ vs BCC vs papilloma.
 Boshqa organ (sut bezi/qovuq/…) nomini differensialga QO'SHMA.
 "Boshqa organ differensiali" bo'limini YARATMA.
 
 ## 5. ANIQ TASHXIS (majburiy — noaniq yozma)
-Yetakchi morfologik tashxisni ANIQ yoz (WHO/atlas nomi + organ).
+Yetakchi morfologik tashxisni ANIQ yoz (WHO/McKee/atlas nomi + organ).
 Format majburiy:
 #### ANIQ TASHXIS
-- Yetakchi: <ORGAN> — <WHO nomi> (ehtimollik %)
+- Yetakchi: <ORGAN> — <WHO/McKee nomi> (ehtimollik %)
 - 2-o'rin: ...
 - 3-o'rin: ...
 Qisqa asos: 3-5 jumla (nima ko'rindi).
@@ -1289,10 +1295,16 @@ LAB_IDENTITY = {
     "histology": {
         "label": "Gistologiya — H&E to'qima kesmasi",
         "specimen": "To'qima kesmasi (H&E / maxsus bo'yoq)",
-        "role": "kafedra professori-gistopatolog (WHO/AFIP)",
-        "count": "organ (BIRTA), epitel turi, papilla/fibrovascular core, nuclear grade, mitoz/10HPF, invaziya, WHO taassurot 1-2-3",
+        "role": (
+            "kafedra professori-gistopatolog: Junqueira atlas + McKee skin pathology + "
+            "Langman embriologiya + Molecular Biology of the Cell (Alberts) mezonlari bilan"
+        ),
+        "count": (
+            "organ (BIRTA), to'qima tipi (Junqueira), hujayra/yadro/sitoplazma (MBOC), "
+            "pattern, nuclear grade, mitoz/10HPF, invaziya, WHO/McKee taassurot 1-2-3"
+        ),
         "forbid": "Qon yoqmasi formulasi TAQIQLANADI. Foizli 'arxitektura 70% / epiteliy 60% / baho 3' jadvali TAQIQLANADI. Noaniq 'yallig'lanishli atipik o'zgarishlar' TAMOM.",
-        "dx": "3 ta WHO uslubidagi ishchi morfologik taassurot (organ + nom + %). 'Papillar adenoma' yolg'iz TAQIQLANADI.",
+        "dx": "3 ta WHO/McKee uslubidagi ishchi morfologik taassurot (organ + nom + %). 'Papillar adenoma' yolg'iz TAQIQLANADI.",
     },
 }
 
@@ -1328,7 +1340,12 @@ LAB_BOARD = {
     "dermatology": "dermatopatolog professor; klinik dermatolog; mikolog",
     "derm_microscopy": "dermatologik mikroskopist professor; parazitolog; mikolog",
     "effusion_cytology": "effuziya sitologi professor; onkotsitolog; pulmonolog/xirurg konsultanti",
-    "histology": "jarrohlik patologiyasi professori (WHO tumors); onkomorfolog; IHC/molekulyar patolog",
+    "histology": (
+        "Junqueira gistologiya professori (to'qima tipi/arkitektura); "
+        "McKee dermatopatolog (teri differensiali); "
+        "Langman embriolog (rivojlanish konteksti); "
+        "Alberts/MBOC hujayra biolog (yadro/sitoplazma/junction)"
+    ),
 }
 
 assert set(LAB_BOARD) == set(LAB_PROMPTS), "LAB_BOARD har lab turini qamrab olishi kerak"
@@ -1376,16 +1393,56 @@ def _board_voices(lab_type):
     )
 
 
+_HISTOLOGY_CANON_REF = """
+#### GISTOLOGIYA KANON (darslik mezonlari — matnni nusxa qilma, USLUBNI qo'lla)
+Ichki LIS o'qituvchi protokoli. Quyidagi standartlar bo'yicha fikrla (mualliflik matnini ko'chirma):
+
+1) Junqueira's Basic Histology (Mescher) — avvalo TO'QIMA TIPINI aniqlа:
+   - Epiteliy (yassi/kubik/silindrik; 1 vs ko'p qavat; o'tish/urotel; goblet)
+   - Biriktiruvchi to'qima (kollagen zichligi, fibroblast, elastik, mushak, yog')
+   - Nerv / mushak / qon yaratuvchi elementlar — bor/yo'q
+   Har hisobotda: «To'qima tipi (Junqueira): …» qatori.
+
+2) Molecular Biology of the Cell (Alberts) — HUJAYRA darajasi:
+   - Yadro: o'lcham, xromatin (euchromatin/heterochromatin), yadrocha, N/C
+   - Sitoplazma: eozinofiliya/bazofiliya, vakuola, keratinizatsiya, pigment
+   - Hujayralararo bog'lanish/polarlik (apikal-bazal) — saqlangan/buzilgan
+   - Mitoz: normal vs atipik; taxminiy /10 HPF
+   Har hisobotda: «Hujayra morfologiyasi (MBOC): …» qisqa blok.
+
+3) Langman's Medical Embryology (Sadler) — faqat kerak bo'lsa:
+   - Rivojlanish anomaliyasi / germ qatlami / choristoma-hamartoma shubhasi
+   - Embriologik organ kelib chiqishi (masalan: branchial, neural crest, endoderm)
+   Kerak bo'lmasa o'tkazib yubor; o'ylab chiqarilgan embriologiya yozma.
+
+4) McKee's Pathology of the Skin — organ=TERI bo'lsa MAJBURIY uslub:
+   Epidermis / dermoepidermal junction / dermis / adneks (follikul, yog' bezi, ter bezlari).
+   Pattern: papillomatosis, acanthosis, hyperkeratosis, parakeratosis, spongiosis,
+   lichenoid, interface, granulomatous, panniculitis, vascular.
+   Differensial FAQAT teri oilasidan, masalan:
+   seborrheic keratosis; verruca vulgaris; squamous papilloma; actinic keratosis;
+   Bowen (SCC in situ); keratoacanthoma; BCC (nodular/superficial); SCC;
+   melanocytic nevus vs melanoma shubhasi; dermatofibroma; pyogenic granuloma;
+   adnexal tumor (poroma, cylindroma, spiradenoma) — faqat dalil bo'lsa.
+   McKee uslubida: klinik-patologik korrelyatsiya + 3 ta aniq teri tashxisi.
+
+5) WHO Classification of Tumours — organ o'smalari uchun rasmiy nomlash.
+   Tashxis NOMI atlas/WHO uslubida; "papillary adenoma" yolg'iz TAQIQLANADI.
+
+HISOBOTDA qisqa eslatma (1 qator):
+«Mezon: Junqueira + MBOC + (teri bo'lsa McKee) + WHO; Langman — zaruratga qarab.»
+"""
+
 _HISTOLOGY_SAFE_PROTOCOL = """
 ICHKI patologiya o'quv qoralamasi (imzo emas). O'zbek tilida. Kamida 70 to'liq jumla.
-
+""" + _HISTOLOGY_CANON_REF + """
 ORGAN QOIDASI (eng muhim — buzilsa hisobot yaroqsiz):
 - BIR yetakchi ORGAN ni tanla va BUTUN hisobot shu organda qoladi.
-- 3 ta ishchi taassurotning HAR UCHALASI ham SHU organ + WHO nomi.
+- 3 ta ishchi taassurotning HAR UCHALASI ham SHU organ + WHO/McKee nomi.
 - Boshqa organ (sut bezi, qovuq, prostata va h.k.) ni UMUMAN yozma —
   na 1/2/3-o'rin, na alohida "Boshqa organ differensiali" bo'limi.
 - "#### BOSHQA ORGAN DIFFERENSIALI" bo'limini YARATMA — bu bo'lim TAQIQLANGAN.
-- Differensial FAQAT yetakchi organ oilasidan (masalan teri → teri kasalliklari).
+- Differensial FAQAT yetakchi organ oilasidan (masalan teri → McKee teri kasalliklari).
 - Bir xil rasmda bir marta sut bezi, keyin qovuq deb yozish TAQIQLANADI.
 
 ORGANNI QANDAY TANLASH (papillar lesiya uchun):
@@ -1395,12 +1452,13 @@ B) Ko'p qavatli urotel (umbrella hujayra), papilla sirtida qalin urotel qavat �
 C) Kolloid + yadro ichida bo'shliq (orphan Annie) → QALQONSIMON.
 D) Corpora amylacea / ikki qavatli prostata epiteli → PROSTATA.
 E) Villous/ichak goblet → ICHAK.
+F) Epidermis + keratin + dermoepidermal junction → TERI (McKee uslubi).
 Dalilsiz "urotel" yoki "silindrik" deb yozma — nima KO'RINISHINI yoz.
 
 1) Yetakchi organ + kamida 5 morfologik dalil (epitel turi, stroma, sekret, corpora amylacea,
-   kolloid, musin, myoepiteliy, umbrella hujayra).
-2) Pattern: papillary / cribriform / tubular / solid / villous — bor/yo'q.
-3) Yadro grade 1-3, mitoz/10HPF, invaziya ha/yo'q/shubhali.
+   kolloid, musin, myoepiteliy, umbrella hujayra, epidermis/adneks).
+2) Pattern: papillary / cribriform / tubular / solid / villous / papillomatosis — bor/yo'q.
+3) Yadro grade 1-3, mitoz/10HPF, invaziya ha/yo'q/shubhali (MBOC yadro mezonlari bilan).
 4) 3 ta ISHCHI TAASSUROT — faqat yetakchi organ oilasidan:
    - Sut bezi: intraductal papilloma; encapsulated papillary carcinoma; papillary DCIS
    - Prostata: ductal adenocarcinoma (papillar); HGPIN; prostatic-type polyp
@@ -1409,14 +1467,15 @@ Dalilsiz "urotel" yoki "silindrik" deb yozma — nima KO'RINISHINI yoz.
    - Ichak: villous/tubulovillous adenoma; adenocarcinoma
    - Yumurtalik: serous borderline; serous papilloma
    - Buyrak: papillary RCC
-   - Teri: seborrheic keratosis; squamous papilloma; verruca; BCC; SCC in situ
+   - Teri (McKee): seborrheic keratosis; verruca; squamous papilloma; actinic keratosis;
+     SCC in situ; BCC; SCC; nevus; dermatofibroma; adnexal tumor (dalil bo'lsa)
    Yetakchi organ qulfi bo'lsa FAQAT shu oiladan yoz; boshqa organ oilasini eslatma.
    Yolg'iz "papillary adenoma / papillary carcinoma" TAQIQLANADI.
    XATO: "DCIS uchun invaziya kerak" — DCIS invaziv EMAS; encapsulated papillary carcinoma
    invaziyasiz ham bo'lishi mumkin (kapsula ichida).
 5) Majburiy sarlavhalar (hisobot BOSHIDA yoki oxirida, lekin BO'LISHI SHART):
    #### ANIQ TASHXIS
-   - Yetakchi: ORGAN — WHO nomi (ehtimollik %)
+   - Yetakchi: ORGAN — WHO/McKee nomi (ehtimollik %)
    - 2-o'rin / 3-o'rin
    #### NIMA QILISH KERAK
    1) qo'shimcha kesma / IHC / klinik yo'nalish (aniq)
@@ -1680,7 +1739,8 @@ def _describe_user(lab_type, organ_lock=None):
     if lab_type == "histology":
         return (
             f"H&E tissue photomicrograph. Internal pathology teaching note in Uzbek. "
-            f"Not a signed report. Never refuse.\n"
+            f"Apply Junqueira + McKee (if skin) + Langman (if developmental) + MBOC cell criteria + WHO names. "
+            f"Do NOT copy textbook text; apply their diagnostic METHOD. Never refuse.\n"
             f"{m['forbid']}\n\n"
             + _histology_organ_lock_text(organ_lock)
             + _HISTOLOGY_SAFE_PROTOCOL
@@ -1786,6 +1846,8 @@ def _full_analysis_prompt(base, microscope_prefix, lab_type=None, patient_contex
     if patient:
         parts.append(patient)
     parts.append(CLINICAL_EXCELLENCE_PREFIX_UZ.strip())
+    if (lab_type or "") == "histology":
+        parts.append(_HISTOLOGY_CANON_REF.strip())
     parts.append(merged)
     return _append_output_format("\n\n".join(parts))
 
@@ -2580,6 +2642,9 @@ _WORKSHEET_SYSTEM = (
 _SAFE_SYSTEM = (
     "You write INTERNAL laboratory morphology notes in Uzbek for licensed staff. "
     "Unsigned draft for LIS; clinician confirms. Never refuse. "
+    "For histology: reason like Junqueira (tissue type), McKee (skin differentials), "
+    "Langman (developmental only if relevant), Alberts/MBOC (cell/nucleus), WHO names. "
+    "Do not paste copyrighted textbook text — apply their METHOD. "
     "Start with #### ANIQ TASHXIS (specific WHO/atlas name + %), #### NIMA QILISH KERAK "
     "(at least 3 concrete next steps), and #### PROFILAKTIKA VA DAVOLASH REJASI "
     "(prevention + treatment direction + follow-up; clinical orientation, not a signed Rx). "
