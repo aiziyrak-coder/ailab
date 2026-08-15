@@ -53,6 +53,15 @@ class AnalysisRecord(models.Model):
     img_count = models.PositiveSmallIntegerField(default=0)
     patient_name = models.CharField(max_length=120, blank=True, default="")
     sample_id = models.CharField(max_length=40, blank=True, default="", db_index=True)
+    age = models.CharField(max_length=8, blank=True, default="")
+    sex = models.CharField(max_length=16, blank=True, default="")
+    ward = models.CharField(max_length=80, blank=True, default="")
+    specimen_site = models.CharField(max_length=80, blank=True, default="")
+    clinical_note = models.CharField(max_length=200, blank=True, default="")
+    region = models.CharField(max_length=40, blank=True, default="")
+    locality = models.CharField(max_length=80, blank=True, default="")
+    clinic = models.CharField(max_length=8, blank=True, default="")
+    facility_type = models.CharField(max_length=8, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -76,6 +85,15 @@ class AnalysisRecord(models.Model):
         status="tahlil_qilinmoqda",
         patient_name="",
         sample_id="",
+        age="",
+        sex="",
+        ward="",
+        specimen_site="",
+        clinical_note="",
+        region="",
+        locality="",
+        clinic="",
+        facility_type="",
     ):
         prefix = timezone.localtime().strftime("ML-%y%m%d-")
         last_err = None
@@ -104,6 +122,15 @@ class AnalysisRecord(models.Model):
                         img_count=max(0, min(int(img_count or 0), 32767)),
                         patient_name=(patient_name or "")[:120],
                         sample_id=(sample_id or "")[:40],
+                        age=(age or "")[:8],
+                        sex=(sex or "")[:16],
+                        ward=(ward or "")[:80],
+                        specimen_site=(specimen_site or "")[:80],
+                        clinical_note=(clinical_note or "")[:200],
+                        region=(region or "")[:40],
+                        locality=(locality or "")[:80],
+                        clinic=(clinic or "")[:8],
+                        facility_type=(facility_type or "")[:8],
                     )
                     rec.save()
                     return rec

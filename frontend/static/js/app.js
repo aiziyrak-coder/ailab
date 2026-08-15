@@ -521,6 +521,132 @@ function appendPatientToFormData(fd) {
   });
 }
 
+const PATIENT_LS = 'medlab_patients_v1';
+let _patientLookupTimer = null;
+let _patientAutofillSilent = false;
+
+function _normPatientName(name) {
+  return String(name || '').toLowerCase().replace(/[ʻ'`]/g, "'").replace(/\s+/g, ' ').trim();
+}
+
+function rememberPatient(payload) {
+  const p = payload || patientPayload();
+  const key = _normPatientName(p.patient_name);
+  if (!key || key.length < 2) return;
+  let map = {};
+  try { map = JSON.parse(localStorage.getItem(PATIENT_LS) || '{}') || {}; } catch (_) { map = {}; }
+  map[key] = {
+    patient_name: p.patient_name || '',
+    age: p.age || '',
+    sex: p.sex || '',
+    ward: p.ward || '',
+    specimen_site: p.specimen_site || '',
+    clinical_note: p.clinical_note || '',
+    region: p.region || '',
+    locality: p.locality || '',
+    clinic: p.clinic || '',
+    facility_type: p.facility_type || '',
+    lab_type: p.lab_type || currentLab || '',
+    saved_at: Date.now(),
+  };
+  const keys = Object.keys(map);
+  if (keys.length > 80) {
+    keys.sort((a, b) => (map[a].saved_at || 0) - (map[b].saved_at || 0));
+    keys.slice(0, keys.length - 80).forEach(k => delete map[k]);
+  }
+  try { localStorage.setItem(PATIENT_LS, JSON.stringify(map)); } catch (_) {}
+}
+
+function lookupPatientLocal(name) {
+  const key = _normPatientName(name);
+  if (!key || key.length < 2) return null;
+  let map = {};
+  try { map = JSON.parse(localStorage.getItem(PATIENT_LS) || '{}') || {}; } catch (_) { return null; }
+  if (map[key]) return map[key];
+  const hit = Object.keys(map).find(k => k === key || k.startsWith(key) || key.startsWith(k));
+  return hit ? map[hit] : null;
+}
+
+function applyPatientFields(p, opts) {
+  if (!p) return false;
+  const soft = !!(opts && opts.soft);
+  _patientAutofillSilent = true;
+  const set = (id, val) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v = val == null ? '' : String(val);
+    if (soft && valOf(id)) return;
+    el.value = v;
+    el.classList.remove('missing');
+  };
+  set('accName', p.patient_name);
+  set('accAge', p.age);
+  set('accSex', p.sex);
+  set('accWard', p.ward);
+  set('accSite', p.specimen_site);
+  set('accClinical', p.clinical_note);
+  if (p.region || p.locality || p.clinic || p.facility_type) {
+    const vil = document.getElementById('daftarViloyat');
+    if (vil && p.region && (!soft || !vil.value)) {
+      vil.value = p.region;
+      fillLocalitySelect(p.region);
+    }
+    const loc = document.getElementById('daftarLocality');
+    if (loc && p.locality && (!soft || !loc.value)) loc.value = p.locality;
+    const cli = document.getElementById('daftarClinic');
+    if (cli && p.clinic && (!soft || !cli.value)) cli.value = p.clinic;
+    const typ = document.getElementById('daftarType');
+    if (typ && p.facility_type && (!soft || !typ.value)) typ.value = p.facility_type;
+    daftarSave();
+  }
+  if (p.lab_type && LAB_META[p.lab_type]) selectLab(p.lab_type);
+  checkSexNameHint();
+  updateAnalyzeBtn();
+  refreshLabPlatform();
+  _patientAutofillSilent = false;
+  return true;
+}
+
+function clearPatientFields() {
+  ['accName', 'accAge', 'accSex', 'accWard', 'accSite', 'accClinical'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.value = '';
+      el.classList.remove('missing');
+    }
+  });
+  checkSexNameHint();
+}
+
+async function tryAutofillPatient(name, opts) {
+  const n = String(name || valOf('accName') || '').trim();
+  if (n.length < 2) return false;
+  const local = lookupPatientLocal(n);
+  if (local && applyPatientFields(local, opts)) {
+    if (!(opts && opts.silent)) toast('Bemor kartasi topildi (saqlangan)', 'blue');
+    return true;
+  }
+  const data = await api(apiPath('/api/patients/lookup?q=' + encodeURIComponent(n)));
+  if (data && data.success && data.found && data.patient) {
+    rememberPatient(data.patient);
+    applyPatientFields(data.patient, opts);
+    if (!(opts && opts.silent)) toast('Bemor kartasi avtomatik to‘ldirildi', 'green');
+    return true;
+  }
+  return false;
+}
+
+function schedulePatientLookup() {
+  if (_patientAutofillSilent) return;
+  clearTimeout(_patientLookupTimer);
+  _patientLookupTimer = setTimeout(() => {
+    const name = valOf('accName');
+    if (name.length < 3) return;
+    // Faqat bo'sh maydonlarni to'ldirish — foydalanuvchi yozganini buzmasin
+    tryAutofillPatient(name, { soft: true, silent: true });
+  }, 450);
+}
+
 function ensureSampleNo() {
   allocateSampleSeq();
   refreshSampleId();
@@ -733,6 +859,7 @@ function startNewAnalysis() {
   const ov = document.getElementById('analyzeOv');
   if (ov) ov.classList.add('hidden');
   clearResult();
+  clearPatientFields();
   // Yangi namuna raqami (oldingi natija bilan aralashmasin)
   _sampleSeq = 0;
   allocateSampleSeq();
@@ -744,9 +871,8 @@ function startNewAnalysis() {
   const name = document.getElementById('accName');
   if (name) {
     name.focus();
-    name.select();
   }
-  toast('Yangi tahlil: bemor/rasmni tekshirib «Tahlil boshlash»ni bosing', 'green');
+  toast('Yangi tahlil: F.I.Sh. yozing — oldingi bemor avtomatik to‘ldiriladi', 'green');
 }
 
 let _priority = 'routine';
@@ -2056,7 +2182,10 @@ function renderResult(data) {
     vb.textContent = 'Tasdiqlash';
   }
   refreshLabPlatform();
-  if (_hasResult) scrollResultIntoView();
+  if (_hasResult) {
+    rememberPatient();
+    scrollResultIntoView();
+  }
 }
 
 function isMdTableSeparator(line) {
@@ -2694,6 +2823,36 @@ async function openHistoryRecord(publicId) {
   }
   const rec = data.analysis;
   closeHistory();
+  applyPatientFields({
+    patient_name: rec.patient_name,
+    age: rec.age,
+    sex: rec.sex,
+    ward: rec.ward,
+    specimen_site: rec.specimen_site,
+    clinical_note: rec.clinical_note,
+    region: rec.region,
+    locality: rec.locality,
+    clinic: rec.clinic,
+    facility_type: rec.facility_type,
+    lab_type: rec.lab_type,
+  });
+  rememberPatient({
+    patient_name: rec.patient_name,
+    age: rec.age,
+    sex: rec.sex,
+    ward: rec.ward,
+    specimen_site: rec.specimen_site,
+    clinical_note: rec.clinical_note,
+    region: rec.region,
+    locality: rec.locality,
+    clinic: rec.clinic,
+    facility_type: rec.facility_type,
+    lab_type: rec.lab_type,
+  });
+  if (rec.sample_id) {
+    const sid = document.getElementById('accSample');
+    if (sid) sid.value = rec.sample_id;
+  }
   renderResult({
     status: rec.status,
     text: rec.text,
@@ -2701,7 +2860,7 @@ async function openHistoryRecord(publicId) {
     public_id: rec.public_id,
     lab_type: rec.lab_type,
   });
-  toast('Tahlil ochildi: ' + rec.public_id, 'green');
+  toast('Tahlil ochildi: ' + rec.public_id + ' — bemor kartasi to‘ldirildi', 'green');
 }
 
 document.addEventListener('keydown', (e) => {
@@ -2766,14 +2925,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const onAcc = () => {
       if (valOf(id)) el.classList.remove('missing');
       if (id === 'accName' || id === 'accSex') checkSexNameHint();
+      if (id === 'accName') schedulePatientLookup();
       refreshLabPlatform();
       updateAnalyzeBtn();
     };
     el.addEventListener('change', onAcc);
     el.addEventListener('input', onAcc);
+    if (id === 'accName') {
+      el.addEventListener('blur', () => {
+        if (valOf('accName').length >= 2) tryAutofillPatient(valOf('accName'), { soft: true });
+      });
+    }
     el.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') {
         ev.preventDefault();
+        if (id === 'accName' && valOf('accName').length >= 2) {
+          tryAutofillPatient(valOf('accName'), { soft: false }).then(() => {
+            if (patientFieldsComplete() && (uploadedFiles.length || cameraRunning) && !_analyzeBusy) {
+              analyze();
+            } else {
+              focusFirstMissingPatient();
+            }
+          });
+          return;
+        }
         if (patientFieldsComplete() && (uploadedFiles.length || cameraRunning) && !_analyzeBusy) {
           analyze();
         } else {

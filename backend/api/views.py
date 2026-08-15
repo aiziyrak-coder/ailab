@@ -169,7 +169,7 @@ def _busy_response(request):
 
 def _attach_analysis_record(request, lab_type, source, job_id, img_count=0, status="tahlil_qilinmoqda"):
     rec = None
-    patient_name, sample_id = _patient_meta(request)
+    ctx = _patient_context_from_request(request)
     try:
         rec = AnalysisRecord.create_pending(
             user=request.user,
@@ -178,8 +178,17 @@ def _attach_analysis_record(request, lab_type, source, job_id, img_count=0, stat
             job_id=job_id or "",
             img_count=img_count,
             status=status,
-            patient_name=patient_name,
-            sample_id=sample_id,
+            patient_name=ctx.get("patient_name") or "",
+            sample_id=ctx.get("sample_id") or "",
+            age=ctx.get("age") or "",
+            sex=ctx.get("sex") or "",
+            ward=ctx.get("ward") or "",
+            specimen_site=ctx.get("specimen_site") or "",
+            clinical_note=ctx.get("clinical_note") or "",
+            region=ctx.get("region") or "",
+            locality=ctx.get("locality") or "",
+            clinic=ctx.get("clinic") or "",
+            facility_type=ctx.get("facility_type") or "",
         )
         with eng.analysis_lock:
             if eng.latest_analysis.get("job_id") == job_id:
@@ -779,6 +788,51 @@ class AnalysisDetailView(APIView):
         pid = rec.public_id
         rec.delete()
         return Response({"success": True, "message": "Tahlil o‘chirildi", "public_id": pid})
+
+
+class PatientLookupView(APIView):
+    """GET /api/patients/lookup?q= — oxirgi saqlangan bemor kartasi (avto-to‘ldirish)."""
+
+    def get(self, request):
+        q = re.sub(r"\s+", " ", (request.query_params.get("q") or "")).strip()
+        if len(q) < 2:
+            return Response({"success": True, "found": False, "patient": None})
+        rec = (
+            AnalysisRecord.objects.filter(user=request.user, patient_name__icontains=q)
+            .exclude(patient_name="")
+            .order_by("-created_at")
+            .first()
+        )
+        if rec is None:
+            # Aniqroq: boshidagi moslik
+            rec = (
+                AnalysisRecord.objects.filter(user=request.user, patient_name__istartswith=q[:40])
+                .exclude(patient_name="")
+                .order_by("-created_at")
+                .first()
+            )
+        if rec is None:
+            return Response({"success": True, "found": False, "patient": None})
+        return Response(
+            {
+                "success": True,
+                "found": True,
+                "patient": {
+                    "patient_name": rec.patient_name or "",
+                    "age": rec.age or "",
+                    "sex": rec.sex or "",
+                    "ward": rec.ward or "",
+                    "specimen_site": rec.specimen_site or "",
+                    "clinical_note": rec.clinical_note or "",
+                    "region": rec.region or "",
+                    "locality": rec.locality or "",
+                    "clinic": rec.clinic or "",
+                    "facility_type": rec.facility_type or "",
+                    "lab_type": rec.lab_type or "",
+                    "last_public_id": rec.public_id,
+                },
+            }
+        )
 
 
 class CaptureView(APIView):

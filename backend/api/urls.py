@@ -23,6 +23,7 @@ urlpatterns = [
     path("api/analysis_result", views.AnalysisResultView.as_view(), name="api-analysis-result"),
     path("api/analyses", views.AnalysisListView.as_view(), name="api-analyses"),
     path("api/analyses/<str:public_id>", views.AnalysisDetailView.as_view(), name="api-analysis-detail"),
+    path("api/patients/lookup", views.PatientLookupView.as_view(), name="api-patients-lookup"),
     path("api/capture", views.CaptureView.as_view(), name="api-capture"),
     path("api/status", views.StatusView.as_view(), name="api-status"),
 ]
