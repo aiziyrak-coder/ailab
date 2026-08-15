@@ -1172,7 +1172,8 @@ Har biri: qo'shimcha kesma / IHC / klinika yo'nalishi / muddat.
 Bu ichki LIS klinik orientiri — shifokor tasdiqlaydi va individual reja tuzadi.
 Aniq dori dozalari o'rniga standart klinik yo'nalishni yoz (masalan: jarrohlik baholash, konservativ, antibiotik/antifungal yo'nalish, immunoterapiya konsultatsiyasi).
 
-AVVAL #### ANIQ TASHXIS, #### WHO MEZONLARI, #### NIMA QILISH KERAK, #### PROFILAKTIKA VA DAVOLASH REJASI. Keyin jadvallar:
+AVVAL #### ANIQ TASHXIS, #### WHO MEZONLARI, #### BATAFSIL MORFOLOGIK TAHLIL,
+#### KLINIK FIKRLASH, #### NEGA BU TASHXIS, #### NIMA QILISH KERAK, #### PROFILAKTIKA VA DAVOLASH REJASI. Keyin jadvallar:
 A | Belgi | Topilma | Mezon | Ishonch |  — pattern, grade, mitoz, invaziya (12+ qator)
 B | Kompartment | Kuzatuv | Daraja | Izoh |
 C | Differensial | Ehtimollik % | Mos | Qarshi |
@@ -1504,22 +1505,61 @@ E) TAQIQLANGAN (hisobot yaroqsiz):
 - boshqa organ differensiali
 - bir hisobotda ikki yetakchi organ
 
-F) HISOBOT BOSHI (MAJBURIY TARTIB):
+F) HISOBOT TARTIBI (MAJBURIY — qisqa tashxis + TO'LIQ tahlil):
 1) #### ANIQ TASHXIS (WHO nomi + %)
 2) #### WHO MEZONLARI (Essential / Desirable)
-3) #### NIMA QILISH KERAK
-4) #### PROFILAKTIKA VA DAVOLASH REJASI
-5) #### RASMLAR SINTESI (agar >1 rasm)
-Keyin morfologiya va jadvallar.
+3) #### BATAFSIL MORFOLOGIK TAHLIL (kamida 25 jumla) — pastga qarang
+4) #### KLINIK FIKRLASH (o'quv, kamida 20 jumla) — pastga qarang
+5) #### NEGA BU TASHXIS (kamida 12 jumla) — differensialni o'rgatish
+6) #### NIMA QILISH KERAK
+7) #### PROFILAKTIKA VA DAVOLASH REJASI
+8) #### RASMLAR SINTESI (agar >1 rasm)
+9) Keyin konsilium (1/2/3-professor) va jadvallar
 
-G) SIFAT: kamida 90 to'liq jumla. Har da'vo — KO'RINADIGAN dalil.
-Agar essential mezon yetarli emas: "ehtimollik past" deb yoz, uydirma.
+G) SIFAT: kamida 120 to'liq jumla. Tashxis YAXSHI bo'lishi shart, LEKIN tahlilsiz hisobot YAROQSIZ.
+Har da'vo — KO'RINADIGAN dalil. Essential yetarli emas bo'lsa ehtimollikni pasaytir.
+"""
+
+_HISTOLOGY_TEACHING_DEEP = """
+#### O'QUV TAHLIL (foydalanuvchi klinik fikrlashini oshirish — MAJBURIY)
+
+Maqsad: faqat tashxis emas — laborant/shifokor O'RGANSIN. Har bir bo'limni BATAFSIL yoz.
+
+#### BATAFSIL MORFOLOGIK TAHLIL (kamida 25 to'liq jumla)
+Quyidagilarni KETMA-KET ochib yoz (qisqa bullet yetarli EMAS):
+1) Preparat sifati: bo'yoq, artefakt, kattalashtirish taxmini
+2) To'qima tipi va organ dalillari (nima KO'RINADI — 5+ konkret belgi)
+3) Arxitektura/pattern: papilla, gland, solid, kist — o'lchov/shoxlanish/chegaralar
+4) Epitel: qavat, polarlik, sekret, keratin, goblet, umbrella va h.k.
+5) Yadro: o'lcham, xromatin, yadrocha, N/C, pleomorfizm, mitoz (taxminiy /10HPF)
+6) Stroma/tomir: fibrovascular core, desmoplaziya, yallig'lanish, nekroz, pigment
+7) Invaziya bahosi: ha/yo'q/shubhali — NIMA uchun (stroma, membrana, infiltratsiya)
+8) Artefakt vs haqiqiy topilma — chalkashtirmaslik
+
+#### KLINIK FIKRLASH (o'quv, kamida 20 to'liq jumla)
+Bu bo'lim foydalanuvchini O'QITADI. Format:
+- Savol: «Avval nima deb o'ylayman?» → javob
+- Savol: «Qaysi 3 belgi eng muhim?» → izoh
+- Savol: «Bu reaktivmi yoki neoplastik?» → MOS/QARSHI
+- Savol: «In situ vs invaziv?» → qanday ajrataman
+- Savol: «Klinikada nima so'rayman / qanday korrelyatsiya?» → yosh, jins, joy, shikoyat
+- Xulosa: qanday mantiq zanjiri 1-o'rin tashxisga olib keldi
+Oddiy ro'yxat emas — gapirib tushuntir (professor bemor konsultatsiyasiday).
+
+#### NEGA BU TASHXIS (kamida 12 jumla)
+1-o'rin uchun: nima MOS.
+2 va 3-o'rin uchun: nima QARSHI (nega pastroq).
+«Agar X ko'rinsa edi, Y bo'lardi» — o'quv misoli (1–2 ta).
+IHC/qo'shimcha kesma qachon farq qilishini tushuntir.
+
+TAQIQLANGAN: faqat tashxis + 5 qator mezon. Bunday hisobot YAROQSIZ.
 """
 
 _HISTOLOGY_SAFE_PROTOCOL = """
-ICHKI patologiya o'quv qoralamasi (imzo emas). O'zbek tilida. Kamida 90 to'liq jumla.
+ICHKI patologiya o'quv qoralamasi (imzo emas). O'zbek tilida. Kamida 120 to'liq jumla.
 PROFESSOR DARAJASI: oddiy laborant uslubi TAQIQLANADI.
-""" + _HISTOLOGY_CANON_REF + _HISTOLOGY_WHO_STRICT + """
+TASHXIS + TO'LIQ TAHLIL: tashxis yaxshi bo'lsa ham, batafsil morfologiya va klinik fikrlash YO'Q bo'lsa — qayta yoz.
+""" + _HISTOLOGY_CANON_REF + _HISTOLOGY_WHO_STRICT + _HISTOLOGY_TEACHING_DEEP + """
 ORGAN QOIDASI (eng muhim — buzilsa hisobot yaroqsiz):
 - BIR yetakchi ORGAN ni tanla va BUTUN hisobot shu organda qoladi.
 - 3 ta ishchi taassurotning HAR UCHALASI ham SHU organ + WHO/McKee nomi.
@@ -1544,7 +1584,8 @@ Dalilsiz "urotel" yoki "silindrik" deb yozma — nima KO'RINISHINI yoz.
 3) Yadro grade 1-3, mitoz/10HPF, invaziya ha/yo'q/shubhali.
 4) 3 ta ISHCHI TAASSUROT — faqat yetakchi organ WHO oilasidan (yuqoridagi ro'yxat).
    Yolg'iz "papillary adenoma / papillary carcinoma" TAQIQLANADI.
-5) Majburiy: #### ANIQ TASHXIS, #### WHO MEZONLARI, #### NIMA QILISH KERAK,
+5) Majburiy: #### ANIQ TASHXIS, #### WHO MEZONLARI, #### BATAFSIL MORFOLOGIK TAHLIL,
+   #### KLINIK FIKRLASH, #### NEGA BU TASHXIS, #### NIMA QILISH KERAK,
    #### PROFILAKTIKA VA DAVOLASH REJASI.
 Rad etma. Ko'rinmagan narsani uydirma.
 """
@@ -1799,9 +1840,11 @@ def _describe_user(lab_type, organ_lock=None):
     m = _lab_meta(lab_type)
     if lab_type == "histology":
         return (
-            f"H&E tissue photomicrograph. Internal pathology teaching note in Uzbek. "
-            f"Apply Junqueira + McKee (if skin) + Langman (if developmental) + MBOC cell criteria + WHO names. "
-            f"Do NOT copy textbook text; apply their diagnostic METHOD. Never refuse.\n"
+            f"H&E tissue photomicrograph. Internal pathology TEACHING note in Uzbek. "
+            f"Give a precise WHO diagnosis, THEN a full educational analysis so the user "
+            f"improves clinical reasoning (not diagnosis-only). "
+            f"Required long sections: BATAFSIL MORFOLOGIK TAHLIL + KLINIK FIKRLASH + NEGA BU TASHXIS. "
+            f"Apply Junqueira + McKee(if skin) + MBOC + WHO METHOD. Never refuse.\n"
             f"{m['forbid']}\n\n"
             + _histology_organ_lock_text(organ_lock)
             + _HISTOLOGY_SAFE_PROTOCOL
@@ -1819,13 +1862,17 @@ def _looks_like_weak_generic(text, lab_type):
         return True
     low = text.lower()
     if lab_type == "histology":
-        if len(text) < 4200:
+        if len(text) < 5500:
             return True
         if "yoki boshqa" in low:
             return True
         if "aniq tashxis" not in low:
             return True
         if "who mezon" not in low and "essential" not in low:
+            return True
+        if "batafsil morfologik" not in low and "morfologik tahlil" not in low:
+            return True
+        if "klinik fikrlash" not in low and "nega bu tashxis" not in low:
             return True
         if "to'qima tipi" not in low and "toqima tipi" not in low:
             return True
@@ -1896,17 +1943,17 @@ OUTPUT_FORMAT_RULES_UZ = """
 CHIQISH TARTIBI (ichki konsilium — laborant foizli baho EMAS):
 0. Faqat MedLab. Yulduzcha ** yo'q. :--- yo'q. Bu ichki LIS morfologik xulosa (shifokor tasdiqlaydi).
 1. AVVAL "#### ANIQ TASHXIS" — yetakchi WHO/atlas nomi + ehtimollik %, 2-o'rin, 3-o'rin.
-   Nom ANIQ bo'lsin; "noaniq/shubha" bilan yashirma. ICD faqat qavsda.
-2. DARHOL "#### WHO MEZONLARI" — Essential + Desirable + biologiya (benign/in situ/invasive).
-3. DARHOL "#### NIMA QILISH KERAK" — kamida 3 aniq qadam (kesma/IHC/klinika/muddat).
-4. DARHOL "#### PROFILAKTIKA VA DAVOLASH REJASI" — profilaktika + davolash yo'nalishi + kuzatuv.
-   Bu klinik orientir (shifokor tasdiqlaydi); individual doza retsepti emas.
-5. "#### 1-PROFESSOR — MORFOLOGIYA" — pattern/tuzilma NOMLARI, yadro, stroma, artefakt. 18+ jumla.
-6. "#### 2-PROFESSOR — DIFFERENSIAL" — kamida 5 yo'nalish (faqat shu organ), MOS/QARSHI/test. 16+ jumla.
-7. "#### 3-PROFESSOR — KEYINGI TEST" — faqat shu yo'nalish testlari. 12+ jumla.
-8. "#### RAIS YAKUNI" — nima uchun 1-o'rin, qanday xavf. 12+ jumla.
-9. Keyin jadvallar: A topilmalar, B differensial, C qadamlar.
-   "Baho 1-5", "normal orientir", "arxitektura 70%" TAQIQLANADI.
+2. "#### WHO MEZONLARI" — Essential + Desirable + biologiya.
+3. "#### BATAFSIL MORFOLOGIK TAHLIL" — kamida 25 jumla: pattern, epitel, yadro, stroma, invaziya.
+   Qisqa ro'yxat YETMAYDI — gapirib tushuntir.
+4. "#### KLINIK FIKRLASH" — kamida 20 jumla o'quv: savol-javob, reaktiv vs neoplastik, klinik korrelyatsiya.
+5. "#### NEGA BU TASHXIS" — kamida 12 jumla: 1-o'rin MOS, 2/3-o'rin QARSHI.
+6. "#### NIMA QILISH KERAK" — kamida 3 aniq qadam.
+7. "#### PROFILAKTIKA VA DAVOLASH REJASI".
+8. "#### 1-PROFESSOR — MORFOLOGIYA" 18+ jumla; "#### 2-PROFESSOR — DIFFERENSIAL" 16+;
+   "#### 3-PROFESSOR — KEYINGI TEST" 12+; "#### RAIS YAKUNI" 12+.
+9. Keyin jadvallar A/B/C. "Baho 1-5", "normal orientir" TAQIQLANADI.
+   Tashxis yaxshi bo'lsa ham, batafsil tahlilsiz hisobot YAROQSIZ.
 """
 
 def _append_output_format(prompt):
@@ -1924,6 +1971,7 @@ def _full_analysis_prompt(base, microscope_prefix, lab_type=None, patient_contex
     if (lab_type or "") == "histology":
         parts.append(_HISTOLOGY_CANON_REF.strip())
         parts.append(_HISTOLOGY_WHO_STRICT.strip())
+        parts.append(_HISTOLOGY_TEACHING_DEEP.strip())
     parts.append(merged)
     return _append_output_format("\n\n".join(parts))
 
@@ -2719,14 +2767,13 @@ _WORKSHEET_SYSTEM = (
 _SAFE_SYSTEM = (
     "You write INTERNAL laboratory morphology notes in Uzbek for licensed staff. "
     "Unsigned draft for LIS; clinician confirms. Never refuse. "
-    "For histology: reason like Junqueira (tissue type), McKee (skin differentials), "
-    "Langman (developmental only if relevant), Alberts/MBOC (cell/nucleus), "
-    "and WHO Classification of Tumours (Essential/Desirable criteria + ICD-O). "
-    "Do not paste copyrighted textbook text — apply their METHOD. "
-    "Start with #### ANIQ TASHXIS, #### WHO MEZONLARI, #### NIMA QILISH KERAK, "
-    "and #### PROFILAKTIKA VA DAVOLASH REJASI. "
-    "Be specific: one organ, named WHO entities, MOS vs AGAINST. "
-    "No dummy 1-5 scores. Only the selected specimen type. MedLab only."
+    "For histology: WHO diagnosis FIRST, then LONG teaching analysis. "
+    "Required sections: #### ANIQ TASHXIS, #### WHO MEZONLARI, "
+    "#### BATAFSIL MORFOLOGIK TAHLIL (>=25 sentences), #### KLINIK FIKRLASH (>=20 sentences, teaching Q&A), "
+    "#### NEGA BU TASHXIS, #### NIMA QILISH KERAK, #### PROFILAKTIKA VA DAVOLASH REJASI. "
+    "A good diagnosis WITHOUT detailed reasoning is INVALID — expand morphology and clinical thinking. "
+    "Apply Junqueira/McKee/MBOC/WHO METHOD; do not paste copyrighted textbook text. "
+    "One organ only. No dummy 1-5 scores. MedLab only."
 )
 
 _SHALLOW_MARKERS = (
@@ -2747,19 +2794,21 @@ _SHALLOW_MARKERS = (
 
 _EXPAND_DEEP_USER = (
     "Quyida qisqa ICHKI qoralama berilgan. Original rasmlarni qayta ko'rib, "
-    "TO'LIQ professor darajasidagi protokol yoz (kamida 90 jumla). "
+    "TO'LIQ professor darajasidagi O'QUV protokol yoz (kamida 120 jumla). "
     "'Baho 1-5', 'normal orientir' TAQIQLANADI. "
-    "AVVAL #### ANIQ TASHXIS, #### WHO MEZONLARI (Essential/Desirable), "
-    "#### NIMA QILISH KERAK, #### PROFILAKTIKA VA DAVOLASH REJASI. "
-    "WHO Classification of Tumours uslubida nomla. "
-    "Keyin morfologiya. Yolg'iz 'papillary adenoma' yozma. Rad etma. O'zbek tili. Yulduzcha ** yo'q.\n\n"
+    "AVVAL #### ANIQ TASHXIS + #### WHO MEZONLARI, KEYIN majburiy: "
+    "#### BATAFSIL MORFOLOGIK TAHLIL (25+ jumla), #### KLINIK FIKRLASH (20+ jumla o'quv), "
+    "#### NEGA BU TASHXIS (12+ jumla), #### NIMA QILISH KERAK, #### PROFILAKTIKA VA DAVOLASH REJASI. "
+    "Tashxis yaxshi bo'lsa ham batafsil tahlilsiz YAROQSIZ. "
+    "Foydalanuvchi klinik fikrlashini oshir — savol-javob uslubida tushuntir. "
+    "Yolg'iz 'papillary adenoma' yozma. Rad etma. O'zbek tili. Yulduzcha ** yo'q.\n\n"
 )
 
 _RETRY_DEEP_USER = (
-    "Oldingi matn JUDA YUZAKI. Qisqa ro'yxat qabul qilinmaydi. "
-    "Rasmlarni qayta ko'rib, 90+ jumlalik ichki protokol yoz. "
-    "Majburiy: #### ANIQ TASHXIS + #### WHO MEZONLARI + #### NIMA QILISH KERAK + "
-    "#### PROFILAKTIKA VA DAVOLASH REJASI + BIR organ + MOS/QARSHI. "
+    "Oldingi matn JUDA YUZAKI — faqat tashxis, tahlil yo'q. Qabul qilinmaydi. "
+    "Rasmlarni qayta ko'rib, 120+ jumlalik o'quv protokol yoz. "
+    "Majburiy: ANIQ TASHXIS + WHO MEZONLARI + BATAFSIL MORFOLOGIK TAHLIL + "
+    "KLINIK FIKRLASH + NEGA BU TASHXIS + NIMA QILISH + PROFILAKTIKA. "
     "Dummy baho jadvallarini o'chir. Rad etma.\n\n"
     "==== OLDINGI (yuzaki) MATN ====\n"
 )
@@ -2878,12 +2927,18 @@ def _looks_like_technician(text):
 
 
 def _missing_diagnosis_sections(text):
-    """ANIQ TASHXIS / WHO MEZONLARI / NIMA QILISH / PROFILAKTIKA-DAVOLASH yo'qmi."""
+    """ANIQ TASHXIS / WHO / batafsil tahlil / klinik fikrlash / reja yo'qmi."""
     if not text:
         return True
     low = text.lower()
     has_dx = ("aniq tashxis" in low) or ("ishchi morfologik taassurot" in low and "yetakchi" in low)
     has_who = ("who mezon" in low) or ("essential" in low and ("desirable" in low or "qo'shimcha" in low or "qoshimcha" in low))
+    has_detail = (
+        "batafsil morfologik" in low
+        or ("morfologik tahlil" in low and len(text) > 4500)
+        or ("1-professor" in low and "morfologiya" in low)
+    )
+    has_think = ("klinik fikrlash" in low) or ("nega bu tashxis" in low)
     has_next = ("nima qilish kerak" in low) or ("keyingi qadam" in low)
     has_plan = (
         "profilaktika" in low
@@ -2891,8 +2946,7 @@ def _missing_diagnosis_sections(text):
         or "davolash yo'nalishi" in low
         or "davolash yonalishi" in low
     )
-    # WHO bloki yo'q bo'lsa ham rewrite; eski hisobotlar uchun has_who yumshoq emas — majburiy
-    return not (has_dx and has_who and has_next and has_plan)
+    return not (has_dx and has_who and has_detail and has_think and has_next and has_plan)
 
 
 def _too_shallow(text):
@@ -3104,10 +3158,12 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="hematology", organ_l
         + "\n\n==== QISQA QORALAMA (shu asosda UZAYTIR, qisqartirma) ====\n"
         + (draft or "")[:8000]
         + "\n==== TUGADI ====\n"
-        "Kamida 90 jumla. BIR organ. #### ANIQ TASHXIS + #### WHO MEZONLARI + "
+        "Kamida 120 jumla. BIR organ. #### ANIQ TASHXIS + #### WHO MEZONLARI + "
+        "#### BATAFSIL MORFOLOGIK TAHLIL + #### KLINIK FIKRLASH + #### NEGA BU TASHXIS + "
         "#### NIMA QILISH KERAK + #### PROFILAKTIKA VA DAVOLASH REJASI majburiy. "
         + (f"Barcha {n_img} ta rasmni sintez qil; faqat 1-rasmga tayanma. " if n_img > 1 else "")
-        + "3 taassurot SHU organ oilasidan. Boshqa organ differensiali YO'Q. "
+        + "Tashxis yaxshi bo'lsa ham batafsil o'quv tahlilsiz YAROQSIZ. "
+        "3 taassurot SHU organ oilasidan. Boshqa organ differensiali YO'Q. "
         "Bemor jinsi va namuna joyiga zid yozma. Yolg'iz 'papillary adenoma' yo'q."
     )
     content = _vision_user(user_text, image_parts) if image_parts else user_text
@@ -3376,7 +3432,7 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
         _needs_rewrite(report, lab_type)
         or (lab_type == "histology" and _looks_like_weak_generic(report, lab_type))
         or (lab_type == "histology" and _histology_report_organs_conflict(report))
-        or len(report) < 3500
+        or len(report) < 5000
     ):
         log.info("%s: 2-bosqich uzaytirish (%s belgi) lab=%s", ZIYRAKAI_DISPLAY_NAME, len(report), lab_type)
         expanded = _safe_expand(report, kwargs, image_parts, lab_type, organ_lock, patient_context)
