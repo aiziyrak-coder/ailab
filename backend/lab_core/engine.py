@@ -1103,7 +1103,8 @@ O'YLASH TARTIBI (professor):
 
 ## 0. PREPARAT
 H&E ni tasdiqla (yadro binafsha, stroma/sitoplazma eozinofil pushti). Kesma sifati, kattalashtirish.
-Organ gipotezasi: nima uchun. Noaniq bo'lsa yoz, lekin taxmin qil.
+Organ gipotezasi: BIR yetakchi organ + 5 dalil. Boshqa organ faqat differensialda.
+Bir tahlilda sut bezi, keyingisida qovuq deb sakrama — morfologik qoida bilan qulf.
 
 ## 1. MAKRO-ARXITEKTURA (pattern — taassurot yadrosi)
 Papilla/so'rg'ich: fibrovascular o'zak, shoxlanish. Cribriform, tubular, solid, villous — bor/yo'q, dalil.
@@ -1351,41 +1352,219 @@ def _board_voices(lab_type):
 _HISTOLOGY_SAFE_PROTOCOL = """
 ICHKI patologiya o'quv qoralamasi (imzo emas). O'zbek tilida. Kamida 70 to'liq jumla.
 
-1) BIR yetakchi ORGAN ni tanla — 5 morfologik dalil (epitel turi: silindrik/kubik/urotel/yassi;
-   stroma; sekret; corpra amylacea; kolloid; musin; teri adneksiyasi).
-   "Ehtimol prostata yoki boshqa bez" TAQIQLANADI.
-   2-organ faqat differensialda.
+ORGAN QOIDASI (eng muhim — buzilsa hisobot yaroqsiz):
+- BIR yetakchi ORGAN ni tanla va BUTUN hisobot shu organda qoladi.
+- 3 ta ishchi taassurotning HAR UCHALASI ham SHU organ + WHO nomi.
+- Boshqa organ (masalan sut bezi vs qovuq) ni 1/2/3-o'rin taassurotga QO'YMA.
+- Boshqa organ faqat alohida bo'limda: "#### BOSHQA ORGAN DIFFERENSIALI" (1-2 nom, nima uchun pastroq).
+- Bir xil rasmda bir marta sut bezi, keyin qovuq deb yozish TAQIQLANADI.
 
-2) Pattern: papillary / cribriform / tubular / solid / villous — bor/yo'q, dalil.
-   Fibrovascular o'zak, shoxlanish, qatlam (1 vs ko'p).
+ORGANNI QANDAY TANLASH (papillar lesiya uchun):
+A) Dilate kanal/kista ICHIDA papilla + fibrovascular o'zak + bir/ikki qavat kubik/silindrik epitel
+   (± myoepiteliy izi) → yetakchi: SUT BEZI (intraductal papilloma oilasi).
+B) Ko'p qavatli urotel (umbrella hujayra), papilla sirtida qalin urotel qavat → yetakchi: QOVUQ.
+C) Kolloid + yadro ichida bo'shliq (orphan Annie) → QALQONSIMON.
+D) Corpora amylacea / ikki qavatli prostata epiteli → PROSTATA.
+E) Villous/ichak goblet → ICHAK.
+Dalilsiz "urotel" yoki "silindrik" deb yozma — nima KO'RINISHINI yoz.
 
-3) Yadro grade 1-3, xromatin, yadrocha, mitoz/10HPF, invaziya ha/yo'q/shubhali.
-
-4) 3 ta ISHCHI TAASSUROT — HAR BIRI: ORGAN + WHO/atlas NOMI + % + MOS + QARSHI (4-6 jumla).
-   Organ bo'yicha ruxsat etilgan nomlar (boshqasini yozma):
+1) Yetakchi organ + kamida 5 morfologik dalil (epitel turi, stroma, sekret, corpora amylacea,
+   kolloid, musin, myoepiteliy, umbrella hujayra).
+2) Pattern: papillary / cribriform / tubular / solid / villous — bor/yo'q.
+3) Yadro grade 1-3, mitoz/10HPF, invaziya ha/yo'q/shubhali.
+4) 3 ta ISHCHI TAASSUROT — faqat yetakchi organ oilasidan:
    - Sut bezi: intraductal papilloma; encapsulated papillary carcinoma; papillary DCIS
-   - Prostata: ductal adenocarcinoma (papillar); HGPIN (tufting/micropapillary); prostatic-type polyp
+   - Prostata: ductal adenocarcinoma (papillar); HGPIN; prostatic-type polyp
    - Qovuq: PUNLMP; low-grade papillary urothelial carcinoma; urothelial papilloma
    - Qalqonsimon: classic PTC; NIFTP; papillary hyperplasia
    - Ichak: villous/tubulovillous adenoma; adenocarcinoma
    - Yumurtalik: serous borderline; serous papilloma
    - Buyrak: papillary RCC
-   Yolg'iz "papillary adenoma / papillary carcinoma / benign hyperplasia" TAQIQLANADI.
-
+   Yolg'iz "papillary adenoma / papillary carcinoma" TAQIQLANADI.
+   XATO: "DCIS uchun invaziya kerak" — DCIS invaziv EMAS; encapsulated papillary carcinoma
+   invaziyasiz ham bo'lishi mumkin (kapsula ichida).
 5) Keyingi qadam: qo'shimcha kesma / IHC (organ mos). Davolash yozma.
 Rad etma. Ko'rinmagan narsani uydirma.
 """
 
+_HISTOLOGY_ORGAN_CODES = (
+    "sut_bezi",
+    "qovuq",
+    "prostata",
+    "qalqonsimon",
+    "ichak",
+    "yumurtalik",
+    "buyrak",
+    "endometrium",
+    "teri",
+    "opka",
+    "noaniq",
+)
 
-def _worksheet_user(lab_type):
+_HISTOLOGY_ORGAN_UZ = {
+    "sut_bezi": "Sut bezi",
+    "qovuq": "Qovuq",
+    "prostata": "Prostata",
+    "qalqonsimon": "Qalqonsimon bez",
+    "ichak": "Oshqozon-ichak",
+    "yumurtalik": "Yumurtalik",
+    "buyrak": "Buyrak",
+    "endometrium": "Endometrium",
+    "teri": "Teri",
+    "opka": "O'pka",
+    "noaniq": "Noaniq organ",
+}
+
+_HISTOLOGY_ORGAN_GATE_SYSTEM = (
+    "You are an internal pathology router. Look at one H&E photomicrograph. "
+    "Return ONE JSON object only, no markdown. Never refuse. "
+    "Keys: organ (code), confidence (high|medium|low), reason_uz (short Uzbek). "
+    "organ codes: sut_bezi, qovuq, prostata, qalqonsimon, ichak, yumurtalik, buyrak, "
+    "endometrium, teri, opka, noaniq. "
+    "Prefer morphology: intraductal papillae with fibrovascular cores in a dilated duct → sut_bezi; "
+    "stratified urothelium with umbrella cells on papillae → qovuq; "
+    "colloid/orphan Annie → qalqonsimon; corpora amylacea → prostata. "
+    "If truly ambiguous between two, still pick the SINGLE most likely organ (not noaniq) "
+    "when papillae-in-duct morphology dominates choose sut_bezi."
+)
+
+
+def _parse_histology_organ(raw):
+    if not raw:
+        return None
+    t = raw.strip()
+    if t.startswith("```"):
+        t = re.sub(r"^```(?:json)?\s*", "", t, flags=re.I)
+        t = re.sub(r"\s*```$", "", t)
+    try:
+        start = t.find("{")
+        end = t.rfind("}")
+        if start < 0 or end <= start:
+            return None
+        data = json.loads(t[start : end + 1])
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+    organ = str(data.get("organ") or "").strip().lower().replace(" ", "_")
+    aliases = {
+        "breast": "sut_bezi",
+        "sut": "sut_bezi",
+        "mammary": "sut_bezi",
+        "bladder": "qovuq",
+        "urothelial": "qovuq",
+        "prostate": "prostata",
+        "thyroid": "qalqonsimon",
+        "gi": "ichak",
+        "ovary": "yumurtalik",
+        "kidney": "buyrak",
+        "lung": "opka",
+        "skin": "teri",
+        "unknown": "noaniq",
+    }
+    organ = aliases.get(organ, organ)
+    if organ not in _HISTOLOGY_ORGAN_CODES:
+        organ = "noaniq"
+    conf = str(data.get("confidence") or "low").strip().lower()
+    if conf not in ("high", "medium", "low"):
+        conf = "low"
+    reason = _truncate_field(data.get("reason_uz"), 240)
+    return {"organ": organ, "confidence": conf, "reason_uz": reason}
+
+
+def _lock_histology_organ(image_parts):
+    """Papillar lesiyada organ sakrashini kamaytirish — past temperaturada bitta organ."""
+    if not image_parts:
+        return None
+    try:
+        low_parts = []
+        for part in image_parts[:1]:
+            url = (part.get("image_url") or {}).get("url") or ""
+            low_parts.append(
+                {"type": "image_url", "image_url": {"url": url, "detail": "high"}}
+            )
+        raw = _chat_complete(
+            [
+                {"role": "system", "content": _HISTOLOGY_ORGAN_GATE_SYSTEM},
+                {
+                    "role": "user",
+                    "content": _vision_user(
+                        "Classify the most likely organ for this H&E papillary/tissue field. JSON only.",
+                        low_parts,
+                    ),
+                },
+            ],
+            {"max_tokens": 180, "temperature": 0.0, "top_p": 0.1},
+        )
+        parsed = _parse_histology_organ(raw)
+        if not parsed:
+            log.warning("%s: organ lock parse fail: %r", ZIYRAKAI_DISPLAY_NAME, _preview(raw))
+            return None
+        log.info(
+            "%s: histology organ lock=%s conf=%s",
+            ZIYRAKAI_DISPLAY_NAME,
+            parsed["organ"],
+            parsed["confidence"],
+        )
+        return parsed
+    except Exception as e:
+        log.warning("%s: organ lock xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
+        return None
+
+
+def _histology_organ_lock_text(organ_info):
+    if not organ_info:
+        return ""
+    code = organ_info.get("organ") or "noaniq"
+    name = _HISTOLOGY_ORGAN_UZ.get(code, code)
+    reason = organ_info.get("reason_uz") or ""
+    return (
+        f"#### ORGAN QULFI (o'zgartirma)\n"
+        f"Yetakchi organ: {name} ({code}).\n"
+        f"Asos: {reason}\n"
+        f"3 ta ishchi taassurot FAQAT shu organ oilasidan. "
+        f"Boshqa organ faqat 'BOSHQA ORGAN DIFFERENSIALI' bo'limida.\n"
+    )
+
+
+def _histology_report_organs_conflict(text):
+    """Bir hisobotda ikki yetakchi organ oilasi aralashsa — qayta yozish kerak."""
+    if not text:
+        return False
+    low = text.lower()
+    families = {
+        "sut": ("sut bezi", "intraductal papilloma", "papillary dcis", "encapsulated papillary"),
+        "qovuq": ("qovuq", "punlmp", "urothelial", "urotel"),
+        "prostata": ("prostata", "hgpin", "prostatic"),
+        "qalqon": ("qalqon", "ptc", "niftp"),
+    }
+    hits = []
+    for key, markers in families.items():
+        if sum(1 for m in markers if m in low) >= 1:
+            # Stronger: need diagnostic name or organ word in impressions area
+            if any(m in low for m in markers[:2]) or markers[0] in low:
+                hits.append(key)
+    # Conflict if breast + bladder both strongly present in working impressions
+    strong_breast = ("intraductal papilloma" in low) or (
+        "sut bezi" in low and ("papilloma" in low or "dcis" in low)
+    )
+    strong_bladder = ("punlmp" in low) or ("urothelial" in low) or (
+        "qovuq" in low and "papillar" in low
+    )
+    return strong_breast and strong_bladder
+
+
+def _worksheet_user(lab_type, organ_lock=None):
     m = _lab_meta(lab_type)
     extra = _HISTOLOGY_SAFE_PROTOCOL if lab_type == "histology" else (
         "Keyin 40-60 jumla: pattern/tuzilma NOMLARI. Oxirida 3 ishchi taassurot, ehtimollik %."
     )
+    lock = _histology_organ_lock_text(organ_lock) if lab_type == "histology" else ""
     return (
         f"Bu {m['specimen']} maydoni. {m['label']}. Ichki LIS qoralama. Imzo emas.\n"
         f"{m['forbid']}\n\n"
-        "Avval markdown jadval (kamida 12 qator). Baho 1-5 ISHLATMA.\n"
+        + lock
+        + "Avval markdown jadval (kamida 12 qator). Baho 1-5 ISHLATMA.\n"
         "| Belgi | Topilma (atama yoki son) | Mezon | Ishonch |\n"
         f"Maydonlar: {m['count']}.\n"
         + extra
@@ -1393,13 +1572,14 @@ def _worksheet_user(lab_type):
     )
 
 
-def _describe_user(lab_type):
+def _describe_user(lab_type, organ_lock=None):
     m = _lab_meta(lab_type)
     if lab_type == "histology":
         return (
             f"H&E tissue photomicrograph. Internal pathology teaching note in Uzbek. "
             f"Not a signed report. Never refuse.\n"
             f"{m['forbid']}\n\n"
+            + _histology_organ_lock_text(organ_lock)
             + _HISTOLOGY_SAFE_PROTOCOL
         )
     return (
@@ -1433,6 +1613,8 @@ def _looks_like_weak_generic(text, lab_type):
             and "urotel" not in low
         )
         if generic_only:
+            return True
+        if _histology_report_organs_conflict(text):
             return True
         if low.count("%") >= 8 and "baho" in low:
             return True
@@ -2048,9 +2230,9 @@ def _openai_generation_kwargs():
         max_out = 16384
     max_out = max(2048, min(max_out, 16384))
     try:
-        temp = float(os.environ.get("OPENAI_TEMPERATURE", "0.32"))
+        temp = float(os.environ.get("OPENAI_TEMPERATURE", "0.12"))
     except ValueError:
-        temp = 0.32
+        temp = 0.12
     try:
         top_p = float(os.environ.get("OPENAI_TOP_P", "0.85"))
     except ValueError:
@@ -2381,27 +2563,34 @@ def _needs_rewrite(text, lab_type):
     )
 
 
-def _safe_expand(draft, kwargs, image_parts=None, lab_type="hematology"):
+def _safe_expand(draft, kwargs, image_parts=None, lab_type="hematology", organ_lock=None):
     """Uzaytirish: tashxis so'zisiz, filtr rad etmasin."""
     protocol = _HISTOLOGY_SAFE_PROTOCOL if lab_type == "histology" else (
         "Ichki LIS protokoli. 50+ jumla. 3 ishchi taassurot (nom+%), MOS/QARSHI. Rad etma."
     )
+    lock = _histology_organ_lock_text(organ_lock) if lab_type == "histology" else ""
     user_text = (
         _lab_lock_text(lab_type)
         + "\n"
+        + lock
         + protocol
         + "\n\n==== QISQA QORALAMA (shu asosda UZAYTIR, qisqartirma) ====\n"
         + (draft or "")[:8000]
         + "\n==== TUGADI ====\n"
-        "Kamida 70 jumla. BIR organ. WHO nomi. Yolg'iz 'papillary adenoma' yo'q."
+        "Kamida 70 jumla. BIR organ. 3 taassurot SHU organ oilasidan. "
+        "Sut bezi va qovuqni birgalikda 1-2-3 o'ringa qo'yma. "
+        "Yolg'iz 'papillary adenoma' yo'q."
     )
     content = _vision_user(user_text, image_parts) if image_parts else user_text
+    expand_kwargs = dict(kwargs or {})
+    if lab_type == "histology":
+        expand_kwargs["temperature"] = min(float(expand_kwargs.get("temperature", 0.12) or 0.12), 0.15)
     return _chat_complete(
         [
             {"role": "system", "content": _SAFE_SYSTEM},
             {"role": "user", "content": content},
         ],
-        kwargs,
+        expand_kwargs,
     )
 
 
@@ -2577,12 +2766,18 @@ def _openai_generate(content_list, lab_type="hematology"):
         if isinstance(item, Image.Image)
     ]
     kwargs = _openai_generation_kwargs()
+    if lab_type == "histology":
+        kwargs["temperature"] = min(float(kwargs.get("temperature", 0.12) or 0.12), 0.12)
 
     if image_parts:
         mismatch = _gate_specimen_match(image_parts, lab_type)
         if mismatch:
             log.warning("%s: specimen mismatch lab=%s — tahlil to'xtatildi", ZIYRAKAI_DISPLAY_NAME, lab_type)
             return mismatch
+
+    organ_lock = None
+    if lab_type == "histology" and image_parts:
+        organ_lock = _lock_histology_organ(image_parts)
 
     # Professor/konsilium so'rovi gpt-4o da tibbiy filtr bilan rad etiladi.
     # Avval ishlagan ichki morfologiya yozuvi, keyin xavfsiz uzaytirish.
@@ -2592,7 +2787,7 @@ def _openai_generate(content_list, lab_type="hematology"):
         report = _chat_complete(
             [
                 {"role": "system", "content": _SAFE_SYSTEM},
-                {"role": "user", "content": _vision_user(_describe_user(lab_type), image_parts)},
+                {"role": "user", "content": _vision_user(_describe_user(lab_type, organ_lock), image_parts)},
             ],
             kwargs,
         )
@@ -2606,7 +2801,7 @@ def _openai_generate(content_list, lab_type="hematology"):
             report = _chat_complete(
                 [
                     {"role": "system", "content": _WORKSHEET_SYSTEM},
-                    {"role": "user", "content": _vision_user(_worksheet_user(lab_type), image_parts)},
+                    {"role": "user", "content": _vision_user(_worksheet_user(lab_type, organ_lock), image_parts)},
                 ],
                 kwargs,
             )
@@ -2626,12 +2821,21 @@ def _openai_generate(content_list, lab_type="hematology"):
     if image_parts and (
         _needs_rewrite(report, lab_type)
         or (lab_type == "histology" and _looks_like_weak_generic(report, lab_type))
+        or (lab_type == "histology" and _histology_report_organs_conflict(report))
         or len(report) < 2800
     ):
         log.info("%s: 2-bosqich uzaytirish (%s belgi) lab=%s", ZIYRAKAI_DISPLAY_NAME, len(report), lab_type)
-        expanded = _safe_expand(report, kwargs, image_parts, lab_type)
+        expanded = _safe_expand(report, kwargs, image_parts, lab_type, organ_lock)
         if _usable(expanded, 1200) and not _looks_like_refusal(expanded):
-            report = expanded
+            if lab_type == "histology" and _histology_report_organs_conflict(expanded):
+                log.warning("%s: uzaytirishda organ konflikti — qayta qulf bilan", ZIYRAKAI_DISPLAY_NAME)
+                fixed = _safe_expand(expanded, kwargs, image_parts, lab_type, organ_lock)
+                if _usable(fixed, 1200) and not _histology_report_organs_conflict(fixed):
+                    report = fixed
+                else:
+                    report = expanded
+            else:
+                report = expanded
         else:
             log.warning(
                 "%s: uzaytirish rad/qisqa (%s): %r — qoralama saqlanadi, deepen",
@@ -2639,7 +2843,12 @@ def _openai_generate(content_list, lab_type="hematology"):
                 len(expanded or ""),
                 _preview(expanded),
             )
-            deeper = _deepen_report(report, _HISTOLOGY_SAFE_PROTOCOL if lab_type == "histology" else full_prompt, kwargs, image_parts, lab_type)
+            deepen_prompt = (
+                (_histology_organ_lock_text(organ_lock) + _HISTOLOGY_SAFE_PROTOCOL)
+                if lab_type == "histology"
+                else full_prompt
+            )
+            deeper = _deepen_report(report, deepen_prompt, kwargs, image_parts, lab_type)
             if _usable(deeper, 1200) and not _looks_like_technician(deeper):
                 report = deeper
 
