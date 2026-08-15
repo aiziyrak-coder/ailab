@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off47">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off47">
+  <link rel="stylesheet" href="/static/css/style.css?v=off49">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off49">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -51,7 +51,7 @@
       <button type="button" class="btn-history" id="historyBtn" onclick="openHistory()" title="Tahlillar tarixi">Tarix</button>
       <span class="status-pill status-pill--user" id="userPill" title="Joriy foydalanuvchi">—</span>
       <button type="button" class="btn-auth-logout" id="logoutBtn" onclick="logoutMedlab()" title="Chiqish">Chiqish</button>
-      <span class="status-pill" id="connPill" aria-live="polite">○ Ulanmagan</span>
+      <span class="status-pill status-pill--mode" id="connPill" aria-live="polite">● Fayl rejimi</span>
     </div>
   </header>
   <div class="official-bar" aria-hidden="true"></div>
@@ -62,10 +62,10 @@
       <span id="wbDate"></span>
     </div>
     <ol class="wb-flow" id="wbFlow">
-      <li data-step="0" class="on">Bemor</li>
-      <li data-step="1">Rasm</li>
-      <li data-step="2">Tahlil</li>
-      <li data-step="3">Natija</li>
+      <li data-step="0" class="on" role="button" tabindex="0" onclick="jumpToStep(0)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();jumpToStep(0)}">Bemor</li>
+      <li data-step="1" role="button" tabindex="0" onclick="jumpToStep(1)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();jumpToStep(1)}">Rasm</li>
+      <li data-step="2" role="button" tabindex="0" onclick="jumpToStep(2)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();jumpToStep(2)}">Tahlil</li>
+      <li data-step="3" role="button" tabindex="0" onclick="jumpToStep(3)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();jumpToStep(3)}">Natija</li>
     </ol>
     <span class="wb-inst" id="wbInst">Tayyor</span>
     <span class="wb-bsl hidden" id="wbBsl"></span>
@@ -88,6 +88,7 @@
               <option value="Ayol">Ayol</option>
             </select>
           </label>
+          <div id="sexNameHint" class="field-hint hidden" role="status"></div>
           <label class="req acc-span"><span>Bo‘lim / manzil</span> <input id="accWard" maxlength="80" required placeholder="Masalan: terapiya"></label>
           <label class="req acc-span"><span>Namuna joyi (organ)</span>
             <input id="accSite" maxlength="80" required placeholder="Masalan: sut bezi, qovuq, prostata, qon">
@@ -95,70 +96,75 @@
           <label class="acc-span"><span>Klinik izoh / shikoyat</span>
             <input id="accClinical" maxlength="200" placeholder="Shifokor yozuvi, qisqa klinik kontekst">
           </label>
-          <label class="req"><span>Viloyat</span>
-            <select id="daftarViloyat" required aria-label="Viloyat"></select>
-          </label>
-          <label class="req"><span>Tuman</span>
-            <select id="daftarLocality" required aria-label="Tuman yoki shahar"></select>
-          </label>
-          <label class="req"><span>Klinika №</span>
-            <input id="daftarClinic" inputmode="numeric" maxlength="3" required placeholder="7" pattern="[0-9]{1,3}" title="Poliklinika yoki klinika raqami">
-          </label>
-          <label class="req"><span>Muassasa</span>
-            <select id="daftarType" required aria-label="Muassasa turi">
-              <optgroup label="Ambulatoriya">
-                <option value="OP" selected>OP — Oila poliklinikasi</option>
-                <option value="QP">QP — Qishloq poliklinikasi</option>
-                <option value="BP">BP — Bolalar poliklinikasi</option>
-                <option value="SP">SP — Stomatologiya poliklinikasi</option>
-                <option value="AK">AK — Ayollar konsultatsiyasi</option>
-                <option value="QV">QV — Qishloq vrachlik punkti</option>
-                <option value="FP">FP — Feldsher-akusherlik punkti</option>
-                <option value="OS">OS — Oila shifokori punkti</option>
-              </optgroup>
-              <optgroup label="Shifoxona">
-                <option value="ST">ST — Statsionar shifoxona</option>
-                <option value="KS">KS — Ko‘p tarmoqli shifoxona</option>
-                <option value="MX">MX — Markaziy tuman shifoxonasi</option>
-                <option value="VS">VS — Viloyat shifoxonasi</option>
-                <option value="RS">RS — Respublika shifoxonasi</option>
-                <option value="BS">BS — Bolalar shifoxonasi</option>
-                <option value="TU">TU — Tug‘ruqxona</option>
-                <option value="IS">IS — Infeksion shifoxona</option>
-                <option value="TS">TS — Travmatologiya</option>
-                <option value="XS">XS — Xususiy shifoxona</option>
-              </optgroup>
-              <optgroup label="Markaz">
-                <option value="DM">DM — Diagnostika markazi</option>
-                <option value="KT">KT — Ko‘p tarmoqli tibbiyot markazi</option>
-                <option value="VM">VM — Viloyat tibbiyot markazi</option>
-                <option value="RM">RM — Respublika ixtisoslashtirilgan markaz</option>
-                <option value="PM">PM — Perinatal markaz</option>
-                <option value="OM">OM — Onkologiya markazi</option>
-                <option value="KM">KM — Kardiologiya markazi</option>
-                <option value="EM">EM — Endokrinologiya markazi</option>
-                <option value="XM">XM — Xususiy tibbiyot markazi</option>
-                <option value="UK">UK — Universitet klinikasi</option>
-                <option value="RE">RE — Reabilitatsiya markazi</option>
-              </optgroup>
-              <optgroup label="Dispanser va boshqa">
-                <option value="SD">SD — Sil dispanseri</option>
-                <option value="ND">ND — Narkologiya dispanseri</option>
-                <option value="VD">VD — Teri-tanosil dispanseri</option>
-                <option value="PD">PD — Psixonevrologiya dispanseri</option>
-                <option value="TY">TY — Tez tibbiy yordam</option>
-                <option value="QQ">QQ — Qon quyish stansiyasi</option>
-                <option value="LM">LM — Laboratoriya</option>
-                <option value="SK">SK — Stomatologiya klinikasi</option>
-                <option value="KK">KK — Klinika</option>
-                <option value="SN">SN — Sanatoriy</option>
-                <option value="SE">SE — Sanitariya-epidemiologiya</option>
-                <option value="TB">TB — Tuman tibbiyot birlashmasi</option>
-              </optgroup>
-            </select>
-          </label>
+          <details class="daftar-more" id="daftarMore">
+            <summary>Muassasa va joylashuv</summary>
+            <div class="daftar-grid">
+              <label class="req"><span>Viloyat</span>
+                <select id="daftarViloyat" required aria-label="Viloyat"></select>
+              </label>
+              <label class="req"><span>Tuman</span>
+                <select id="daftarLocality" required aria-label="Tuman yoki shahar"></select>
+              </label>
+              <label class="req"><span>Klinika №</span>
+                <input id="daftarClinic" inputmode="numeric" maxlength="3" required placeholder="7" pattern="[0-9]{1,3}" title="Poliklinika yoki klinika raqami">
+              </label>
+              <label class="req"><span>Muassasa</span>
+                <select id="daftarType" required aria-label="Muassasa turi">
+                  <optgroup label="Ambulatoriya">
+                    <option value="OP" selected>OP — Oila poliklinikasi</option>
+                    <option value="QP">QP — Qishloq poliklinikasi</option>
+                    <option value="BP">BP — Bolalar poliklinikasi</option>
+                    <option value="SP">SP — Stomatologiya poliklinikasi</option>
+                    <option value="AK">AK — Ayollar konsultatsiyasi</option>
+                    <option value="QV">QV — Qishloq vrachlik punkti</option>
+                    <option value="FP">FP — Feldsher-akusherlik punkti</option>
+                    <option value="OS">OS — Oila shifokori punkti</option>
+                  </optgroup>
+                  <optgroup label="Shifoxona">
+                    <option value="ST">ST — Statsionar shifoxona</option>
+                    <option value="KS">KS — Ko‘p tarmoqli shifoxona</option>
+                    <option value="MX">MX — Markaziy tuman shifoxonasi</option>
+                    <option value="VS">VS — Viloyat shifoxonasi</option>
+                    <option value="RS">RS — Respublika shifoxonasi</option>
+                    <option value="BS">BS — Bolalar shifoxonasi</option>
+                    <option value="TU">TU — Tug‘ruqxona</option>
+                    <option value="IS">IS — Infeksion shifoxona</option>
+                    <option value="TS">TS — Travmatologiya</option>
+                    <option value="XS">XS — Xususiy shifoxona</option>
+                  </optgroup>
+                  <optgroup label="Markaz">
+                    <option value="DM">DM — Diagnostika markazi</option>
+                    <option value="KT">KT — Ko‘p tarmoqli tibbiyot markazi</option>
+                    <option value="VM">VM — Viloyat tibbiyot markazi</option>
+                    <option value="RM">RM — Respublika ixtisoslashtirilgan markaz</option>
+                    <option value="PM">PM — Perinatal markaz</option>
+                    <option value="OM">OM — Onkologiya markazi</option>
+                    <option value="KM">KM — Kardiologiya markazi</option>
+                    <option value="EM">EM — Endokrinologiya markazi</option>
+                    <option value="XM">XM — Xususiy tibbiyot markazi</option>
+                    <option value="UK">UK — Universitet klinikasi</option>
+                    <option value="RE">RE — Reabilitatsiya markazi</option>
+                  </optgroup>
+                  <optgroup label="Dispanser va boshqa">
+                    <option value="SD">SD — Sil dispanseri</option>
+                    <option value="ND">ND — Narkologiya dispanseri</option>
+                    <option value="VD">VD — Teri-tanosil dispanseri</option>
+                    <option value="PD">PD — Psixonevrologiya dispanseri</option>
+                    <option value="TY">TY — Tez tibbiy yordam</option>
+                    <option value="QQ">QQ — Qon quyish stansiyasi</option>
+                    <option value="LM">LM — Laboratoriya</option>
+                    <option value="SK">SK — Stomatologiya klinikasi</option>
+                    <option value="KK">KK — Klinika</option>
+                    <option value="SN">SN — Sanatoriy</option>
+                    <option value="SE">SE — Sanitariya-epidemiologiya</option>
+                    <option value="TB">TB — Tuman tibbiyot birlashmasi</option>
+                  </optgroup>
+                </select>
+              </label>
+            </div>
+          </details>
           <label class="acc-span sample-id-field"><span>Namuna № / ID</span>
-            <input id="accSample" maxlength="40" readonly placeholder="Viloyat + tuman + klinika">
+            <input id="accSample" maxlength="40" readonly placeholder="Avtomatik yaratiladi">
           </label>
           <div class="prio-row acc-span">
             <button type="button" class="prio on" data-prio="routine" onclick="setPriority('routine')">Oddiy</button>
@@ -171,23 +177,23 @@
       <div class="card card-grow capture-card">
         <div class="capture-head">
           <select id="labSelect" class="lab-select" onchange="selectLab(this.value)" aria-label="Tahlil turi">
-            <option value="hematology">🩸 Gematologiya</option>
-            <option value="urine">🧪 Siydik</option>
-            <option value="coprology">🧫 Koprologiya</option>
-            <option value="spermogram">🫧 Spermogramma</option>
-            <option value="smear">🌸 Mazok</option>
-            <option value="csf">🧠 Likvor</option>
-            <option value="lymph">🟣 Limfa</option>
-            <option value="le_cell">✴️ LE-hujayra</option>
-            <option value="prostata_sok">🟠 Prostata SOK</option>
-            <option value="myelogram">🦴 Miyelogramma</option>
-            <option value="blood_parasites">🦟 Qon parazitlari</option>
-            <option value="afb_microscopy">🫁 KOCH / AFB</option>
-            <option value="mycology">🍄 Mikologiya</option>
-            <option value="dermatology">🧴 Dermatologiya</option>
-            <option value="derm_microscopy">🕷️ Teri qirindisi</option>
-            <option value="effusion_cytology">💧 Effuziya</option>
-            <option value="histology">🧬 Gistologiya</option>
+            <option value="hematology">Gematologiya</option>
+            <option value="urine">Siydik</option>
+            <option value="coprology">Koprologiya</option>
+            <option value="spermogram">Spermogramma</option>
+            <option value="smear">Mazok</option>
+            <option value="csf">Likvor</option>
+            <option value="lymph">Limfa</option>
+            <option value="le_cell">LE-hujayra</option>
+            <option value="prostata_sok">Prostata SOK</option>
+            <option value="myelogram">Miyelogramma</option>
+            <option value="blood_parasites">Qon parazitlari</option>
+            <option value="afb_microscopy">KOCH / AFB</option>
+            <option value="mycology">Mikologiya</option>
+            <option value="dermatology">Dermatologiya</option>
+            <option value="derm_microscopy">Teri qirindisi</option>
+            <option value="effusion_cytology">Effuziya</option>
+            <option value="histology">Gistologiya</option>
           </select>
           <div class="src-tabs" role="tablist" aria-label="Rasm manbasi">
             <button type="button" class="src-tab active" data-src="upload" role="tab" aria-selected="true" onclick="setSource('upload')">Rasm</button>
@@ -338,8 +344,10 @@
             </div>
             <div class="az-kicker">MedLab</div>
             <p class="az-title">Tahlil qilinmoqda</p>
-            <span class="az-hint">Preparat o‘qilmoqda — biroz kuting</span>
+            <span class="az-hint" id="azHint">Preparat o‘qilmoqda — biroz kuting</span>
+            <span class="az-elapsed" id="azElapsed" aria-live="polite"></span>
             <div class="az-bar" aria-hidden="true"><i></i></div>
+            <button type="button" class="az-cancel" onclick="cancelAnalysis()">Bekor qilish</button>
           </div>
         </div>
       </div>
@@ -363,11 +371,10 @@
         <div class="result-meta">
           <span id="resultTs" class="result-ts"></span>
           <div class="result-actions">
-            <button class="btn-small btn-sm-clear" onclick="startNewAnalysis()" title="Natijani tozalab yangi tahlilga o‘tish">Yangi tahlil</button>
-            <button class="btn-small btn-sm-clear" onclick="clearResult()" title="Faqat natijani tozalash">Tozalash</button>
             <button class="btn-small btn-sm-ok" id="validateBtn" onclick="validateReport()" disabled title="Laborant tasdiqlashi">Tasdiqlash</button>
-            <button class="btn-small btn-sm-pdf btn-sm-pdf-clinic" onclick="savePDF('clinic')" id="pdfClinicBtn" disabled title="Shifokor uchun: to‘liq AI hisobot, xulosa va tavsiyalar">Klinik PDF</button>
-            <button class="btn-small btn-sm-pdf btn-sm-pdf-patient" onclick="savePDF('patient')" id="pdfPatientBtn" disabled title="Bemor uchun: faqat tahlil natijalari">Tahlil PDF</button>
+            <button class="btn-small btn-sm-pdf btn-sm-pdf-clinic" onclick="savePDF('clinic')" id="pdfClinicBtn" disabled title="Shifokor uchun: to‘liq AI hisobot">Klinik PDF</button>
+            <button class="btn-small btn-sm-pdf btn-sm-pdf-patient" onclick="savePDF('patient')" id="pdfPatientBtn" disabled title="Bemor uchun: tahlil natijalari">Tahlil PDF</button>
+            <button class="btn-small btn-sm-new" onclick="startNewAnalysis()" title="Keyingi bemor / yangi tahlil">Yangi tahlil</button>
           </div>
         </div>
       </div>
@@ -526,8 +533,8 @@
 </div>
 
 <div id="toast"></div>
-<script src="/static/js/uz_localities.js?v=off47"></script>
+<script src="/static/js/uz_localities.js?v=off49"></script>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=off47"></script>
+<script src="/static/js/app.js?v=off49"></script>
 </body>
 </html>

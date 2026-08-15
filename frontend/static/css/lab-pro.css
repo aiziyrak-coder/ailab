@@ -819,7 +819,12 @@ body::after {
   color: #64748b;
   padding: 4px 10px;
   position: relative;
+  cursor: pointer;
+  border-radius: 4px;
+  outline: none;
 }
+.wb-flow li:hover { color: #e2e8f0; background: rgba(148, 163, 184, 0.18); }
+.wb-flow li:focus-visible { box-shadow: 0 0 0 2px #67e8f9; }
 .wb-flow li + li::before {
   content: "›";
   position: absolute;
@@ -960,6 +965,19 @@ body::after {
   border-color: #b91c1c;
   background: #fef2f2;
 }
+.field-hint {
+  grid-column: 1 / -1;
+  margin: -2px 0 2px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+}
+.field-hint.hidden { display: none; }
 .prio-row {
   display: flex;
   align-items: center;
@@ -2103,6 +2121,54 @@ body::before {
 .pill-connected {
   animation: labLivePulse 2.2s ease-out infinite;
 }
+.pill-file {
+  color: #e0f2fe !important;
+  background: #0e7490 !important;
+  border-color: #0891b2 !important;
+}
+.az-elapsed {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--lab-mono, ui-monospace, monospace);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #67e8f9;
+}
+.az-cancel {
+  margin-top: 12px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(248, 250, 252, 0.35);
+  background: rgba(15, 23, 42, 0.55);
+  color: #f8fafc;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.az-cancel:hover {
+  background: rgba(248, 250, 252, 0.12);
+  border-color: rgba(248, 250, 252, 0.55);
+}
+.btn-sm-new {
+  background: #1b3a5c !important;
+  color: #fff !important;
+  border: 1px solid #1b3a5c !important;
+}
+.btn-sm-new:hover {
+  filter: brightness(1.08);
+}
+.upload-zone:focus-visible {
+  outline: 2px solid #0e7490;
+  outline-offset: 2px;
+}
+.daftar-more > summary::-webkit-details-marker { display: none; }
+.daftar-more > summary::after {
+  content: "▾";
+  float: right;
+  color: #94a3b8;
+}
+.daftar-more[open] > summary::after { content: "▴"; }
 .st-live.on {
   animation: labLivePulse 2.4s ease-out infinite;
 }

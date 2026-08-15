@@ -550,6 +550,130 @@ function kickIfLoggedOut(status, data) {
   return true;
 }
 
+function refreshConnPill() {
+  const pill = document.getElementById('connPill');
+  if (!pill) return;
+  pill.classList.remove('pill-connected', 'pill-file', 'pill-warn');
+  if (cameraRunning) {
+    const label = (_liveMode === 'browser' || currentSource === 'phone')
+      ? (currentSource === 'scope' ? '● Mikroskop ulangan' : '● Telefon ulangan')
+      : (currentSource === 'scope' ? '● Mikroskop ulangan' : '● Telefon ulangan');
+    pill.textContent = currentSource === 'scope' ? '● Mikroskop ulangan' : '● Telefon ulangan';
+    pill.classList.add('pill-connected');
+    return;
+  }
+  if (currentSource === 'upload') {
+    pill.textContent = uploadedFiles.length ? '● Fayl yuklangan' : '● Fayl rejimi';
+    pill.classList.add('pill-file');
+    return;
+  }
+  pill.textContent = currentSource === 'scope' ? '○ Mikroskop kutilmoqda' : '○ Telefon kutilmoqda';
+}
+
+function jumpToStep(step) {
+  const n = Number(step);
+  if (n === 0) {
+    document.querySelector('.left-panel .card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    focusFirstMissingPatient() || document.getElementById('accName')?.focus();
+  } else if (n === 1) {
+    document.querySelector('.capture-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (currentSource === 'upload') document.getElementById('uploadZone')?.focus();
+  } else if (n === 2) {
+    document.getElementById('analyzeCard')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    if (!_analyzeBusy) document.getElementById('analyzeBtn')?.focus();
+  } else if (n === 3) {
+    document.querySelector('.right-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function focusFirstMissingPatient() {
+  for (const id of PATIENT_FIELDS) {
+    if (!valOf(id)) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      const details = el.closest('details');
+      if (details) details.open = true;
+      el.focus();
+      el.classList.add('missing');
+      return true;
+    }
+  }
+  return false;
+}
+
+const _MALE_NAME_HINTS = (
+  'bek|jon|ali|umid|islom|sardor|javohir|odil|aziz|bobur|temur|shox|shah|akmal|dilshod|farhod|jamshid|karim|nodir|rustam|said|tolib|ulug'
+).split('|');
+const _FEMALE_NAME_HINTS = (
+  'oy|gul|xon|begim|nilufar|dilnoza|madina|zarina|malika|sevinch|shahnoza|feruza|munisa|laziza|sabina|diyora|asila'
+).split('|');
+
+function checkSexNameHint() {
+  const hint = document.getElementById('sexNameHint');
+  if (!hint) return;
+  const name = valOf('accName').toLowerCase().replace(/ʻ/g, "'");
+  const sex = valOf('accSex');
+  if (!name || !sex) {
+    hint.classList.add('hidden');
+    hint.textContent = '';
+    return;
+  }
+  const first = name.split(/\s+/)[0] || '';
+  const maleish = _MALE_NAME_HINTS.some(h => first.includes(h));
+  const femaleish = _FEMALE_NAME_HINTS.some(h => first.includes(h));
+  if (sex === 'Ayol' && maleish && !femaleish) {
+    hint.textContent = 'Ehtimol: ism erkakka o‘xshaydi, jins «Ayol» tanlangan — tekshiring.';
+    hint.classList.remove('hidden');
+  } else if (sex === 'Erkak' && femaleish && !maleish) {
+    hint.textContent = 'Ehtimol: ism ayolga o‘xshaydi, jins «Erkak» tanlangan — tekshiring.';
+    hint.classList.remove('hidden');
+  } else {
+    hint.classList.add('hidden');
+    hint.textContent = '';
+  }
+}
+
+let _analyzeTimer = null;
+let _analyzeStartedAt = 0;
+
+function startAnalyzeTimer() {
+  stopAnalyzeTimer();
+  _analyzeStartedAt = Date.now();
+  const tick = () => {
+    const el = document.getElementById('azElapsed');
+    if (!el || !_analyzeBusy) return;
+    const sec = Math.floor((Date.now() - _analyzeStartedAt) / 1000);
+    const m = Math.floor(sec / 60);
+    const s = String(sec % 60).padStart(2, '0');
+    el.textContent = m > 0 ? `Vaqt: ${m}:${s}` : `Vaqt: ${sec} s`;
+    if (sec >= 45) {
+      const hint = document.getElementById('azHint');
+      if (hint) hint.textContent = 'Chuqur tahlil davom etmoqda — 1–2 daqiqa normal';
+    }
+  };
+  tick();
+  _analyzeTimer = setInterval(tick, 1000);
+}
+
+function stopAnalyzeTimer() {
+  if (_analyzeTimer) {
+    clearInterval(_analyzeTimer);
+    _analyzeTimer = null;
+  }
+  const el = document.getElementById('azElapsed');
+  if (el) el.textContent = '';
+  const hint = document.getElementById('azHint');
+  if (hint) hint.textContent = 'Preparat o‘qilmoqda — biroz kuting';
+}
+
+function scrollResultIntoView() {
+  const panel = document.querySelector('.right-panel') || document.getElementById('resultBody');
+  if (!panel) return;
+  requestAnimationFrame(() => {
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
 function updateAnalyzeBtn() {
   const btn = document.getElementById('analyzeBtn');
   const cancelBtn = document.getElementById('cancelAnalysisBtn');
@@ -558,6 +682,7 @@ function updateAnalyzeBtn() {
   const hasSample = uploadedFiles.length > 0 || cameraRunning;
   if (cancelBtn) cancelBtn.classList.toggle('hidden', !_analyzeBusy);
   if (newBtn) newBtn.disabled = !!_analyzeBusy;
+  refreshConnPill();
   if (!btn) return;
   if (_analyzeBusy) {
     btn.disabled = true;
@@ -580,6 +705,7 @@ function updateAnalyzeBtn() {
 function cancelAnalysis() {
   _pollGen++;
   _analyzeBusy = false;
+  stopAnalyzeTimer();
   const ov = document.getElementById('analyzeOv');
   if (ov) ov.classList.add('hidden');
   const st = document.getElementById('analyzeStatus');
@@ -598,6 +724,7 @@ function cancelAnalysis() {
 function startNewAnalysis() {
   _pollGen++;
   _analyzeBusy = false;
+  stopAnalyzeTimer();
   const ov = document.getElementById('analyzeOv');
   if (ov) ov.classList.add('hidden');
   clearResult();
@@ -1239,6 +1366,7 @@ async function setSource(src) {
     scanCameras();
   }
   updateOverlay();
+  refreshConnPill();
 }
 
 function updateOverlay() {
@@ -1569,6 +1697,7 @@ async function stopCamera(silent) {
   msg('phoneMsg', '', '');
   msg('scopeMsg', '', '');
   updateAnalyzeBtn();
+  refreshConnPill();
   showLivePreview(false);
   if (!silent) toast("O'chirildi", 'gray');
 }
@@ -1577,10 +1706,13 @@ async function analyze() {
   if (_analyzeBusy) return;
   if (!patientFieldsComplete()) {
     markPatientFields(true);
-    toast('Bemor ma’lumotlarini to‘ldiring: F.I.Sh., yosh, jins, bo‘lim, namuna joyi, viloyat, tuman, klinika.', 'red');
-    document.getElementById('accName')?.focus();
+    const more = document.getElementById('daftarMore');
+    if (more && PATIENT_FIELDS.some(id => !valOf(id) && (id.startsWith('daftar')))) more.open = true;
+    toast('Bemor ma’lumotlarini to‘ldiring — qizil maydonlarni tekshiring.', 'red');
+    focusFirstMissingPatient();
     return;
   }
+  checkSexNameHint();
   markPatientFields(false);
   ensureSampleNo();
   if (currentSource === 'upload' && uploadedFiles.length) {
@@ -1772,6 +1904,7 @@ function startAnalyzing(isVideo) {
   const ov = document.getElementById('analyzeOv');
   if (ov) ov.classList.remove('hidden');
   document.getElementById('analyzeStatus').textContent = '';
+  startAnalyzeTimer();
   updateAnalyzeBtn();
   showLoading();
   refreshLabPlatform();
@@ -1779,6 +1912,7 @@ function startAnalyzing(isVideo) {
 
 function stopAnalyzing() {
   _analyzeBusy = false;
+  stopAnalyzeTimer();
   updateAnalyzeBtn();
   const ov = document.getElementById('analyzeOv');
   if (ov) ov.classList.add('hidden');
@@ -1836,6 +1970,7 @@ function pollResult(jobId) {
         if (data.public_id) setPublicId(data.public_id);
         renderResult(data);
         updateAnalyzeBtn();
+        scrollResultIntoView();
       }
     } catch (e) {
       // tarmoq xatosi — davom etamiz
@@ -1915,6 +2050,7 @@ function renderResult(data) {
     vb.textContent = 'Tasdiqlash';
   }
   refreshLabPlatform();
+  if (_hasResult) scrollResultIntoView();
 }
 
 function isMdTableSeparator(line) {
@@ -2623,12 +2759,29 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!el) return;
     const onAcc = () => {
       if (valOf(id)) el.classList.remove('missing');
+      if (id === 'accName' || id === 'accSex') checkSexNameHint();
       refreshLabPlatform();
       updateAnalyzeBtn();
     };
     el.addEventListener('change', onAcc);
     el.addEventListener('input', onAcc);
+    el.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        if (patientFieldsComplete() && (uploadedFiles.length || cameraRunning) && !_analyzeBusy) {
+          analyze();
+        } else {
+          focusFirstMissingPatient();
+        }
+      }
+    });
   });
+  checkSexNameHint();
+  refreshConnPill();
+  const more = document.getElementById('daftarMore');
+  if (more) {
+    more.open = !valOf('daftarViloyat') || !valOf('daftarLocality') || !valOf('daftarClinic');
+  }
   const histList = document.getElementById('histList');
   if (histList) {
     histList.addEventListener('click', (e) => {
