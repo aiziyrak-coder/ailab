@@ -1103,7 +1103,7 @@ O'YLASH TARTIBI (professor):
 
 ## 0. PREPARAT
 H&E ni tasdiqla (yadro binafsha, stroma/sitoplazma eozinofil pushti). Kesma sifati, kattalashtirish.
-Organ gipotezasi: BIR yetakchi organ + 5 dalil. Boshqa organ faqat differensialda.
+Organ gipotezasi: BIR yetakchi organ + 5 dalil. Boshqa organ nomini umuman yozma.
 Bir tahlilda sut bezi, keyingisida qovuq deb sakrama — morfologik qoida bilan qulf.
 
 ## 1. MAKRO-ARXITEKTURA (pattern — taassurot yadrosi)
@@ -1122,8 +1122,10 @@ Izoh: 8-12 jumla.
 
 ## 4. DIFFERENSIAL (kamida 5 ta, ehtimollik %)
 Har biri: MOS / QARSHI / nima farqlaydi (IHC, qo'shimcha kesma).
-Organga qarab: papilloma vs papillary carcinoma; PIN vs adenocarcinoma; polyp vs hyperplasia vs carcinoma; villous adenoma vs adenocarcinoma.
-Ko'rinmagan organ nomini uydirma; lekin BIR yetakchi organni tanla.
+FAQAT yetakchi organ oilasidan: papilloma vs papillary carcinoma; PIN vs adenocarcinoma;
+polyp vs hyperplasia vs carcinoma; villous adenoma vs adenocarcinoma; teri lezyonlari o'rtasida.
+Boshqa organ (sut bezi/qovuq/…) nomini differensialga QO'SHMA.
+"Boshqa organ differensiali" bo'limini YARATMA.
 
 ## 5. ISHCHI MORFOLOGIK TAASSUROT (majburiy, aniq, WHO nomi)
 1-o'rin: ORGAN + WHO/atlas nomi (ehtimollik %). MOS / QARSHI.
@@ -1355,8 +1357,10 @@ ICHKI patologiya o'quv qoralamasi (imzo emas). O'zbek tilida. Kamida 70 to'liq j
 ORGAN QOIDASI (eng muhim — buzilsa hisobot yaroqsiz):
 - BIR yetakchi ORGAN ni tanla va BUTUN hisobot shu organda qoladi.
 - 3 ta ishchi taassurotning HAR UCHALASI ham SHU organ + WHO nomi.
-- Boshqa organ (masalan sut bezi vs qovuq) ni 1/2/3-o'rin taassurotga QO'YMA.
-- Boshqa organ faqat alohida bo'limda: "#### BOSHQA ORGAN DIFFERENSIALI" (1-2 nom, nima uchun pastroq).
+- Boshqa organ (sut bezi, qovuq, prostata va h.k.) ni UMUMAN yozma —
+  na 1/2/3-o'rin, na alohida "Boshqa organ differensiali" bo'limi.
+- "#### BOSHQA ORGAN DIFFERENSIALI" bo'limini YARATMA — bu bo'lim TAQIQLANGAN.
+- Differensial FAQAT yetakchi organ oilasidan (masalan teri → teri kasalliklari).
 - Bir xil rasmda bir marta sut bezi, keyin qovuq deb yozish TAQIQLANADI.
 
 ORGANNI QANDAY TANLASH (papillar lesiya uchun):
@@ -1380,6 +1384,8 @@ Dalilsiz "urotel" yoki "silindrik" deb yozma — nima KO'RINISHINI yoz.
    - Ichak: villous/tubulovillous adenoma; adenocarcinoma
    - Yumurtalik: serous borderline; serous papilloma
    - Buyrak: papillary RCC
+   - Teri: seborrheic keratosis; squamous papilloma; verruca; BCC; SCC in situ
+   Yetakchi organ qulfi bo'lsa FAQAT shu oiladan yoz; boshqa organ oilasini eslatma.
    Yolg'iz "papillary adenoma / papillary carcinoma" TAQIQLANADI.
    XATO: "DCIS uchun invaziya kerak" — DCIS invaziv EMAS; encapsulated papillary carcinoma
    invaziyasiz ham bo'lishi mumkin (kapsula ichida).
@@ -1563,8 +1569,8 @@ def _histology_organ_lock_text(organ_info):
         f"#### ORGAN QULFI (o'zgartirma)\n"
         f"Yetakchi organ: {name} ({code}).\n"
         f"Asos: {reason}\n"
-        f"3 ta ishchi taassurot FAQAT shu organ oilasidan. "
-        f"Boshqa organ faqat 'BOSHQA ORGAN DIFFERENSIALI' bo'limida.\n"
+        f"3 ta ishchi taassurot VA barcha differensial FAQAT shu organ oilasidan.\n"
+        f"Boshqa organ nomini yozma. 'BOSHQA ORGAN DIFFERENSIALI' bo'limini YARATMA.\n"
     )
 
 
@@ -1572,7 +1578,7 @@ def _histology_report_organs_conflict(text):
     """Bir hisobotda ikki yetakchi organ oilasi aralashsa — qayta yozish kerak."""
     if not text:
         return False
-    low = text.lower()
+    low = _strip_other_organ_differential(text).lower()
     strong_breast = ("intraductal papilloma" in low) or (
         "sut bezi" in low and ("papilloma" in low or "dcis" in low or "encapsulated papillary" in low)
     )
@@ -1580,6 +1586,33 @@ def _histology_report_organs_conflict(text):
         "qovuq" in low and ("papillar" in low or "papilloma" in low)
     )
     return strong_breast and strong_bladder
+
+
+def _strip_other_organ_differential(text):
+    """Model ba'zan 'Boshqa organ differensiali' yozadi — olib tashlash."""
+    if not text:
+        return text
+    cleaned = re.sub(
+        r"(?im)^(?:#{1,6}\s*|\*\*|__)?\s*boshqa\s+organ\s+differensial[^\n]*\*?\*?\n"
+        r"(?:(?!^#{1,6}\s)(?!^\*\*[A-ZА-ЯЁ])(?!^[A-ZА-ЯЁ][^\n]{0,40}$).*\n)*",
+        "",
+        text,
+    )
+    # Oddiy sarlavha: "Boshqa organ differensiali" keyin 1-8 qator
+    cleaned = re.sub(
+        r"(?im)^boshqa\s+organ\s+differensial[iı]?\s*\n"
+        r"(?:.*\n){0,8}",
+        "",
+        cleaned,
+    )
+    cleaned = re.sub(
+        r"(?im)^\s*(?:[-*•]\s*)?(?:sut\s*bezi|qovuq|prostata|qalqonsimon)\s*:\s*.*?"
+        r"(?:mos\s*emas|tegishli\s*emas|u\s*uchun\s*emas).*\n?",
+        "",
+        cleaned,
+    )
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
 
 
 def _worksheet_user(lab_type, organ_lock=None):
@@ -1866,7 +1899,8 @@ def _patient_prompt_prefix(patient_context, lab_type="hematology"):
         name = _HISTOLOGY_ORGAN_UZ.get(site_organ, site_organ)
         lines.append(
             f"- Namuna joyi → yetakchi organ QULFI: {name}. "
-            "3 ta ishchi taassurot FAQAT shu organ. Boshqa organ faqat differensialda."
+            "3 ta ishchi taassurot VA differensial FAQAT shu organ. "
+            "Boshqa organ (sut bezi/qovuq va h.k.) ni umuman yozma."
         )
     if sex == "erkak":
         lines.append(
@@ -2786,7 +2820,7 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="hematology", organ_l
         + (draft or "")[:8000]
         + "\n==== TUGADI ====\n"
         "Kamida 70 jumla. BIR organ. 3 taassurot SHU organ oilasidan. "
-        "Bemor jinsi va namuna joyiga zid yozma. "
+        "Boshqa organ differensiali YO'Q. Bemor jinsi va namuna joyiga zid yozma. "
         "Yolg'iz 'papillary adenoma' yo'q."
     )
     content = _vision_user(user_text, image_parts) if image_parts else user_text
@@ -3076,6 +3110,8 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
                 report = deeper
 
     if _usable(report, 400):
+        if lab_type == "histology":
+            report = _strip_other_organ_differential(report)
         return report
     log.warning("%s: hisobot olinmadi: %r", ZIYRAKAI_DISPLAY_NAME, _preview(report))
     return _REFUSAL_FALLBACK_UZ
