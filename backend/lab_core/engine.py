@@ -1145,9 +1145,16 @@ TAQIQLANGAN nomlar: yolg'iz "papillary adenoma", "papillary carcinoma", "benign 
 2) ...
 3) ...
 Har biri: qo'shimcha kesma / IHC / klinika yo'nalishi / muddat.
-To'liq dori sxemasi yozma; lekin keyingi amalni aniq yoz.
 
-AVVAL #### ANIQ TASHXIS va #### NIMA QILISH KERAK. Keyin jadvallar:
+## 7. PROFILAKTIKA VA DAVOLASH REJASI (majburiy)
+#### PROFILAKTIKA VA DAVOLASH REJASI
+- Profilaktika: ...
+- Davolash yo'nalishi (klinik orientir): ...
+- Kuzatuv / nazorat: ...
+Bu ichki LIS klinik orientiri — shifokor tasdiqlaydi va individual reja tuzadi.
+Aniq dori dozalari o'rniga standart klinik yo'nalishni yoz (masalan: jarrohlik baholash, konservativ, antibiotik/antifungal yo'nalish, immunoterapiya konsultatsiyasi).
+
+AVVAL #### ANIQ TASHXIS, #### NIMA QILISH KERAK, #### PROFILAKTIKA VA DAVOLASH REJASI. Keyin jadvallar:
 A | Belgi | Topilma | Mezon | Ishonch |  — pattern, grade, mitoz, invaziya (12+ qator)
 B | Kompartment | Kuzatuv | Daraja | Izoh |
 C | Differensial | Ehtimollik % | Mos | Qarshi |
@@ -1349,7 +1356,8 @@ def _analysis_system(lab_type):
         "Bu ichki LIS morfologik xulosa — shifokor tasdiqlaydi, lekin ANIQ tashxis nomini yoz. "
         "Oddiy laborant foizli 'baho' uslubida YOZMA. "
         f"{m['forbid']} "
-        "AVVAL #### ANIQ TASHXIS (WHO nomi+%) va #### NIMA QILISH KERAK (3+ qadam). "
+        "AVVAL #### ANIQ TASHXIS (WHO nomi+%), #### NIMA QILISH KERAK (3+ qadam), "
+        "#### PROFILAKTIKA VA DAVOLASH REJASI. "
         "Keyin morfologiya. Ko'rinmagan narsani uydirma. Rad etma. Faqat MedLab."
     )
 
@@ -1406,7 +1414,10 @@ Dalilsiz "urotel" yoki "silindrik" deb yozma — nima KO'RINISHINI yoz.
    1) qo'shimcha kesma / IHC / klinik yo'nalish (aniq)
    2) ...
    3) ...
-   To'liq dori sxemasi emas; lekin "nima qilish" aniq bo'lsin.
+   #### PROFILAKTIKA VA DAVOLASH REJASI
+   - Profilaktika (nima qilish/qilmaslik)
+   - Davolash yo'nalishi (klinik orientir; shifokor tasdiqlaydi)
+   - Kuzatuv muddati / nazorat
 Rad etma. Ko'rinmagan narsani uydirma.
 """
 
@@ -1739,11 +1750,13 @@ CHIQISH TARTIBI (ichki konsilium — laborant foizli baho EMAS):
 1. AVVAL "#### ANIQ TASHXIS" — yetakchi WHO/atlas nomi + ehtimollik %, 2-o'rin, 3-o'rin.
    Nom ANIQ bo'lsin; "noaniq/shubha" bilan yashirma. ICD faqat qavsda.
 2. DARHOL "#### NIMA QILISH KERAK" — kamida 3 aniq qadam (kesma/IHC/klinika/muddat).
-3. "#### 1-PROFESSOR — MORFOLOGIYA" — pattern/tuzilma NOMLARI, yadro, stroma, artefakt. 18+ jumla.
-4. "#### 2-PROFESSOR — DIFFERENSIAL" — kamida 5 yo'nalish (faqat shu organ), MOS/QARSHI/test. 16+ jumla.
-5. "#### 3-PROFESSOR — KEYINGI TEST" — faqat shu yo'nalish testlari. 12+ jumla.
-6. "#### RAIS YAKUNI" — nima uchun 1-o'rin, qanday xavf. 12+ jumla.
-7. Keyin jadvallar: A topilmalar, B differensial, C qadamlar.
+3. DARHOL "#### PROFILAKTIKA VA DAVOLASH REJASI" — profilaktika + davolash yo'nalishi + kuzatuv.
+   Bu klinik orientir (shifokor tasdiqlaydi); individual doza retsepti emas.
+4. "#### 1-PROFESSOR — MORFOLOGIYA" — pattern/tuzilma NOMLARI, yadro, stroma, artefakt. 18+ jumla.
+5. "#### 2-PROFESSOR — DIFFERENSIAL" — kamida 5 yo'nalish (faqat shu organ), MOS/QARSHI/test. 16+ jumla.
+6. "#### 3-PROFESSOR — KEYINGI TEST" — faqat shu yo'nalish testlari. 12+ jumla.
+7. "#### RAIS YAKUNI" — nima uchun 1-o'rin, qanday xavf. 12+ jumla.
+8. Keyin jadvallar: A topilmalar, B differensial, C qadamlar.
    "Baho 1-5", "normal orientir", "arxitektura 70%" TAQIQLANADI.
 """
 
@@ -2538,22 +2551,24 @@ def _pil_to_data_url(img):
 _ANALYSIS_SYSTEM = (
     "Sen MedLab ICHKI LIS konsilium raisisan. Ichki morfologik xulosa yozasan. "
     "Foizli baho va 'normal orientir' TAQIQLANADI. "
-    "AVVAL ANIQ TASHXIS (nom+%) va NIMA QILISH KERAK. Rad etma. Faqat MedLab."
+    "AVVAL ANIQ TASHXIS, NIMA QILISH KERAK, PROFILAKTIKA VA DAVOLASH REJASI. "
+    "Rad etma. Faqat MedLab."
 )
 
 _WORKSHEET_SYSTEM = (
     "Sen MedLab ichki laborator hisobotini to'ldirasan (LIS). "
     "Ichki morfologik xulosa — shifokor tasdiqlaydi, lekin ANIQ tashxis nomini yoz. "
     "Faqat tanlangan tahlil turi. O'zbek tili. Pattern va tuzilma NOMLARI bilan yoz. "
-    "Majburiy: #### ANIQ TASHXIS va #### NIMA QILISH KERAK. "
+    "Majburiy: #### ANIQ TASHXIS, #### NIMA QILISH KERAK, #### PROFILAKTIKA VA DAVOLASH REJASI. "
     "Baho 1-5 taqiqlanadi. Rad etma. Faqat MedLab."
 )
 
 _SAFE_SYSTEM = (
     "You write INTERNAL laboratory morphology notes in Uzbek for licensed staff. "
     "Unsigned draft for LIS; clinician confirms. Never refuse. "
-    "Start with #### ANIQ TASHXIS (specific WHO/atlas name + %) and #### NIMA QILISH KERAK "
-    "(at least 3 concrete next steps). "
+    "Start with #### ANIQ TASHXIS (specific WHO/atlas name + %), #### NIMA QILISH KERAK "
+    "(at least 3 concrete next steps), and #### PROFILAKTIKA VA DAVOLASH REJASI "
+    "(prevention + treatment direction + follow-up; clinical orientation, not a signed Rx). "
     "Be specific: one organ, named patterns, MOS vs AGAINST. "
     "No dummy 1-5 scores. Only the selected specimen type. MedLab only."
 )
@@ -2578,15 +2593,16 @@ _EXPAND_DEEP_USER = (
     "Quyida qisqa ICHKI qoralama berilgan. Original rasmlarni qayta ko'rib, "
     "TO'LIQ o'quv protokolini yoz (kamida 70 jumla). "
     "'Baho 1-5', 'normal orientir' TAQIQLANADI. "
-    "AVVAL #### ANIQ TASHXIS (ORGAN + WHO nomi + %) va #### NIMA QILISH KERAK (3+ qadam). "
+    "AVVAL #### ANIQ TASHXIS (ORGAN + WHO nomi + %), #### NIMA QILISH KERAK (3+ qadam), "
+    "#### PROFILAKTIKA VA DAVOLASH REJASI (profilaktika + davolash yo'nalishi + kuzatuv). "
     "Keyin morfologiya. Yolg'iz 'papillary adenoma' yozma. Rad etma. O'zbek tili. Yulduzcha ** yo'q.\n\n"
 )
 
 _RETRY_DEEP_USER = (
     "Oldingi matn JUDA YUZAKI. Qisqa ro'yxat qabul qilinmaydi. "
     "Rasmlarni qayta ko'rib, 70+ jumlalik ichki protokol yoz. "
-    "Majburiy: #### ANIQ TASHXIS + #### NIMA QILISH KERAK + BIR organ + MOS/QARSHI. "
-    "Dummy baho jadvallarini o'chir. Rad etma.\n\n"
+    "Majburiy: #### ANIQ TASHXIS + #### NIMA QILISH KERAK + #### PROFILAKTIKA VA DAVOLASH REJASI "
+    "+ BIR organ + MOS/QARSHI. Dummy baho jadvallarini o'chir. Rad etma.\n\n"
     "==== OLDINGI (yuzaki) MATN ====\n"
 )
 
@@ -2698,13 +2714,19 @@ def _looks_like_technician(text):
 
 
 def _missing_diagnosis_sections(text):
-    """ANIQ TASHXIS / NIMA QILISH KERAK bo'limlari yo'qmi."""
+    """ANIQ TASHXIS / NIMA QILISH / PROFILAKTIKA-DAVOLASH bo'limlari yo'qmi."""
     if not text:
         return True
     low = text.lower()
     has_dx = ("aniq tashxis" in low) or ("ishchi morfologik taassurot" in low and "yetakchi" in low)
     has_next = ("nima qilish kerak" in low) or ("keyingi qadam" in low)
-    return not (has_dx and has_next)
+    has_plan = (
+        "profilaktika" in low
+        or "davolash rejasi" in low
+        or "davolash yo'nalishi" in low
+        or "davolash yonalishi" in low
+    )
+    return not (has_dx and has_next and has_plan)
 
 
 def _too_shallow(text):
@@ -2854,7 +2876,8 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="hematology", organ_l
         + "\n\n==== QISQA QORALAMA (shu asosda UZAYTIR, qisqartirma) ====\n"
         + (draft or "")[:8000]
         + "\n==== TUGADI ====\n"
-        "Kamida 70 jumla. BIR organ. #### ANIQ TASHXIS + #### NIMA QILISH KERAK majburiy. "
+        "Kamida 70 jumla. BIR organ. #### ANIQ TASHXIS + #### NIMA QILISH KERAK + "
+        "#### PROFILAKTIKA VA DAVOLASH REJASI majburiy. "
         "3 taassurot SHU organ oilasidan. Boshqa organ differensiali YO'Q. "
         "Bemor jinsi va namuna joyiga zid yozma. Yolg'iz 'papillary adenoma' yo'q."
     )
