@@ -2158,6 +2158,81 @@ body::before {
 .btn-sm-new:hover {
   filter: brightness(1.08);
 }
+
+/* Yangi tahlil — natija paneli pastida, to‘liq kenglik */
+.result-next {
+  flex-shrink: 0;
+  padding: 10px 12px 12px;
+  border-top: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+}
+.btn-new-analysis {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #1b3a5c;
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 8px 20px rgba(27, 58, 92, 0.22);
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-new-analysis:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 10px 24px rgba(27, 58, 92, 0.28);
+}
+.btn-new-analysis:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn-new-analysis:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.btn-new-analysis.is-ready {
+  background: #154063;
+  box-shadow: 0 0 0 2px rgba(14, 116, 144, 0.35), 0 10px 24px rgba(27, 58, 92, 0.28);
+}
+.btn-new-main {
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+.btn-new-sub {
+  font-size: 0.72rem;
+  font-weight: 550;
+  opacity: 0.86;
+  line-height: 1.3;
+}
+.btn-new-side {
+  flex: 1;
+  min-height: 36px !important;
+  height: auto !important;
+  padding: 8px 10px !important;
+  font-size: 0.82rem !important;
+  font-weight: 750 !important;
+  border: 1px solid #1b3a5c !important;
+  background: #1b3a5c !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+  cursor: pointer;
+}
+.btn-new-side:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.btn-new-side:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.analyze-actions .btn-ghost-sm {
+  flex: 1;
+}
 .upload-zone:focus-visible {
   outline: 2px solid #0e7490;
   outline-offset: 2px;

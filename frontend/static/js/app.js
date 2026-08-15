@@ -677,11 +677,16 @@ function scrollResultIntoView() {
 function updateAnalyzeBtn() {
   const btn = document.getElementById('analyzeBtn');
   const cancelBtn = document.getElementById('cancelAnalysisBtn');
-  const newBtn = document.getElementById('newAnalysisBtn');
+  const newBtns = document.querySelectorAll('.js-new-analysis');
   const readyPatient = patientFieldsComplete();
   const hasSample = uploadedFiles.length > 0 || cameraRunning;
   if (cancelBtn) cancelBtn.classList.toggle('hidden', !_analyzeBusy);
-  if (newBtn) newBtn.disabled = !!_analyzeBusy;
+  newBtns.forEach((el) => {
+    el.disabled = !!_analyzeBusy;
+    el.classList.toggle('is-ready', !!_hasResult && !_analyzeBusy);
+  });
+  const nextBar = document.getElementById('resultNextBar');
+  if (nextBar) nextBar.classList.toggle('has-result', !!_hasResult);
   refreshConnPill();
   if (!btn) return;
   if (_analyzeBusy) {
