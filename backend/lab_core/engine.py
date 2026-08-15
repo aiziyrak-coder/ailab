@@ -69,6 +69,14 @@ MAX_VIDEO_BYTES        = 180 * 1024 * 1024  # bitta video fayl
 MAX_CUSTOM_PROMPT_LEN  = 6000
 MAX_MICRO_FIELD_LEN    = 500
 
+
+def _max_vision_images():
+    try:
+        v = int(os.environ.get("OPENAI_MAX_VISION_IMAGES", "12"))
+    except ValueError:
+        v = 12
+    return max(1, min(v, MAX_UPLOAD_FILES))
+
 camera_op_lock = threading.Lock()
 
 # Yuklash va vaqtinchalik video fayllar (server va mijoz bir xil ro'yxat)
@@ -1531,20 +1539,26 @@ def _lock_histology_organ(image_parts, patient_context=None):
         return None
     try:
         low_parts = []
-        for part in image_parts[:1]:
+        for part in image_parts[: min(4, len(image_parts))]:
             url = (part.get("image_url") or {}).get("url") or ""
             low_parts.append(
                 {"type": "image_url", "image_url": {"url": url, "detail": "high"}}
             )
         sex_line = f"Patient sex={p.get('sex') or 'unknown'}; age={p.get('age') or 'unknown'}."
         note = p.get("clinical_note") or ""
+        n_img = len(low_parts)
+        organ_q = (
+            f"Classify the most likely organ using ALL {n_img} H&E field(s) of the SAME case. JSON only. "
+            if n_img > 1
+            else "Classify the most likely organ for this H&E field. JSON only. "
+        )
         raw = _chat_complete(
             [
                 {"role": "system", "content": _HISTOLOGY_ORGAN_GATE_SYSTEM},
                 {
                     "role": "user",
                     "content": _vision_user(
-                        "Classify the most likely organ for this H&E field. JSON only. "
+                        organ_q
                         + sex_line
                         + (f" Clinical note: {note}." if note else "")
                         + " Respect sex: male → avoid female-only organs unless morphology forces; "
@@ -2645,12 +2659,13 @@ def _looks_like_refusal(text):
 def _chat_complete(messages, kwargs):
     max_retries = max(1, int(os.environ.get("OPENAI_MAX_RETRIES", "3")))
     base_delay = float(os.environ.get("OPENAI_RETRY_DELAY_SEC", "2"))
+    call_kwargs = dict(kwargs or {})
     for attempt in range(max_retries):
         try:
             resp = openai_client.chat.completions.create(
                 model=OPENAI_MODEL_ID,
                 messages=messages,
-                **kwargs,
+                **call_kwargs,
             )
             choice = (resp.choices or [None])[0]
             if choice is None:
@@ -2675,6 +2690,11 @@ def _chat_complete(messages, kwargs):
                 "Keyinroq qayta urinib ko'ring."
             ) % (ZIYRAKAI_DISPLAY_NAME, fr)
         except Exception as e:
+            err_s = str(e).lower()
+            if "seed" in err_s and "seed" in call_kwargs:
+                call_kwargs.pop("seed", None)
+                log.warning("%s: seed qo'llab-quvvatlanmadi — seedsiz qayta", ZIYRAKAI_DISPLAY_NAME)
+                continue
             retry = bool(_OPENAI_RETRYABLE and isinstance(e, _OPENAI_RETRYABLE))
             if retry and attempt < max_retries - 1:
                 delay = base_delay * (2**attempt)
@@ -2750,8 +2770,66 @@ def _too_shallow(text):
     return False
 
 
+def _multi_image_protocol(n):
+    """Bir nechta rasm = bitta holatning turli rakurs/maydonlari."""
+    if n <= 1:
+        return ""
+    return (
+        f"\n\n#### KO'P RASM QOIDASI (majburiy — {n} ta tasvir)\n"
+        f"Bu {n} ta rasm BIR xil bemor / BIR xil kasallik / BIR xil namuna holatiga tegishli "
+        "(turli rakurs, turli maydon, turli kattalashtirish yoki turli joy).\n"
+        "- HAR BIR tasvirni alohida ko'rib chiq (TASVIR 1…N). Faqat 1-rasmga tayanma.\n"
+        "- Topilmalarni SINTEZ qil: bitta #### ANIQ TASHXIS, bitta #### NIMA QILISH KERAK, "
+        "bitta #### PROFILAKTIKA VA DAVOLASH REJASI.\n"
+        "- Hisobot boshida yoz: «Ko‘rib chiqilgan rasmlar: N ta».\n"
+        "- Qisqa bo‘lim: #### RASMLAR SINTESI — har biridan 1–2 muhim topilma, keyin yagona xulosa.\n"
+        "- Bir rasmda ko‘rinib, boshqasida yo‘q bo‘lgan belgini yashirma.\n"
+        "- Turli organ tashxislariga sakrama — bu bir holatning turli ko‘rinishlari.\n"
+    )
+
+
+def _limit_image_parts(image_parts):
+    if not image_parts:
+        return []
+    cap = _max_vision_images()
+    if len(image_parts) <= cap:
+        return list(image_parts)
+    log.warning(
+        "%s: vision rasmlar %s → %s (OPENAI_MAX_VISION_IMAGES)",
+        ZIYRAKAI_DISPLAY_NAME,
+        len(image_parts),
+        cap,
+    )
+    return list(image_parts[:cap])
+
+
 def _vision_user(prompt, image_parts):
-    return [{"type": "text", "text": prompt}] + image_parts
+    """Vision so'rov: ko'p rasmda har birini raqamlab, oxirida sintez talabi."""
+    parts_in = _limit_image_parts(image_parts or [])
+    if not parts_in:
+        return [{"type": "text", "text": prompt}]
+    n = len(parts_in)
+    head = (prompt or "") + _multi_image_protocol(n)
+    if n == 1:
+        return [{"type": "text", "text": head}, parts_in[0]]
+    out = [{"type": "text", "text": head}]
+    for i, img in enumerate(parts_in, 1):
+        out.append({
+            "type": "text",
+            "text": f"==== TASVIR {i}/{n} — shu maydonni diqqat bilan ko'rib chiq ====",
+        })
+        out.append(img)
+    out.append({
+        "type": "text",
+        "text": (
+            f"==== SINTEZ ({n} ta tasvir) ====\n"
+            f"Yuqoridagi {n} ta TASVIRNING HAMMASINI inobatga ol. "
+            "Faqat birinchi yoki oxirgi rasmga tayanma. "
+            "Bitta yagona ANIQ TASHXIS + NIMA QILISH KERAK + PROFILAKTIKA VA DAVOLASH REJASI yoz. "
+            "#### RASMLAR SINTESI bo'limida har bir tasvirdan qisqa topilma qoldir."
+        ),
+    })
+    return out
 
 
 def _expand_full_report(observation, full_prompt, kwargs, image_parts=None, lab_type="hematology"):
@@ -2867,18 +2945,22 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="hematology", organ_l
     )
     lock = _histology_organ_lock_text(organ_lock) if lab_type == "histology" else ""
     patient = _patient_prompt_prefix(patient_context, lab_type)
+    n_img = len(image_parts or [])
+    multi = _multi_image_protocol(n_img) if n_img > 1 else ""
     user_text = (
         _lab_lock_text(lab_type)
         + "\n"
         + (patient + "\n" if patient else "")
         + lock
+        + multi
         + protocol
         + "\n\n==== QISQA QORALAMA (shu asosda UZAYTIR, qisqartirma) ====\n"
         + (draft or "")[:8000]
         + "\n==== TUGADI ====\n"
         "Kamida 70 jumla. BIR organ. #### ANIQ TASHXIS + #### NIMA QILISH KERAK + "
         "#### PROFILAKTIKA VA DAVOLASH REJASI majburiy. "
-        "3 taassurot SHU organ oilasidan. Boshqa organ differensiali YO'Q. "
+        + (f"Barcha {n_img} ta rasmni sintez qil; faqat 1-rasmga tayanma. " if n_img > 1 else "")
+        + "3 taassurot SHU organ oilasidan. Boshqa organ differensiali YO'Q. "
         "Bemor jinsi va namuna joyiga zid yozma. Yolg'iz 'papillary adenoma' yo'q."
     )
     content = _vision_user(user_text, image_parts) if image_parts else user_text
@@ -3073,8 +3155,12 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
     ]
     kwargs = _openai_generation_kwargs()
     if lab_type == "histology":
-        kwargs["temperature"] = min(float(kwargs.get("temperature", 0.12) or 0.12), 0.12)
+        kwargs["temperature"] = min(float(kwargs.get("temperature", 0.12) or 0.12), 0.08)
+        kwargs["top_p"] = min(float(kwargs.get("top_p", 0.85) or 0.85), 0.7)
+        # Qayta tahlilda barqarorroq (model qo'llab-quvvatlasa)
+        kwargs.setdefault("seed", 42)
 
+    n_img = len(image_parts)
     if image_parts:
         mismatch = _gate_specimen_match(image_parts, lab_type)
         if mismatch:
@@ -3086,14 +3172,21 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
         organ_lock = _lock_histology_organ(image_parts, patient_context)
 
     patient_block = _patient_prompt_prefix(patient_context, lab_type)
+    multi_note = _multi_image_protocol(n_img) if n_img > 1 else ""
 
     # Professor/konsilium so'rovi gpt-4o da tibbiy filtr bilan rad etiladi.
     # Avval ishlagan ichki morfologiya yozuvi, keyin xavfsiz uzaytirish.
-    log.info("%s: 1-bosqich ichki morfologiya lab=%s", ZIYRAKAI_DISPLAY_NAME, lab_type)
+    log.info("%s: 1-bosqich ichki morfologiya lab=%s imgs=%s", ZIYRAKAI_DISPLAY_NAME, lab_type, n_img)
     report = ""
-    describe_prompt = _describe_user(lab_type, organ_lock)
+    describe_prompt = _describe_user(lab_type, organ_lock) + multi_note
     if patient_block:
         describe_prompt = patient_block + "\n\n" + describe_prompt
+    if n_img > 1:
+        describe_prompt = (
+            f"Birga yuborilgan {n_img} ta rasm — BIR holatning turli rakurs/maydonlari. "
+            "HAMMASINI ko'rib, bitta yagona tashxis yoz.\n\n"
+            + describe_prompt
+        )
     if image_parts:
         report = _chat_complete(
             [
@@ -3109,7 +3202,7 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
                 len(report or ""),
                 _preview(report),
             )
-            ws = _worksheet_user(lab_type, organ_lock)
+            ws = _worksheet_user(lab_type, organ_lock) + multi_note
             if patient_block:
                 ws = patient_block + "\n\n" + ws
             report = _chat_complete(
@@ -3220,10 +3313,10 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None,
 
         if len(imgs) > 1:
             prefix = (
-                f"Quyida {len(imgs)} ta mikroskopiya tasviri berilgan. Har birini '#### TASVIR N' (N=1,2,...) "
-                "sarlavhasi bilan alohida: laborator promptidagi barcha ostbo'limlar bo'yicha batafsil tahlil "
-                "(qisqartirma yo'q; har tasvir uchun kamida bitta jadval). Oxirida bitta '#### GLOBAL ...' "
-                "barcha tasvirlar sintezi, keyin DIFFERENSIAL, YAKUNIY XULOSA va ESKLATMA — chiqish qoidalariga mos.\n\n"
+                f"Quyida {len(imgs)} ta mikroskopiya tasviri — BIR xil kasallik/holatning "
+                "turli rakurs, maydon yoki joylari. "
+                "HAR BIRINI ko'rib chiq (TASVIR 1…N), oxirida BITTA yagona tashxis va reja. "
+                "Faqat birinchi rasmga tayanma.\n\n"
             )
             content = [prefix + prompt] + imgs
         else:

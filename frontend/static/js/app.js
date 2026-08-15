@@ -2035,6 +2035,16 @@ function startAnalyzing(isVideo) {
   document.getElementById('analyzeBtn').disabled = true;
   const ov = document.getElementById('analyzeOv');
   if (ov) ov.classList.remove('hidden');
+  const hint = document.getElementById('azHint');
+  if (hint) {
+    if (isVideo) {
+      hint.textContent = 'Video kadrlar o‘qilmoqda — biroz kuting';
+    } else if (currentSource === 'upload' && uploadedFiles.length > 1) {
+      hint.textContent = `${uploadedFiles.length} ta rasm birga o‘qilmoqda — hammasi hisobga olinadi`;
+    } else {
+      hint.textContent = 'Preparat o‘qilmoqda — biroz kuting';
+    }
+  }
   document.getElementById('analyzeStatus').textContent = '';
   startAnalyzeTimer();
   updateAnalyzeBtn();
