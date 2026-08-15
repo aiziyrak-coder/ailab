@@ -740,6 +740,7 @@ function startNewAnalysis() {
   setPriority('routine');
   updateAnalyzeBtn();
   refreshLabPlatform();
+  document.querySelector('.left-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const name = document.getElementById('accName');
   if (name) {
     name.focus();
