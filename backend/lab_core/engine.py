@@ -2405,6 +2405,161 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="hematology"):
     )
 
 
+_SPECIMEN_CODE_SET = frozenset(LAB_PROMPTS.keys()) | frozenset({"unknown", "other"})
+
+# Bir xil preparat oilasi — tanlangan turi bilan "mos" hisoblanadi.
+_SPECIMEN_COMPAT = {
+    "hematology": frozenset({"hematology", "blood_parasites", "le_cell"}),
+    "blood_parasites": frozenset({"hematology", "blood_parasites"}),
+    "le_cell": frozenset({"hematology", "le_cell"}),
+    "myelogram": frozenset({"myelogram"}),
+    "dermatology": frozenset({"dermatology", "derm_microscopy"}),
+    "derm_microscopy": frozenset({"dermatology", "derm_microscopy", "mycology"}),
+    "mycology": frozenset({"mycology", "derm_microscopy"}),
+    "histology": frozenset({"histology"}),
+    "urine": frozenset({"urine"}),
+    "coprology": frozenset({"coprology"}),
+    "spermogram": frozenset({"spermogram"}),
+    "smear": frozenset({"smear"}),
+    "csf": frozenset({"csf"}),
+    "lymph": frozenset({"lymph", "effusion_cytology"}),
+    "effusion_cytology": frozenset({"effusion_cytology", "lymph"}),
+    "prostata_sok": frozenset({"prostata_sok"}),
+    "afb_microscopy": frozenset({"afb_microscopy"}),
+}
+
+_SPECIMEN_GATE_SYSTEM = (
+    "You classify optical-microscope photos for an internal LIS router. "
+    "Reply with ONE JSON object only, no markdown. Never refuse. "
+    "Keys: detected (lab code), confidence (high|medium|low), reason_uz (one short Uzbek sentence). "
+    "Lab codes: hematology, urine, coprology, spermogram, smear, csf, lymph, le_cell, "
+    "prostata_sok, myelogram, blood_parasites, afb_microscopy, mycology, dermatology, "
+    "derm_microscopy, effusion_cytology, histology, unknown. "
+    "Rules: pink-purple H&E tissue architecture/papilla/glands = histology; "
+    "scattered RBCs/WBCs on thin smear = hematology; "
+    "urine sediment crystals/casts = urine; stool parasites = coprology; "
+    "sperm = spermogram; cervical flora = smear; KOH hyphae/scrape = derm_microscopy or mycology. "
+    "If unsure use unknown with low confidence."
+)
+
+
+def _lab_display_name(lab_type):
+    m = LAB_IDENTITY.get(lab_type) or {}
+    return m.get("label") or lab_type
+
+
+def _specimen_compatible(selected, detected):
+    if not selected or not detected:
+        return True
+    if detected in ("unknown", "other"):
+        return True
+    if selected == detected:
+        return True
+    allowed = _SPECIMEN_COMPAT.get(selected) or frozenset({selected})
+    return detected in allowed
+
+
+def _parse_specimen_gate(raw):
+    if not raw:
+        return None
+    t = raw.strip()
+    if t.startswith("```"):
+        t = re.sub(r"^```(?:json)?\s*", "", t, flags=re.I)
+        t = re.sub(r"\s*```$", "", t)
+    try:
+        start = t.find("{")
+        end = t.rfind("}")
+        if start < 0 or end <= start:
+            return None
+        data = json.loads(t[start : end + 1])
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+    detected = str(data.get("detected") or "").strip().lower()
+    detected = _LAB_ALIASES.get(detected, detected)
+    if detected not in _SPECIMEN_CODE_SET:
+        detected = "unknown"
+    conf = str(data.get("confidence") or "low").strip().lower()
+    if conf not in ("high", "medium", "low"):
+        conf = "low"
+    reason = _truncate_field(data.get("reason_uz"), 240)
+    return {"detected": detected, "confidence": conf, "reason_uz": reason}
+
+
+def _mismatch_message(selected, detected, reason_uz=""):
+    sel_name = _lab_display_name(selected)
+    det_name = _lab_display_name(detected) if detected in LAB_IDENTITY else detected
+    reason_line = f"\n- Asos: {reason_uz}" if reason_uz else ""
+    return (
+        "#### TASVIR TANLANGAN TAHLIL TURIGA MOS EMAS\n\n"
+        f"- Siz tanladingiz: **{sel_name}**\n"
+        f"- Tasvir ko'rinishi: **{det_name}**{reason_line}\n\n"
+        f"Bu preparat uchun gematologiya (yoki boshqa noto'g'ri) protokoli yozilmaydi — "
+        f"uydirma formula/tashxis chiqmasligi uchun tahlil TO'XTATILDI.\n\n"
+        f"**Nima qilish kerak:** chap menyudan **{det_name}** ni tanlang, "
+        "keyin shu rasm bilan tahlilni QAYTA bosing.\n\n"
+        "Agar tasvir turi noaniq bo'lsa yoki siz to'g'ri turini tanlaganiga ishonchingiz komil bo'lsa — "
+        "boshqa aniqroq kadr yuklang yoki turini qayta tanlang."
+    )
+
+
+def _gate_specimen_match(image_parts, lab_type):
+    """Rasm tanlangan lab turiga mos emas bo'lsa ogohlantirish matni, aks holda None."""
+    if not image_parts:
+        return None
+    selected = _normalize_lab_type(lab_type)
+    # Gate uchun arzonroq: 1-rasm, low detail, qisqa javob
+    gate_img = image_parts[:1]
+    try:
+        low_parts = []
+        for part in gate_img:
+            url = (part.get("image_url") or {}).get("url") or ""
+            low_parts.append(
+                {"type": "image_url", "image_url": {"url": url, "detail": "low"}}
+            )
+        if not low_parts:
+            return None
+        user = (
+            "Classify this microscope photograph. "
+            f"User currently selected lab_type={selected}. "
+            "Return JSON only."
+        )
+        gate_kwargs = {
+            "max_tokens": 220,
+            "temperature": 0.0,
+            "top_p": 0.2,
+        }
+        raw = _chat_complete(
+            [
+                {"role": "system", "content": _SPECIMEN_GATE_SYSTEM},
+                {"role": "user", "content": _vision_user(user, low_parts)},
+            ],
+            gate_kwargs,
+        )
+        parsed = _parse_specimen_gate(raw)
+        if not parsed:
+            log.warning("%s: specimen gate parse fail: %r", ZIYRAKAI_DISPLAY_NAME, _preview(raw))
+            return None
+        detected = parsed["detected"]
+        conf = parsed["confidence"]
+        log.info(
+            "%s: specimen gate selected=%s detected=%s conf=%s",
+            ZIYRAKAI_DISPLAY_NAME,
+            selected,
+            detected,
+            conf,
+        )
+        if conf == "low" or detected in ("unknown", "other"):
+            return None
+        if _specimen_compatible(selected, detected):
+            return None
+        return _mismatch_message(selected, detected, parsed.get("reason_uz") or "")
+    except Exception as e:
+        log.warning("%s: specimen gate xato (tahlil davom etadi): %s", ZIYRAKAI_DISPLAY_NAME, e)
+        return None
+
+
 def _openai_generate(content_list, lab_type="hematology"):
     if openai_client is None:
         raise RuntimeError(
@@ -2422,6 +2577,12 @@ def _openai_generate(content_list, lab_type="hematology"):
         if isinstance(item, Image.Image)
     ]
     kwargs = _openai_generation_kwargs()
+
+    if image_parts:
+        mismatch = _gate_specimen_match(image_parts, lab_type)
+        if mismatch:
+            log.warning("%s: specimen mismatch lab=%s — tahlil to'xtatildi", ZIYRAKAI_DISPLAY_NAME, lab_type)
+            return mismatch
 
     # Professor/konsilium so'rovi gpt-4o da tibbiy filtr bilan rad etiladi.
     # Avval ishlagan ichki morfologiya yozuvi, keyin xavfsiz uzaytirish.
