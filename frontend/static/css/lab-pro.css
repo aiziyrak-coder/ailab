@@ -2155,10 +2155,10 @@ body::before {
   display: block;
   margin-top: 6px;
   font-family: var(--lab-mono, ui-monospace, monospace);
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.88rem;
+  font-weight: 800;
   letter-spacing: 0.04em;
-  color: #67e8f9;
+  color: #1b3a5c;
 }
 .az-cancel {
   margin-top: 12px;
