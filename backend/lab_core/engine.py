@@ -153,6 +153,10 @@ Yakun: 3 ta ISHCHI MORFOLOGIK TAASSUROT, ehtimollik %, nima uchun 1-o'rin shu.
 TAQIQLANGAN: "hujayralar ko'rinadi", "tahlil qoniqarli", "o'zgarishlar bor",
 "yallig'lanishli atipik o'zgarishlar", "baho 3/5", 1 sahifalik umumiy gap.
 
+HAYOTIY QOIDA (inson salomatligi — 1 xato = og'ir oqibat):
+Sog'lom yoki dalili yetarli BO'LMAGAN holatga rak / karsinoma / leykoz / yomon o'sma qo'yish TAQIQLANADI.
+Malignite — FAQAT Essential mezonlarning HAR BIRI tasvirda KO'RINSA va invaziya isbotlansa.
+Shubha bo'lsa yetakchi tashxis BENIGN yoki REAKTIV bo'ladi; yomon o'sma 2–3-o'rinda "istisno" sifatida.
 HAR TOPILMADA: kuzatuv → mezon → artefakt emasligi → MOS/QARSHI → ishonch.
 Ko'rinmagan narsani uydirma. "100%" deb yozma.
 TIL: akademik o'zbek, lotin atamasi qavsda. Faqat MedLab.
@@ -1141,21 +1145,27 @@ teri (McKee): seborrheic keratosis vs verruca vs SCC in situ vs BCC vs papilloma
 Boshqa organ (sut bezi/qovuq/…) nomini differensialga QO'SHMA.
 "Boshqa organ differensiali" bo'limini YARATMA.
 
-## 5. ANIQ TASHXIS (majburiy — noaniq yozma)
-Yetakchi morfologik tashxisni ANIQ yoz (WHO/McKee/atlas nomi + organ).
+## 5. ANIQ TASHXIS (majburiy — lekin DALILSIZ RAK TAQIQLANADI)
+Yetakchi nom ANIQ bo'lsin (WHO/McKee), LEKIN bu "rak deb yoz" degani EMAS.
 Format majburiy:
 #### ANIQ TASHXIS
-- Yetakchi: <ORGAN> — <WHO/McKee nomi> (ehtimollik %)
+- Ishonch sinfi: yuqori | o'rta | past
+  (yuqori FAQAT barcha Essential mezonlar tasvirda KO'RINSA)
+- Malignite qo'yish huquqi: HA yoki YO'Q
+  (HA faqat: invaziya KO'RINADI + Essential to'liq + organ qulfi mos)
+- Biologiya: benign | reactive | in situ | invasive
+- Yetakchi: <ORGAN> — <WHO/McKee aniq nomi> (ehtimollik %)
 - 2-o'rin: ...
 - 3-o'rin: ...
-#### WHO MEZONLARI
-- Essential: ...
-- Desirable: ...
-- Biologiya: benign / borderline / in situ / invasive / reactive
-Qisqa asos: 3-5 jumla (nima ko'rindi).
-Bu ichki LIS morfologik xulosa; shifokor tasdiqlashi kerak — lekin nomni ANIQ yoz, "shubha/noaniq" deb yashirma.
-ICD-O faqat qavsda. Invaziv o'sma shubhasi bo'lsa QIZIL BAYROQ.
-TAQIQLANGAN nomlar: yolg'iz "papillary adenoma", "papillary carcinoma", "benign papillary hyperplasia".
+QAT'IY: huquqi YO'Q bo'lsa yetakchi malignite/karsinoma/RCC/SCC invaziv BO'LMASLIGI shart.
+Yetakchi o'shanda: aniq benign/reaktiv nom (masalan seborrheic keratosis, papilloma, hyperplasia)
+YOKI «Yetarli WHO mezonlari yo'q — malignite qo'yilmaydi» + eng yaqin benign nom.
+Yomon o'sma faqat 2 yoki 3-o'rinda, ehtimollik ≤35%, «istisno / IHC kerak».
+Invaziya isbotlanmasa karsinoma ehtimolligi ≤40% va yetakchi qilinmaydi.
+Bu ichki LIS; shifokor tasdiqlaydi. Dalilsiz "rak" yozish — hisobot YAROQSIZ.
+ICD-O faqat qavsda. Haqiqiy invaziya KO'RINSA — QIZIL BAYROQ, lekin uydirma.
+TAQIQLANGAN nomlar: yolg'iz "papillary adenoma", "papillary carcinoma", "benign papillary hyperplasia",
+dalilsiz "buyrak raki", dalilsiz "karsinoma".
 
 ## 6. NIMA QILISH KERAK (majburiy, aniq qadamlar)
 #### NIMA QILISH KERAK
@@ -1314,8 +1324,10 @@ LAB_IDENTITY = {
             "Tanlangan ORGAN oilasidan tashqari tashxis (masalan teri bo'lsa buyrak RCC) TAQIQLANADI."
         ),
         "dx": (
-            "WHO Essential/Desirable mezonlari + 3 ta WHO ishchi taassurot "
-            "(organ + nom + %). 'Papillar adenoma' yolg'iz TAQIQLANADI."
+            "ANIQ WHO/McKee nomi majburiy, LEKIN dalilsiz malignite TAQIQLANADI. "
+            "Malignite qo'yish huquqi YO'Q bo'lsa yetakchi benign/reaktiv yoki "
+            "'yetarli mezon yo'q — malignite qo'yilmaydi'. "
+            "Essential to'liq + invaziya KO'RINMASA karsinoma/RCC yetakchi qilinmaydi."
         ),
     },
 }
@@ -1390,7 +1402,8 @@ def _analysis_system(lab_type):
     return (
         f"Sen MedLab ICHKI LIS uchun konsilium raisisan. Yo'nalish: {m['label']}. "
         f"Namuna: {m['specimen']}. Jamoa: {voices}. "
-        "Bu ichki LIS morfologik xulosa — shifokor tasdiqlaydi, lekin ANIQ tashxis nomini yoz. "
+        "Bu ichki LIS morfologik xulosa — shifokor tasdiqlaydi. "
+        "Tashxis NOMI aniq bo'lsin, lekin dalilsiz RAK/karsinoma YOZILMAYDI. "
         "Oddiy laborant foizli 'baho' uslubida YOZMA. "
         f"{m['forbid']} "
         "AVVAL #### ANIQ TASHXIS (WHO nomi+%), #### WHO MEZONLARI (Essential/Desirable), "
@@ -1431,6 +1444,42 @@ Ichki LIS o'qituvchi protokoli. Quyidagi STANDARTLAR bo'yicha fikrla:
 5) WHO Classification of Tumours (IARC) — QAT'IY NOMLASH VA MEZONLAR (quyida to'liq).
 
 HISOBOTDA 1 qator: «Mezon: Junqueira + MBOC + WHO (+ McKee agar teri).»
+6) BEMOR XAVFSIZLIGI: sog'lom to'qimaga rak qo'yish — eng og'ir xato. Shubhada BENIGN.
+"""
+
+_HISTOLOGY_PATIENT_SAFETY = """
+#### BEMOR XAVFSIZLIGI — MALIGNITE QO'YISH QONUNI (buzilsa hisobot yaroqsiz)
+Bu LIS ichki qoralama, LEKIN so'zlar inson taqdiriga ta'sir qiladi. 1 soxta rak = og'ir zarar.
+
+QONUN 1. Premalign/malign (karsinoma, RCC, SCC invaziv, melanoma, sarkoma, adenokarsinoma)
+yetakchi tashxis bo'lishi UCHUN BIR VAQTNING O'ZIDA:
+  a) organ qulfi to'g'ri;
+  b) shu tashxisning WHO Essential mezonlaridan KAMIDA 4 tasi tasvirda ANIQ KO'RINADI
+     (har birini jumla bilan yoz);
+  c) invaziya: stroma / bazal membrana buzilishi KO'RINADI (faqat "shubhali" yetarli EMAS);
+  d) reaktiv/benign muqobil QARSHI dalillar yozilgan va rad etilgan.
+Agar a–d dan BIRI yo'q → «Malignite qo'yish huquqi: YO'Q».
+
+QONUN 2. Huquqi YO'Q bo'lsa:
+  - Yetakchi: aniq BENIGN yoki REAKTIV WHO/McKee nomi (organ oilasidan)
+    yoki «Yetarli WHO mezonlari yo'q — malignite qo'yilmaydi» + eng yaqin benign nom.
+  - Karsinoma/RCC/rak 1-o'rinda BO'LMASLIGI shart.
+  - 2–3-o'rinda istisno sifatida ≤35%.
+
+QONUN 3. Ehtimollik intizomi:
+  - Invaziya isbotlanmagan malignite: ≤40% va yetakchi EMAS.
+  - Yuqori ishonch (≥70%) faqat Essential to'liq KO'RINSA.
+  - 90–100% TAQIQLANADI.
+
+QONUN 4. Papilla / giperkeratoz / yallig'lanish / artefakt = rak EMAS.
+Papilla yolg'iz → papilloma / papillomatoz / seborrheic keratosis tomon og'ish.
+Buyrak raki FAQAT glomerula yoki buyrak naychasi KO'RINSA.
+
+QONUN 5. #### ANIQ TASHXIS da majburiy qatorlar:
+- Ishonch sinfi
+- Malignite qo'yish huquqi: HA/YO'Q
+- Biologiya
+- Yetakchi / 2-o'rin / 3-o'rin (aniq nom, %)
 """
 
 _HISTOLOGY_WHO_STRICT = """
@@ -1522,8 +1571,11 @@ F) HISOBOT TARTIBI (MAJBURIY — qisqa tashxis + TO'LIQ tahlil):
 8) #### RASMLAR SINTESI (agar >1 rasm)
 9) Keyin konsilium (1/2/3-professor) va jadvallar
 
-G) SIFAT: kamida 120 to'liq jumla. Tashxis YAXSHI bo'lishi shart, LEKIN tahlilsiz hisobot YAROQSIZ.
-Har da'vo — KO'RINADIGAN dalil. Essential yetarli emas bo'lsa ehtimollikni pasaytir.
+G) SIFAT: kamida 120 to'liq jumla. Tashxis ANIQ NOM bilan, LEKIN dalilsiz malignite YAROQSIZ.
+Har da'vo — KO'RINADIGAN dalil. Essential yetarli emas bo'lsa ehtimollikni pasaytir
+va yetakchini BENIGN/REAKTIV qil.
+
+H) MALIGNITE: yuqoridagi BEMOR XAVFSIZLIGI qonunlari. Soxta rak — eng og'ir xato.
 """
 
 _HISTOLOGY_TEACHING_DEEP = """
@@ -1564,8 +1616,8 @@ TAQIQLANGAN: faqat tashxis + 5 qator mezon. Bunday hisobot YAROQSIZ.
 _HISTOLOGY_SAFE_PROTOCOL = """
 ICHKI patologiya o'quv qoralamasi (imzo emas). O'zbek tilida. Kamida 120 to'liq jumla.
 PROFESSOR DARAJASI: oddiy laborant uslubi TAQIQLANADI.
-TASHXIS + TO'LIQ TAHLIL: tashxis yaxshi bo'lsa ham, batafsil morfologiya va klinik fikrlash YO'Q bo'lsa — qayta yoz.
-""" + _HISTOLOGY_CANON_REF + _HISTOLOGY_WHO_STRICT + _HISTOLOGY_TEACHING_DEEP + """
+TASHXIS ANIQ NOM + TO'LIQ TAHLIL. Dalilsiz rak/karsinoma — hisobot YAROQSIZ.
+""" + _HISTOLOGY_PATIENT_SAFETY + _HISTOLOGY_CANON_REF + _HISTOLOGY_WHO_STRICT + _HISTOLOGY_TEACHING_DEEP + """
 ORGAN QOIDASI (eng muhim — buzilsa hisobot yaroqsiz):
 - BIR yetakchi ORGAN ni tanla va BUTUN hisobot shu organda qoladi.
 - 3 ta ishchi taassurotning HAR UCHALASI ham SHU organ + WHO/McKee nomi.
@@ -1862,6 +1914,7 @@ def _histology_organ_lock_text(organ_info):
         f"3 ta ishchi taassurot VA barcha differensial FAQAT shu organ oilasidan.\n"
         f"Boshqa organ nomini (ayniqsa buyrak/RCC, qovuq, sut bezi — agar qulf {name} bo'lmasa) yozma.\n"
         f"'BOSHQA ORGAN DIFFERENSIALI' bo'limini YARATMA.\n"
+        f"Dalilsiz malignite YO'Q: malignite huquqi YO'Q bo'lsa yetakchi benign/reaktiv.\n"
     )
 
 
@@ -1941,10 +1994,9 @@ def _describe_user(lab_type, organ_lock=None):
     if lab_type == "histology":
         return (
             f"H&E tissue photomicrograph. Internal pathology TEACHING note in Uzbek. "
-            f"Give a precise WHO diagnosis, THEN a full educational analysis so the user "
-            f"improves clinical reasoning (not diagnosis-only). "
-            f"Required long sections: BATAFSIL MORFOLOGIK TAHLIL + KLINIK FIKRLASH + NEGA BU TASHXIS. "
-            f"Apply Junqueira + McKee(if skin) + MBOC + WHO METHOD. Never refuse.\n"
+            f"Give a precise WHO/McKee NAME, THEN a full educational analysis. "
+            f"Do NOT lead with cancer unless invasion+Essential are VISIBLE. "
+            f"Required: Malignite qo'yish huquqi HA/YO'Q. Never refuse.\n"
             f"{m['forbid']}\n\n"
             + _histology_organ_lock_text(organ_lock)
             + _HISTOLOGY_SAFE_PROTOCOL
@@ -1955,6 +2007,56 @@ def _describe_user(lab_type, organ_lock=None):
         "Unsigned draft. Named patterns, then 3 working impressions with %.\n"
         f"Describe: {m['count']}. If absent, write 0 and why. No blood-smear CBC unless this is hematology."
     )
+
+
+def _histology_dx_block(text):
+    m = re.search(
+        r"#+\s*aniq\s+tashxis\b(.{0,2800}?)(?=\n#+\s|\Z)",
+        text or "",
+        flags=re.I | re.S,
+    )
+    return m.group(1) if m else (text or "")[:2000]
+
+
+_MALIGN_LEAD_RE = re.compile(
+    r"carcinom|karsinom|adenokarsinom|sarkom|sarcom|melanom|"
+    r"\brcc\b|renal cell|buyrak\s+rak|yomon\s+o'sma|yomon\s+osma|"
+    r"invaziv\s+scc|invasive\s+squamous|\bmalignant\b",
+    re.I,
+)
+
+
+def _histology_cancer_overcall(text):
+    """Yetakchi tashxisda dalilsiz rak — qayta yozish."""
+    if not text:
+        return False
+    block = _histology_dx_block(text)
+    lead = ""
+    for line in block.splitlines():
+        if re.search(r"yetakchi|1-o.?rin", line, re.I):
+            lead = line
+            break
+    if not lead:
+        lead = block[:600]
+    if not _MALIGN_LEAD_RE.search(lead):
+        return False
+    low = text.lower().replace("‘", "'").replace("’", "'")
+    ha = bool(re.search(r"malignite\s+qo'?yish\s+huquqi\s*:\s*ha\b", low))
+    inv = bool(
+        re.search(
+            r"invaziy[aeis]\s*:\s*ha\b|stromal\s+invaziya\s*:\s*ha|"
+            r"invaziya\s+aniq\s+ko'?rin|bazal\s+membrana\s+buzil",
+            low,
+        )
+    )
+    pcts = [int(x) for x in re.findall(r"(\d{1,3})\s*%", lead)]
+    if any(p >= 55 for p in pcts) and not inv:
+        return True
+    if not ha:
+        return True
+    if ha and not inv:
+        return True
+    return False
 
 
 def _looks_like_weak_generic(text, lab_type, organ_lock=None):
@@ -1986,6 +2088,8 @@ def _looks_like_weak_generic(text, lab_type, organ_lock=None):
         named = any(x in low for x in (
             "papilloma", "carcinoma", "karsinom", "adenom", "dcis", "punlmp",
             "keratosis", "bowen", "bcc", "gleason", "niftp", "pin", "verruca",
+            "malignite qo'yilmaydi", "malignite quyilmaydi", "yetarli mezon",
+            "seborrheic", "giperkeratoz", "hyperkeratosis", "reaktiv",
         ))
         if not named:
             return True
@@ -2001,6 +2105,8 @@ def _looks_like_weak_generic(text, lab_type, organ_lock=None):
         if _histology_report_organs_conflict(text):
             return True
         if _histology_report_wrong_organ(text, organ_lock):
+            return True
+        if _histology_cancer_overcall(text):
             return True
         if low.count("%") >= 8 and "baho" in low:
             return True
@@ -2044,7 +2150,9 @@ OUTPUT_FORMAT_RULES_UZ = """
 ---
 CHIQISH TARTIBI (ichki konsilium — laborant foizli baho EMAS):
 0. Faqat MedLab. Yulduzcha ** yo'q. :--- yo'q. Bu ichki LIS morfologik xulosa (shifokor tasdiqlaydi).
-1. AVVAL "#### ANIQ TASHXIS" — yetakchi WHO/atlas nomi + ehtimollik %, 2-o'rin, 3-o'rin.
+1. AVVAL "#### ANIQ TASHXIS" — ishonch sinfi, malignite huquqi HA/YO'Q, biologiya,
+   yetakchi WHO/atlas ANIQ nomi + %, 2-o'rin, 3-o'rin.
+   Dalilsiz karsinoma/RCC yetakchi qilish TAQIQLANADI.
 2. "#### WHO MEZONLARI" — Essential + Desirable + biologiya.
 3. "#### BATAFSIL MORFOLOGIK TAHLIL" — kamida 25 jumla: pattern, epitel, yadro, stroma, invaziya.
    Qisqa ro'yxat YETMAYDI — gapirib tushuntir.
@@ -2071,6 +2179,7 @@ def _full_analysis_prompt(base, microscope_prefix, lab_type=None, patient_contex
         parts.append(patient)
     parts.append(CLINICAL_EXCELLENCE_PREFIX_UZ.strip())
     if (lab_type or "") == "histology":
+        parts.append(_HISTOLOGY_PATIENT_SAFETY.strip())
         parts.append(_HISTOLOGY_CANON_REF.strip())
         parts.append(_HISTOLOGY_WHO_STRICT.strip())
         parts.append(_HISTOLOGY_TEACHING_DEEP.strip())
@@ -2892,15 +3001,18 @@ def _pil_to_data_url(img):
 _ANALYSIS_SYSTEM = (
     "Sen MedLab ICHKI LIS konsilium raisisan. Ichki morfologik xulosa yozasan. "
     "Foizli baho va 'normal orientir' TAQIQLANADI. "
+    "Tashxis NOMI aniq bo'lsin. Dalilsiz rak/karsinoma/leykoz YOZMA. "
     "AVVAL ANIQ TASHXIS, WHO MEZONLARI, NIMA QILISH KERAK, PROFILAKTIKA VA DAVOLASH REJASI. "
     "Rad etma. Faqat MedLab."
 )
 
 _WORKSHEET_SYSTEM = (
     "Sen MedLab ichki laborator hisobotini to'ldirasan (LIS). "
-    "Ichki morfologik xulosa — shifokor tasdiqlaydi, lekin ANIQ WHO tashxis nomini yoz. "
+    "Ichki morfologik xulosa — shifokor tasdiqlaydi. WHO/McKee NOMINI aniq yoz. "
+    "Dalilsiz malignite (karsinoma, RCC, rak) yetakchi qilma — avval benign/reaktiv. "
     "Faqat tanlangan tahlil turi. O'zbek tili. Pattern va tuzilma NOMLARI bilan yoz. "
-    "Majburiy: #### ANIQ TASHXIS, #### WHO MEZONLARI, #### NIMA QILISH KERAK, "
+    "Majburiy: #### ANIQ TASHXIS (ishonch + malignite huquqi HA/YO'Q), #### WHO MEZONLARI, "
+    "#### NIMA QILISH KERAK, "
     "#### PROFILAKTIKA VA DAVOLASH REJASI. "
     "Baho 1-5 taqiqlanadi. Rad etma. Faqat MedLab."
 )
@@ -2908,7 +3020,11 @@ _WORKSHEET_SYSTEM = (
 _SAFE_SYSTEM = (
     "You write INTERNAL laboratory morphology notes in Uzbek for licensed staff. "
     "Unsigned draft for LIS; clinician confirms. Never refuse. "
-    "For histology: WHO diagnosis FIRST, then LONG teaching analysis. "
+    "PATIENT SAFETY: falsely calling cancer in a healthy/insufficient specimen is the worst error. "
+    "A precise NAME is required, but malignancy as the LEADING diagnosis is allowed ONLY if "
+    "WHO Essential criteria are VISIBLE and invasion is PROVEN. Otherwise leading = benign/reactive "
+    "or 'insufficient criteria — malignancy not assigned'. "
+    "For histology: WHO diagnosis FIRST (with malignancy-right HA/YO'Q), then LONG teaching analysis. "
     "Required sections: #### ANIQ TASHXIS, #### WHO MEZONLARI, "
     "#### BATAFSIL MORFOLOGIK TAHLIL (>=25 sentences), #### KLINIK FIKRLASH (>=20 sentences, teaching Q&A), "
     "#### NEGA BU TASHXIS, #### NIMA QILISH KERAK, #### PROFILAKTIKA VA DAVOLASH REJASI. "
@@ -3277,7 +3393,7 @@ def _needs_rewrite(text, lab_type, organ_lock=None):
         or _looks_like_wrong_blood_smear(text, lab_type)
         or _looks_like_weak_generic(text, lab_type, organ_lock)
         or _missing_diagnosis_sections(text)
-        or (lab_type == "histology" and _histology_report_wrong_organ(text, organ_lock))
+        or (lab_type == "histology" and _histology_cancer_overcall(text))
     )
 
 
@@ -3307,7 +3423,9 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="hematology", organ_l
         + "Tashxis yaxshi bo'lsa ham batafsil o'quv tahlilsiz YAROQSIZ. "
         "3 taassurot SHU organ oilasidan. Boshqa organ differensiali YO'Q. "
         "Bemor jinsi va namuna joyiga zid yozma. Yolg'iz 'papillary adenoma' yo'q. "
-        "Agar organ qulfi TERI bo'lsa buyrak rakini / RCC ni YOZMA."
+        "Agar organ qulfi TERI bo'lsa buyrak rakini / RCC ni YOZMA. "
+        "Malignite qo'yish huquqi YO'Q bo'lsa yetakchi karsinoma/RCC/rak BO'LMASIN — benign/reaktiv nom yoz. "
+        "Sog'lom/dalilsiz holatga rak qo'yish — hisobot yaroqsiz."
     )
     content = _vision_user(user_text, image_parts) if image_parts else user_text
     expand_kwargs = dict(kwargs or {})
@@ -3576,6 +3694,7 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
         or (lab_type == "histology" and _looks_like_weak_generic(report, lab_type, organ_lock))
         or (lab_type == "histology" and _histology_report_organs_conflict(report))
         or (lab_type == "histology" and _histology_report_wrong_organ(report, organ_lock))
+        or (lab_type == "histology" and _histology_cancer_overcall(report))
         or len(report) < 5000
     ):
         log.info("%s: 2-bosqich uzaytirish (%s belgi) lab=%s", ZIYRAKAI_DISPLAY_NAME, len(report), lab_type)
@@ -3584,6 +3703,7 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
             organ_bad = lab_type == "histology" and (
                 _histology_report_organs_conflict(expanded)
                 or _histology_report_wrong_organ(expanded, organ_lock)
+                or _histology_cancer_overcall(expanded)
             )
             if organ_bad:
                 log.warning("%s: uzaytirishda organ konflikti — qayta qulf bilan", ZIYRAKAI_DISPLAY_NAME)
@@ -3591,6 +3711,7 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
                 if _usable(fixed, 1200) and not (
                     _histology_report_organs_conflict(fixed)
                     or _histology_report_wrong_organ(fixed, organ_lock)
+                    or _histology_cancer_overcall(fixed)
                 ):
                     report = fixed
                 else:
