@@ -1308,7 +1308,11 @@ LAB_IDENTITY = {
             "organ (BIRTA), to'qima tipi (Junqueira), hujayra/yadro/sitoplazma (MBOC), "
             "pattern, nuclear grade, mitoz/10HPF, invaziya, WHO/McKee taassurot 1-2-3"
         ),
-        "forbid": "Qon yoqmasi formulasi TAQIQLANADI. Foizli 'arxitektura 70% / epiteliy 60% / baho 3' jadvali TAQIQLANADI. Noaniq 'yallig'lanishli atipik o'zgarishlar' TAMOM.",
+        "forbid": (
+            "Qon yoqmasi formulasi TAQIQLANADI. Foizli 'arxitektura 70% / epiteliy 60% / baho 3' jadvali TAQIQLANADI. "
+            "Noaniq 'yallig'lanishli atipik o'zgarishlar' TAMOM. "
+            "Tanlangan ORGAN oilasidan tashqari tashxis (masalan teri bo'lsa buyrak RCC) TAQIQLANADI."
+        ),
         "dx": (
             "WHO Essential/Desirable mezonlari + 3 ta WHO ishchi taassurot "
             "(organ + nom + %). 'Papillar adenoma' yolg'iz TAQIQLANADI."
@@ -1450,7 +1454,9 @@ C) GRADE (organ mos):
 - Organ-spesifik: prostat Gleason/Grade group (faqat prostata); urothelial low vs high grade;
   sut bezi Nottingham faqat to'liq mezonlar ko'rinsa, aks holda nuclear grade + pattern
 
-D) ORGAN BO'YICHA WHO OILASI (faqat yetakchi organ; boshqa organ yozma):
+D) ORGAN BO'YICHA WHO OILASI — FAQAT yetakchi organ (pastdagi qulf).
+Papilla/so'rg'ich KO'RINSA ham bu avtomatik buyrak/qovuq EMAS.
+Buyrak tashxisini FAQAT glomerula yoki aniq buyrak naychalari ko'rinsa yoz.
 
 SUT BEZI:
 intraductal papilloma; papilloma with ADH/DCIS; encapsulated papillary carcinoma;
@@ -1481,9 +1487,9 @@ YUMURTALIK:
 serous cystadenoma; serous borderline; low/high-grade serous carcinoma;
 mucinous; endometrioid — faqat dalil. Papilla + psammoma kontekstini yoz.
 
-BUYRAK:
-papillary renal cell carcinoma; clear cell RCC; oncocytoma; chromophobe — dalil bo'lsa.
-Papilla + ko'piksimon/clear sitoplazma.
+BUYRAK (FAQAT glomerula / buyrak naychasi / aniq renal arxitektura bo'lsa):
+papillary renal cell carcinoma; clear cell RCC; oncocytoma; chromophobe.
+Papilla YOLG'IZ yetarli EMAS — teri papillomatozi va sut bezi papillomasini buyrak deb yozma.
 
 ENDOMETRIUM:
 endometrial hyperplasia (with/without atypia); endometrioid carcinoma grade;
@@ -1569,15 +1575,17 @@ ORGAN QOIDASI (eng muhim — buzilsa hisobot yaroqsiz):
 - Differensial FAQAT yetakchi organ oilasidan (masalan teri → McKee/WHO teri).
 - Bir xil rasmda bir marta sut bezi, keyin qovuq deb yozish TAQIQLANADI.
 
-ORGANNI QANDAY TANLASH (papillar lesiya uchun):
-A) Dilate kanal/kista ICHIDA papilla + fibrovascular o'zak + bir/ikki qavat kubik/silindrik epitel
-   (± myoepiteliy izi) → yetakchi: SUT BEZI (intraductal papilloma oilasi).
-B) Ko'p qavatli urotel (umbrella hujayra), papilla sirtida qalin urotel qavat → yetakchi: QOVUQ.
-C) Kolloid + yadro ichida bo'shliq (orphan Annie) → QALQONSIMON.
-D) Corpora amylacea / ikki qavatli prostata epiteli → PROSTATA.
-E) Villous/ichak goblet → ICHAK.
-F) Epidermis + keratin + dermoepidermal junction → TERI (McKee/WHO skin).
-Dalilsiz "urotel" yoki "silindrik" deb yozma — nima KO'RINISHINI yoz.
+ORGANNI QANDAY TANLASH (papillar lesiya uchun) — klinik namuna joyi ENG USTUN:
+A) Epidermis + keratin / giperkeratoz / rete ridge / dermoepidermal junction → TERI (McKee).
+   Teri biopsiyasida buyrak rakini YOZMA.
+B) Dilate kanal/kista ICHIDA papilla + fibrovascular o'zak + bir/ikki qavat kubik/silindrik epitel
+   (± myoepiteliy izi) → SUT BEZI (intraductal papilloma oilasi).
+C) Ko'p qavatli urotel (umbrella hujayra), papilla sirtida qalin urotel qavat → QOVUQ.
+D) Kolloid + yadro ichida bo'shliq (orphan Annie) → QALQONSIMON.
+E) Corpora amylacea / ikki qavatli prostata epiteli → PROSTATA.
+F) Villous/ichak goblet → ICHAK.
+G) Glomerula yoki aniq buyrak naychalari → BUYRAK. Papilla yolg'iz → buyrak EMAS.
+Dalilsiz "urotel"/"renal"/"silindrik" deb yozma — nima KO'RINISHINI yoz.
 
 1) Yetakchi organ + kamida 5 morfologik dalil.
 2) Pattern: papillary / cribriform / tubular / solid / villous / papillomatosis — bor/yo'q.
@@ -1618,17 +1626,87 @@ _HISTOLOGY_ORGAN_UZ = {
     "noaniq": "Noaniq organ",
 }
 
+_HISTOLOGY_WHO_FAMILY = {
+    "teri": (
+        "FAQAT TERI oilasi (McKee + WHO skin): seborrheic keratosis; verruca; squamous papilloma; "
+        "actinic keratosis; SCC in situ; invasive SCC; BCC; nevus; dermatofibroma; adnexal (faqat dalil). "
+        "TAQIQLANGAN: buyrak RCC, papillary renal cell carcinoma, qovuq/urotel, sut bezi papillomasi, "
+        "prostata adenokarsinomasi."
+    ),
+    "sut_bezi": (
+        "FAQAT SUT BEZI: intraductal papilloma; ADH/DCIS; encapsulated/solid papillary carcinoma; "
+        "invasive ductal/lobular; phyllodes. TAQIQLANGAN: RCC, urotel, teri SCC ni asosiy qilish."
+    ),
+    "qovuq": (
+        "FAQAT QOVUQ/UROTEL: papilloma; PUNLMP; low/high-grade papillary urothelial neoplasm; CIS; "
+        "invasive urothelial carcinoma. TAQIQLANGAN: RCC, teri, sut bezi."
+    ),
+    "prostata": (
+        "FAQAT PROSTATA: HGPIN; acinar adenocarcinoma Gleason; ductal adenocarcinoma; polyp/atrophy. "
+        "TAQIQLANGAN: RCC, teri, sut bezi."
+    ),
+    "qalqonsimon": (
+        "FAQAT QALQONSIMON: PTC; NIFTP; follicular adenoma vs carcinoma; papillary hyperplasia."
+    ),
+    "ichak": (
+        "FAQAT GI: hyperplastic polyp; adenoma; adenocarcinoma; serrated (dalil bo'lsa)."
+    ),
+    "yumurtalik": (
+        "FAQAT YUMURTALIK: serous/mucinous/endometrioid oilasi — faqat dalil."
+    ),
+    "buyrak": (
+        "FAQAT BUYRAK: papillary RCC; clear cell RCC; oncocytoma; chromophobe — "
+        "glomerula yoki buyrak naychasi ko'rinsa. Teri/sut bezi tashxisini yozma."
+    ),
+    "endometrium": (
+        "FAQAT ENDOMETRIUM: hyperplasia ± atypia; endometrioid carcinoma; serous endometrial."
+    ),
+    "opka": (
+        "FAQAT O'PKA: squamous / adenocarcinoma / neuroendocrine — kuchli dalil; aks holda IHC."
+    ),
+    "noaniq": (
+        "Avval to'qima tipini (epidermis vs bez vs urotel vs glomerula) yoz. "
+        "Noaniq bo'lsa RCC ni SUKUTAN tanlama."
+    ),
+}
+
+_HISTOLOGY_FOREIGN_MARKERS = {
+    "teri": (
+        "papillary renal", "renal cell", "buyrak rak", "buyrak karsinom", "buyrak adenokarsinom",
+        "clear cell rcc", "ccrcc", "prcc", "oncocytoma", "onkotsitom", "chromophobe",
+        "xromofob", "punlmp", "urothelial carcinoma", "intraductal papilloma",
+        "gleason", "nottingham",
+    ),
+    "sut_bezi": (
+        "papillary renal", "renal cell", "buyrak rak", "punlmp", "urothelial",
+        "actinic keratosis", "seborrheic keratosis", "basal cell",
+    ),
+    "qovuq": (
+        "papillary renal", "renal cell", "buyrak rak", "seborrheic", "intraductal papilloma",
+    ),
+    "buyrak": (
+        "seborrheic keratosis", "actinic keratosis", "basal cell carcinoma",
+        "intraductal papilloma", "punlmp",
+    ),
+}
+
 _HISTOLOGY_ORGAN_GATE_SYSTEM = (
-    "You are an internal pathology router. Look at one H&E photomicrograph. "
+    "You are an internal pathology router. Look at H&E photomicrograph(s) of ONE case. "
     "Return ONE JSON object only, no markdown. Never refuse. "
     "Keys: organ (code), confidence (high|medium|low), reason_uz (short Uzbek). "
     "organ codes: sut_bezi, qovuq, prostata, qalqonsimon, ichak, yumurtalik, buyrak, "
     "endometrium, teri, opka, noaniq. "
-    "Prefer morphology: intraductal papillae with fibrovascular cores in a dilated duct → sut_bezi; "
-    "stratified urothelium with umbrella cells on papillae → qovuq; "
-    "colloid/orphan Annie → qalqonsimon; corpora amylacea → prostata. "
-    "If truly ambiguous between two, still pick the SINGLE most likely organ (not noaniq) "
-    "when papillae-in-duct morphology dominates choose sut_bezi."
+    "PRIORITY morphology: "
+    "epidermis / stratum corneum / rete ridges / keratin / hair follicle / dermoepidermal junction → teri; "
+    "intraductal papillae with fibrovascular cores in a dilated duct → sut_bezi; "
+    "stratified urothelium with umbrella cells → qovuq; "
+    "colloid/orphan Annie → qalqonsimon; corpora amylacea → prostata; "
+    "glomerulus or definite renal tubules → buyrak. "
+    "CRITICAL: papillary architecture ALONE is NOT kidney. "
+    "Do NOT choose buyrak for skin papillomatosis, hyperkeratosis, or seborrheic-like lesions. "
+    "If the clinical site/note says skin/teri/koja, organ MUST be teri. "
+    "If truly ambiguous, pick the single most likely organ; default papillary-in-duct to sut_bezi, "
+    "papillomatosis+keratin to teri — never default to buyrak."
 )
 
 
@@ -1676,24 +1754,24 @@ def _parse_histology_organ(raw):
 
 
 def _lock_histology_organ(image_parts, patient_context=None):
-    """Klinik namuna joyi + morfologiya — bitta organ qulfi."""
+    """Klinik namuna joyi + klinik izoh + morfologiya — bitta organ qulfi."""
     p = _normalize_patient_context(patient_context)
-    site_forced = _organ_from_specimen_site(p.get("specimen_site"))
+    site_forced = _organ_from_text(p.get("specimen_site"))
+    note_forced = _organ_from_text(p.get("clinical_note"))
     sex = _patient_sex_norm(p.get("sex"))
-    if site_forced:
-        # Klinik joy eng ishonchli manba
-        if site_forced == "sut_bezi" and sex == "erkak" and "sut" not in (p.get("specimen_site") or "").lower() and "breast" not in (p.get("specimen_site") or "").lower():
-            pass
+    forced = site_forced or note_forced
+    if forced:
+        src = p.get("specimen_site") if site_forced else p.get("clinical_note")
         log.info(
-            "%s: histology organ FROM SITE=%s site=%r",
+            "%s: histology organ FROM CLINIC=%s src=%r",
             ZIYRAKAI_DISPLAY_NAME,
-            site_forced,
-            p.get("specimen_site"),
+            forced,
+            src,
         )
         return {
-            "organ": site_forced,
+            "organ": forced,
             "confidence": "high",
-            "reason_uz": f"Klinik namuna joyi: {p.get('specimen_site')}",
+            "reason_uz": f"Klinik yo'nalish: {src}",
         }
 
     if not image_parts:
@@ -1706,12 +1784,18 @@ def _lock_histology_organ(image_parts, patient_context=None):
                 {"type": "image_url", "image_url": {"url": url, "detail": "high"}}
             )
         sex_line = f"Patient sex={p.get('sex') or 'unknown'}; age={p.get('age') or 'unknown'}."
-        note = p.get("clinical_note") or ""
         n_img = len(low_parts)
         organ_q = (
-            f"Classify the most likely organ using ALL {n_img} H&E field(s) of the SAME case. JSON only. "
+            f"Classify the most likely ORGAN using ALL {n_img} H&E field(s) of the SAME case. JSON only. "
             if n_img > 1
-            else "Classify the most likely organ for this H&E field. JSON only. "
+            else "Classify the most likely ORGAN for this H&E field. JSON only. "
+        )
+        site_hint = (p.get("specimen_site") or "").strip()
+        note = p.get("clinical_note") or ""
+        hint_line = (
+            f" Clinical specimen site: {site_hint or '—'}. Clinical note: {note or '—'}. "
+            "If site/note indicates skin/teri/koja/epidermis, organ MUST be teri. "
+            "Do not output buyrak unless glomeruli/renal tubules are visible."
         )
         raw = _chat_complete(
             [
@@ -1721,9 +1805,10 @@ def _lock_histology_organ(image_parts, patient_context=None):
                     "content": _vision_user(
                         organ_q
                         + sex_line
-                        + (f" Clinical note: {note}." if note else "")
-                        + " Respect sex: male → avoid female-only organs unless morphology forces; "
-                        "female → avoid prostate.",
+                        + hint_line
+                        + " Respect sex: male → avoid ovary/endometrium as primary; "
+                        "female → avoid prostate. Male breast is allowed only if ducts are clear. "
+                        "Never remap skin to kidney or bladder.",
                         low_parts,
                     ),
                 },
@@ -1734,10 +1819,10 @@ def _lock_histology_organ(image_parts, patient_context=None):
         if not parsed:
             log.warning("%s: organ lock parse fail: %r", ZIYRAKAI_DISPLAY_NAME, _preview(raw))
             return None
-        # Sex hard filter
-        if sex == "erkak" and parsed["organ"] in ("sut_bezi", "yumurtalik", "endometrium"):
+        # Sex hard filter — ayol organlari; teri/buyrakka o'zgartirma
+        if sex == "erkak" and parsed["organ"] in ("yumurtalik", "endometrium"):
             parsed = {
-                "organ": "qovuq" if parsed["organ"] == "sut_bezi" else "noaniq",
+                "organ": "noaniq",
                 "confidence": "medium",
                 "reason_uz": (
                     (parsed.get("reason_uz") or "")
@@ -1768,13 +1853,28 @@ def _histology_organ_lock_text(organ_info):
     code = organ_info.get("organ") or "noaniq"
     name = _HISTOLOGY_ORGAN_UZ.get(code, code)
     reason = organ_info.get("reason_uz") or ""
+    family = _HISTOLOGY_WHO_FAMILY.get(code) or _HISTOLOGY_WHO_FAMILY["noaniq"]
     return (
-        f"#### ORGAN QULFI (o'zgartirma)\n"
+        f"#### ORGAN QULFI (o'zgartirma — buzilsa hisobot yaroqsiz)\n"
         f"Yetakchi organ: {name} ({code}).\n"
         f"Asos: {reason}\n"
+        f"Oila: {family}\n"
         f"3 ta ishchi taassurot VA barcha differensial FAQAT shu organ oilasidan.\n"
-        f"Boshqa organ nomini yozma. 'BOSHQA ORGAN DIFFERENSIALI' bo'limini YARATMA.\n"
+        f"Boshqa organ nomini (ayniqsa buyrak/RCC, qovuq, sut bezi — agar qulf {name} bo'lmasa) yozma.\n"
+        f"'BOSHQA ORGAN DIFFERENSIALI' bo'limini YARATMA.\n"
     )
+
+
+def _histology_report_wrong_organ(text, organ_lock):
+    """Qulfdagi organga zid tashxis oilasi (teri → buyrak rak)."""
+    if not text or not organ_lock:
+        return False
+    code = (organ_lock.get("organ") or "").strip().lower()
+    markers = _HISTOLOGY_FOREIGN_MARKERS.get(code) or ()
+    if not markers:
+        return False
+    low = (text or "").lower()
+    return any(m in low for m in markers)
 
 
 def _histology_report_organs_conflict(text):
@@ -1857,7 +1957,7 @@ def _describe_user(lab_type, organ_lock=None):
     )
 
 
-def _looks_like_weak_generic(text, lab_type):
+def _looks_like_weak_generic(text, lab_type, organ_lock=None):
     if not text:
         return True
     low = text.lower()
@@ -1899,6 +1999,8 @@ def _looks_like_weak_generic(text, lab_type):
         if generic_only:
             return True
         if _histology_report_organs_conflict(text):
+            return True
+        if _histology_report_wrong_organ(text, organ_lock):
             return True
         if low.count("%") >= 8 and "baho" in low:
             return True
@@ -1977,32 +2079,79 @@ def _full_analysis_prompt(base, microscope_prefix, lab_type=None, patient_contex
 
 
 _SITE_ORGAN_HINTS = (
+    ("kojniy rog", "teri"),
+    ("kozhnyy rog", "teri"),
+    ("cutaneous horn", "teri"),
+    ("seborrheic", "teri"),
+    ("seborrey", "teri"),
+    ("actinic keratosis", "teri"),
+    ("aktinichesk", "teri"),
+    ("keratoakantom", "teri"),
+    ("keratoacanthoma", "teri"),
+    ("squamous papilloma", "teri"),
+    ("epidermis", "teri"),
+    ("epiderm", "teri"),
+    ("dermoepidermal", "teri"),
+    ("cutaneous", "teri"),
+    ("dermatopat", "teri"),
+    ("keratoz", "teri"),
+    ("keratosis", "teri"),
+    ("kojniy", "teri"),
+    ("kozhnyy", "teri"),
+    ("кожный", "teri"),
+    ("кожн", "teri"),
+    ("teri", "teri"),
+    ("skin", "teri"),
+    ("koja", "teri"),
+    ("kozha", "teri"),
+    ("кожа", "teri"),
     ("sut bezi", "sut_bezi"),
-    ("sut", "sut_bezi"),
+    ("ko'krakdan", "sut_bezi"),
+    ("kokrakdan", "sut_bezi"),
+    ("ko'krak", "sut_bezi"),
+    ("kokrak", "sut_bezi"),
     ("breast", "sut_bezi"),
     ("mamma", "sut_bezi"),
-    ("qovuq", "qovuq"),
     ("siydik pufak", "qovuq"),
+    ("urothelial", "qovuq"),
+    ("qovuq", "qovuq"),
     ("bladder", "qovuq"),
     ("urotel", "qovuq"),
     ("prostata", "prostata"),
     ("prostate", "prostata"),
+    ("qalqonsimon", "qalqonsimon"),
     ("qalqon", "qalqonsimon"),
     ("thyroid", "qalqonsimon"),
     ("endometr", "endometrium"),
     ("bachadon", "endometrium"),
-    ("ichak", "ichak"),
-    ("colon", "ichak"),
     ("yumurtalik", "yumurtalik"),
     ("ovary", "yumurtalik"),
+    ("oshqozon", "ichak"),
+    ("colon", "ichak"),
+    ("ichak", "ichak"),
+    ("renal cell", "buyrak"),
     ("buyrak", "buyrak"),
     ("kidney", "buyrak"),
-    ("teri", "teri"),
-    ("skin", "teri"),
+    ("glomerul", "buyrak"),
     ("o'pka", "opka"),
     ("opka", "opka"),
     ("lung", "opka"),
 )
+
+
+def _organ_from_text(text):
+    low = (text or "").strip().lower().replace("ё", "е")
+    if not low:
+        return None
+    # Uzunroq kalit avval (masalan "sut bezi" > tasodifiy qism)
+    for hint, code in sorted(_SITE_ORGAN_HINTS, key=lambda x: len(x[0]), reverse=True):
+        if hint in low:
+            return code
+    return None
+
+
+def _organ_from_specimen_site(site):
+    return _organ_from_text(site)
 
 
 def _normalize_patient_context(patient_context):
@@ -2036,16 +2185,6 @@ def _patient_sex_norm(sex):
     return ""
 
 
-def _organ_from_specimen_site(site):
-    low = (site or "").strip().lower()
-    if not low:
-        return None
-    for hint, code in _SITE_ORGAN_HINTS:
-        if hint in low:
-            return code
-    return None
-
-
 def _patient_lab_mismatch_message(lab_type, patient_context):
     """Jins / lab turi ziddiyati — tahlilni to'xtatish."""
     p = _normalize_patient_context(patient_context)
@@ -2076,7 +2215,7 @@ def _patient_lab_mismatch_message(lab_type, patient_context):
             return (
                 "#### NAMUNA JOYI KERAK\n\n"
                 "Gistologiya uchun **Namuna joyi (organ)** majburiy "
-                "(masalan: sut bezi, qovuq, prostata).\n"
+                "(masalan: Teri, sut bezi, qovuq, prostata).\n"
                 "Chapdagi bemor formasida namuna joyini to'ldirib, qayta tahlil qiling.\n"
                 "Kliniksiz organ taxmin qilish — xato xavfi yuqori, shuning uchun to'xtatildi."
             )
@@ -2123,7 +2262,9 @@ def _patient_prompt_prefix(patient_context, lab_type="hematology"):
         lines.append(f"- Muassasa: {loc} ({p.get('facility_type') or '—'})")
 
     sex = _patient_sex_norm(p.get("sex"))
-    site_organ = _organ_from_specimen_site(p.get("specimen_site"))
+    site_organ = _organ_from_text(
+        " ".join(x for x in (p.get("specimen_site"), p.get("clinical_note")) if x)
+    )
     lines.append("")
     lines.append("QAT'IY QOIDALAR:")
     if site_organ:
@@ -3129,13 +3270,14 @@ def _board_review(draft, full_prompt, kwargs, image_parts=None, lab_type="hemato
     )
 
 
-def _needs_rewrite(text, lab_type):
+def _needs_rewrite(text, lab_type, organ_lock=None):
     return (
         _too_shallow(text)
         or _looks_like_technician(text)
         or _looks_like_wrong_blood_smear(text, lab_type)
-        or _looks_like_weak_generic(text, lab_type)
+        or _looks_like_weak_generic(text, lab_type, organ_lock)
         or _missing_diagnosis_sections(text)
+        or (lab_type == "histology" and _histology_report_wrong_organ(text, organ_lock))
     )
 
 
@@ -3164,7 +3306,8 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="hematology", organ_l
         + (f"Barcha {n_img} ta rasmni sintez qil; faqat 1-rasmga tayanma. " if n_img > 1 else "")
         + "Tashxis yaxshi bo'lsa ham batafsil o'quv tahlilsiz YAROQSIZ. "
         "3 taassurot SHU organ oilasidan. Boshqa organ differensiali YO'Q. "
-        "Bemor jinsi va namuna joyiga zid yozma. Yolg'iz 'papillary adenoma' yo'q."
+        "Bemor jinsi va namuna joyiga zid yozma. Yolg'iz 'papillary adenoma' yo'q. "
+        "Agar organ qulfi TERI bo'lsa buyrak rakini / RCC ni YOZMA."
     )
     content = _vision_user(user_text, image_parts) if image_parts else user_text
     expand_kwargs = dict(kwargs or {})
@@ -3429,18 +3572,26 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
         return _REFUSAL_FALLBACK_UZ
 
     if image_parts and (
-        _needs_rewrite(report, lab_type)
-        or (lab_type == "histology" and _looks_like_weak_generic(report, lab_type))
+        _needs_rewrite(report, lab_type, organ_lock)
+        or (lab_type == "histology" and _looks_like_weak_generic(report, lab_type, organ_lock))
         or (lab_type == "histology" and _histology_report_organs_conflict(report))
+        or (lab_type == "histology" and _histology_report_wrong_organ(report, organ_lock))
         or len(report) < 5000
     ):
         log.info("%s: 2-bosqich uzaytirish (%s belgi) lab=%s", ZIYRAKAI_DISPLAY_NAME, len(report), lab_type)
         expanded = _safe_expand(report, kwargs, image_parts, lab_type, organ_lock, patient_context)
         if _usable(expanded, 1200) and not _looks_like_refusal(expanded):
-            if lab_type == "histology" and _histology_report_organs_conflict(expanded):
+            organ_bad = lab_type == "histology" and (
+                _histology_report_organs_conflict(expanded)
+                or _histology_report_wrong_organ(expanded, organ_lock)
+            )
+            if organ_bad:
                 log.warning("%s: uzaytirishda organ konflikti — qayta qulf bilan", ZIYRAKAI_DISPLAY_NAME)
                 fixed = _safe_expand(expanded, kwargs, image_parts, lab_type, organ_lock, patient_context)
-                if _usable(fixed, 1200) and not _histology_report_organs_conflict(fixed):
+                if _usable(fixed, 1200) and not (
+                    _histology_report_organs_conflict(fixed)
+                    or _histology_report_wrong_organ(fixed, organ_lock)
+                ):
                     report = fixed
                 else:
                     report = expanded

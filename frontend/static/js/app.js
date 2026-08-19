@@ -568,6 +568,51 @@ function lookupPatientLocal(name) {
   return hit ? map[hit] : null;
 }
 
+function mapSpecimenSite(raw) {
+  const s = (raw || '').toLowerCase();
+  if (!s) return '';
+  if (/teri|skin|koja|kozha|kojniy|kozh|epiderm|keratoz|dermis/.test(s)) return 'Teri';
+  if (/sut bezi|ko['’]?krak|breast|mamma/.test(s)) return 'Sut bezi';
+  if (/qovuq|bladder|urotel/.test(s)) return 'Qovuq';
+  if (/prostat/.test(s)) return 'Prostata';
+  if (/qalqon|thyroid/.test(s)) return 'Qalqonsimon bez';
+  if (/ichak|colon|oshqozon|gi\b/.test(s)) return 'Oshqozon-ichak';
+  if (/endometr|bachadon/.test(s)) return 'Endometrium';
+  if (/yumurtalik|ovar/.test(s)) return 'Yumurtalik';
+  if (/buyrak|kidney|renal/.test(s)) return 'Buyrak';
+  if (/o['’]?pka|lung/.test(s)) return "O'pka";
+  if (/qon|yoqma|smear/.test(s)) return 'Qon';
+  if (/siydik|urine/.test(s)) return 'Siydik';
+  return '';
+}
+
+function setAccSite(val, soft) {
+  const sel = document.getElementById('accSite');
+  if (!sel) return;
+  const raw = val == null ? '' : String(val).trim();
+  if (soft && sel.value) return;
+  const mapped = mapSpecimenSite(raw);
+  const values = [...sel.options].map(o => o.value);
+  if (mapped && values.includes(mapped)) {
+    sel.value = mapped;
+  } else if (raw && values.includes(raw)) {
+    sel.value = raw;
+  } else if (raw) {
+    let extra = sel.querySelector('option[data-custom="1"]');
+    if (!extra) {
+      extra = document.createElement('option');
+      extra.dataset.custom = '1';
+      sel.appendChild(extra);
+    }
+    extra.value = raw;
+    extra.textContent = raw;
+    sel.value = raw;
+  } else {
+    sel.value = '';
+  }
+  sel.classList.remove('missing');
+}
+
 function applyPatientFields(p, opts) {
   if (!p) return false;
   const soft = !!(opts && opts.soft);
@@ -584,7 +629,7 @@ function applyPatientFields(p, opts) {
   set('accAge', p.age);
   set('accSex', p.sex);
   set('accWard', p.ward);
-  set('accSite', p.specimen_site);
+  setAccSite(p.specimen_site, soft);
   set('accClinical', p.clinical_note);
   if (p.region || p.locality || p.clinic || p.facility_type) {
     const vil = document.getElementById('daftarViloyat');
