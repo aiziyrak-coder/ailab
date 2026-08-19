@@ -13,22 +13,6 @@ from api.models import AnalysisRecord, UserProfile
 from lab_core.engine import _normalize_lab_type
 
 LAB_LABELS = {
-    "hematology": "Gematologiya",
-    "urine": "Siydik tahlili",
-    "coprology": "Koprologiya",
-    "spermogram": "Sperma tahlili",
-    "smear": "Mazok",
-    "csf": "Likvor (OMS)",
-    "lymph": "Limfa suyuqligi",
-    "le_cell": "LE-hujayra",
-    "prostata_sok": "Prostata SOK",
-    "myelogram": "Miyelogramma",
-    "blood_parasites": "Qon parazitlari",
-    "afb_microscopy": "KOCH / AFB",
-    "mycology": "Mikologiya",
-    "dermatology": "Dermatologiya",
-    "derm_microscopy": "Teri qirindisi",
-    "effusion_cytology": "Effuziya sitologiyasi",
     "histology": "Gistologiya",
 }
 
@@ -144,7 +128,7 @@ class MicroscopeStateSerializer(serializers.Serializer):
 
 
 class AnalyzeJsonSerializer(serializers.Serializer):
-    lab_type = serializers.CharField(required=False, default="hematology", max_length=48)
+    lab_type = serializers.CharField(required=False, default="histology", max_length=48)
     prompt = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=6000)
     source = serializers.ChoiceField(choices=("camera", "upload"), default="upload")
     microscope = MicroscopeStateSerializer(required=False)

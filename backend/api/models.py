@@ -115,7 +115,7 @@ class AnalysisRecord(models.Model):
                     rec = cls(
                         public_id=f"{prefix}{n:04d}",
                         user=user,
-                        lab_type=lab_type or "hematology",
+                        lab_type=lab_type or "histology",
                         source=source or "upload",
                         status=status or "tahlil_qilinmoqda",
                         job_id=job_id or "",

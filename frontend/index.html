@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off57">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off57">
+  <link rel="stylesheet" href="/static/css/style.css?v=off59">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off59">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -36,7 +36,7 @@
         <svg width="22" height="22" aria-hidden="true"><use href="#icon-microscope"/></svg>
       </span>
       <span>
-        <span class="header-kicker">Klinik laboratoriya diagnostikasi</span>
+        <span class="header-kicker">Gistopatologiya diagnostikasi</span>
         <span class="header-title">MedLab</span>
       </span>
     </button>
@@ -191,24 +191,8 @@
 
       <div class="card card-grow capture-card">
         <div class="capture-head">
-          <select id="labSelect" class="lab-select" onchange="selectLab(this.value)" aria-label="Tahlil turi">
-            <option value="hematology">Gematologiya</option>
-            <option value="urine">Siydik</option>
-            <option value="coprology">Koprologiya</option>
-            <option value="spermogram">Spermogramma</option>
-            <option value="smear">Mazok</option>
-            <option value="csf">Likvor</option>
-            <option value="lymph">Limfa</option>
-            <option value="le_cell">LE-hujayra</option>
-            <option value="prostata_sok">Prostata SOK</option>
-            <option value="myelogram">Miyelogramma</option>
-            <option value="blood_parasites">Qon parazitlari</option>
-            <option value="afb_microscopy">KOCH / AFB</option>
-            <option value="mycology">Mikologiya</option>
-            <option value="dermatology">Dermatologiya</option>
-            <option value="derm_microscopy">Teri qirindisi</option>
-            <option value="effusion_cytology">Effuziya</option>
-            <option value="histology">Gistologiya</option>
+          <select id="labSelect" class="lab-select" disabled aria-label="Tahlil turi">
+            <option value="histology" selected>Gistologiya</option>
           </select>
           <div class="src-tabs" role="tablist" aria-label="Rasm manbasi">
             <button type="button" class="src-tab active" data-src="upload" role="tab" aria-selected="true" onclick="setSource('upload')">Rasm</button>
@@ -377,8 +361,8 @@
     <div class="right-panel report-sheet">
       <div class="result-header">
         <div class="result-title">
-          <span id="resultLabIcon">🩸</span>
-          <span id="resultLabName">Gematologiya Natijasi</span>
+          <span id="resultLabIcon">🧬</span>
+          <span id="resultLabName">Gistologiya natijasi</span>
           <button type="button" id="resultPublicId" class="result-id hidden" title="Namuna ID ni nusxalash" onclick="copyPublicId()"></button>
         </div>
         <div id="resultRegRow" class="result-reg-row hidden" title="Namuna identifikatsiya raqami">
@@ -396,9 +380,9 @@
       </div>
       <div class="result-body" id="resultBody">
         <div class="result-empty">
-          <div class="re-icon">🩸</div>
-          <p>Gematologiya kutilmoqda</p>
-          <p class="re-hint">Bo‘yalgan qon yoqmasi. Tavsiya: 100× immersiya.</p>
+          <div class="re-icon">🧬</div>
+          <p>Gistologiya kutilmoqda</p>
+          <p class="re-hint">H&E kesma. 10× arxitektura, 40× yadro.</p>
         </div>
       </div>
       <div class="result-next" id="resultNextBar">
@@ -444,7 +428,7 @@
       </div>
 
       <div class="print-doc-info">
-        <div class="print-doc-badge" id="printLabBadge">🩸 Gematologiya Tahlili</div>
+        <div class="print-doc-badge" id="printLabBadge">🧬 Gistologiya tahlili</div>
         <div class="print-doc-meta">
           <span>🆔 <b>ID:</b> <span id="printPublicId">—</span></span>
           <span>📅 <b>Sana:</b> <span id="printDate"></span></span>
@@ -556,8 +540,8 @@
 </div>
 
 <div id="toast"></div>
-<script src="/static/js/uz_localities.js?v=off57"></script>
+<script src="/static/js/uz_localities.js?v=off59"></script>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=off57"></script>
+<script src="/static/js/app.js?v=off59"></script>
 </body>
 </html>

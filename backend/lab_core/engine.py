@@ -62,6 +62,8 @@ def _load_backend_dotenv():
 
 _load_backend_dotenv()
 
+from lab_core.histology_kb import histology_kb_prompt_block  # noqa: E402
+
 # ─── Cheklovlar (DoS va prompt-injection kamaytirish) ─────────────────────────
 MAX_UPLOAD_FILES       = 48
 MAX_FILE_READ_BYTES    = 200 * 1024 * 1024  # bitta so'rov yig'indisi Flask limit bilan mos
@@ -147,7 +149,7 @@ SEN: 3 professorli ichki konsilium raisi. Oddiy laborant varaqasi, foizli "baho"
 JAMOA:
 - 1-professor: sof morfologiya (pattern NOMI, yadro, stroma, artefakt).
 - 2-professor: morfologik differensial (WHO/atlas, MOS/QARSHI, ehtimollik).
-- 3-professor: shu yo'nalishdagi keyingi test (IHC, kultura, CBC — boshqa labni aralashtirma).
+- 3-professor: shu yo'nalishdagi keyingi test (IHC, qo'shimcha kesma — boshqa labni aralashtirma).
 Yakun: 3 ta ISHCHI MORFOLOGIK TAASSUROT, ehtimollik %, nima uchun 1-o'rin shu.
 
 TAQIQLANGAN: "hujayralar ko'rinadi", "tahlil qoniqarli", "o'zgarishlar bor",
@@ -162,948 +164,22 @@ Ko'rinmagan narsani uydirma. "100%" deb yozma.
 TIL: akademik o'zbek, lotin atamasi qavsda. Faqat MedLab.
 """
 
-# ─── Lab bo'limlari prompts ───────────────────────────────────────────────────
+# ─── Lab bo'limlari prompts (faqat gistologiya; boshqa turlar keyin alohida) ─
 LAB_PROMPTS = {
-    "hematology": """
-Sen katta gematolog-morfologsisan (25+ yil). Bu Giemsa/Romanovskiy yoqmasini O'ZBEK tilida
-KATTA MUTAXASSIS protokoli darajasida tahlil qil. Yuzaki "norma/patologiya yo'q" TAQIQLANADI.
-Rasmiy tashxis qo'yma, lekin klinik fikrlashni TO'LIQ och.
-
-## 1. PREPARAT SIFATI (avval shu — keyingi baho shunga bog'liq)
-- Bo'yoq: yadro xromatini, eritrotsit rangi, fon tozaligi
-- Qatlam: yupqa qanot (feather edge) bormi, qalin joy, ezilish
-- Fokus / immersiya / yog' / chang / cho'kma
-- Qaysi zona baholandi (qanot, o'rta, qalin) — nima uchun
-Izoh: 6-10 jumla.
-
-## 2. ERITROSITLAR — TO'LIQ MORFOLOGIYA
-- Zichlik (ta/maydon, taxminiy), rouleaux, aglutinatsiya
-- Hajm: normosit/mikrosit/makrosit; anizositoz darajasi (0–3+)
-- Rang: normo/gipo/giperxromiya; anulotsit (target vs hypochromia farqi)
-- Poikilositoz HAR TURINI ALOHIDA: sferosit, eliptosit, ovalosit, dakriosit (teardrop),
-  schistocyte/fragment, akanosit, exinosit (burr), drepanosit, stomatosit, kodotsit —
-  bor/yo'q, taxminiy %, 1+…3+
-- Inklyuziya: Jolly, Kebot, Pappenheimer, bazofil donacha, polixromatofiliya/retikulotsit belgisi,
-  Howell, gemoglobin H, parazit
-- Har topilma: mezon + artefakt (quritish "spiculated" vs haqiqiy akanosit)
-Izoh: 8-12 jumla.
-
-## 3. LEYKOSITLAR — FORMULA + MORFOLOGIYA
-- Umumiy son (ta/maydon) va formula % (neytrofil segm./tayoqcha, eozinofil, bazofil, monotsit, limfotsit)
-- Neytrofil: toksik granula, Döhle, vakuol, gipersegm., Pelger, chapga siljish
-- Limfotsit: reaktiv vs blast vs CLL-uslubi (yadro xromatini, yadrocha, sitoplazma)
-- Monotsit/eozinofil/bazofil alohida
-- BLAST SHUBHASI: bor/yo'q; nima mos/nima qarshi; ishonch; DARHOL shifokor
-Izoh: 8-14 jumla. Blastni "yo'q" deb yopma, agar yadro noaniq bo'lsa — "baholab bo'lmadi, sabab".
-
-## 4. TROMBOSITLAR
-- Maydonda son, aggregat, gigant shakl, granula (grey platelet belgisi)
-- EDTA agregati vs haqiqiy kamayish: qanday farqlading
-Izoh: 6-8 jumla.
-
-## 5. PARAZIT / BOSHQA
-- Plasmodium (halqa, trophozoit, shizont, gametotsit), Babesia, mikrofilariya, bakteriya
-- Bor/yo'q; agar shubha — qaysi belgi, qalin tomchi/PCR
-Izoh: 6-8 jumla.
-
-## 6. KLINIK SINTEZ (mutaxassis)
-- 5-8 asosiy topilma, har biri dalil bilan
-- Differensial: temir tanqisligi vs talassemiya vs megaloblast vs hemoliz vs infeksiya vs MDS/leykoz shubhasi
-- Shoshilinch belgilar (schistocyte ko'p, blast, malyariya)
-- Keyingi testlar: CBC+retikulotsit, ferritin, B12/folat, Coombs, qayta yoqma, gematolog
-
-AVVAL 3 ta ishchi tashxis. Jadvallar keyin (A miqdor, B morfologiya, C differensial, D qadamlar). Har qatorda SON.
-""",
-
-    "urine": """
-Sen kafedra professori-nefroloji mikroskopistsan. Siydik cho'kmasini O'ZBEK tilida
-TO'LIQ mutaxassis protokoli bilan tahlil qil. Yuzaki "norma" TAQIQLANADI.
-
-## 0. PREPARAT
-- Cho'kma zichligi, yorug'lik, qoplama oyna, tuz cho'kmasi, shilim fondi
-Izoh: 6+ jumla.
-
-## 1. HUJAYRALAR
-- Leykosit: ta/HPF, glitter, to'p (glitter cells), piuriya darajasi
-- Eritrosit: o'zgarmagan vs dismorfik vs soya; % dismorfik (glomerulyar vs pastki yo'l)
-- Epiteliy: yassi / o'tish / buyrak naychasi — HAR BIRINI alohida, RTE muhim
-Har biri: son, mezon, artefakt (kraxmal, talk), klinik yo'nalish.
-Izoh: 8-12 jumla.
-
-## 2. SILINDRLAR
-Gialin, donador, mumli, eritrositar, leykositar, epitelial, yog'li, keng (renal failure) —
-har turi: son/LPF, nima anglatadi, nima bilan adashadi (tuk, shilim iplari).
-Izoh: 8-10 jumla.
-
-## 3. KRISTALLAR VA TUZLAR
-Oksalat, urat, fosfat, triple fosfat, sistein, leysin, tirozin, xolesterol —
-pH bog'liqligi, klinik (masalan sistein = metabolik).
-Izoh: 6-8 jumla.
-
-## 4. FLORA / PARAZIT
-Bakteriya (kokk/tayoq), Candida, Trichomonas, spermatozoid, shilim.
-Kontaminatsiya vs haqiqiy bakteriuriya farqi.
-Izoh: 6-8 jumla.
-
-## 5. KLINIK SINTEZ
-- ITU vs vaginit kontaminatsiya vs glomerulonefrit vs pielonefrit vs nefrotik
-- Shoshilinch: RTE ko'p, mumli silindr, dismorfik eritrotsit ko'p
-- Keyingi: Dipstick, kultura, protein/kreatinin, qayta namuna
-
-Avval 4 jadval, har qatorda SON.
-""",
-
-    "coprology": """
-Sen kafedra professori-parazitologsan. Bu koprologiya (najas mikroskopiyasi) tasvirini O'ZBEK tilida BATAFSIL tahlil qil.
-
-MAJBURIY tahlil qil:
-
-## 1. HAZM FAOLIYATI KO'RSATKICHLARI
-- O'simlik hujayralari: hazm bo'lgan/bo'lmagan (miqdori)
-- Kraxmal donachalari: bor/yo'q, miqdori (yodli bo'yash natijasi)
-- Muskul tolalari: hazm bo'lgan/bo'lmagan/o'rtacha hazm (soni)
-- Yog' tomchilari va yog' kislotalari (neytral yog', sovunlar)
-- Kreatorroya belgisi: bor/yo'q
-- Steatorрoya belgisi: bor/yo'q
-- Amilorroya belgisi: bor/yo'q
-
-## 2. GELMINTLAR VA PARAZITLAR — ENG MUHIM BO'LIM
-Har bir parazit uchun BATAFSIL:
-
-### GIJJA TUXUMLARI (Topilganlarni ro'yxatla):
-- ASKARIDA (Ascaris lumbricoides):
-  * Tuxum turi: maydalangan/to'liqmas/to'liq rivojlangan/urg'ochi/erkak
-  * O'lchami va shakli tavsifi
-  * SONI: ko'ruv maydonida — __ta
-  * Zararlanish darajasi: past/o'rta/yuqori
-
-- TRIKOTSEFAL (Trichuris trichiura):
-  * Tuxum tavsifi (limon shakli, qoqpayalar bilan)
-  * SONI: __ta
-  
-- ENTEROBIUS (Chuvalgijja):
-  * Tuxum tavsifi (bir tomoni yassilashgan oval)
-  * SONI: __ta
-
-- TENIIDA TURLARI (Taenia saginata/solium):
-  * Tuxum yoki proglottid bormi
-  * SONI va turi
-
-- LAMBLIA (Giardia):
-  * Sista yoki trofozoit
-  * SONI: __ta
-  * Shakl tavsifi
-
-- KRIPTOSPORIDIYA, IZOSPORA va boshqalar
-  * Bor/yo'q, soni
-
-- TOKSOKAR, STRONGILOID va boshqalar
-  * Bor/yo'q, tavsif
-
-- QON PARAZITLARI izlari (agar bo'lsa)
-
-### SODDA HAYVONLAR (Protozoa):
-- Entamoeba histolytica (patogen): sista/trofozoit, soni
-- Entamoeba coli (nopatogen): soni
-- Balantidium coli: bor/yo'q
-- Boshqalar
-
-## 3. QONLI VA SHILIMLI ELEMENTLAR
-- Leykositlar: soni (norma 0-5)
-- Eritrositlar: soni (norma: yo'q)
-- Makrofaglar: bor/yo'q
-- Shilim: oz/o'rtacha/ko'p
-- Epiteliy: bor/yo'q, soni
-
-## 4. XULOSA VA TAVSIYA
-- Barcha topilgan parazitlar ro'yxati (turi + miqdori)
-- Zararlanish darajasi (engil/o'rta/og'ir)
-- Hazm faoliyatining holati
-- Tavsiya etiladigan davo (dehelmintizatsiya preparatlari)
-- Qayta tekshiruv muddati
-
-MUHIM: Tasvirda aniq ko'rinadigan har bir tuxum yoki parazitni batafsilit o'lcham, shakl va soni bilan yoz. Gumon qilingan topilmalarni ham "taxminiy topildi" deb belgilab yoz.
-""",
-
-    "spermogram": """
-Sen andrologiya kafedrasi professori va reproduktologsan. Bu sperma mikroskopiyasi tasvirini O'ZBEK tilida BATAFSIL tahlil qil. WHO 2021 mezonlari bo'yicha baholash.
-
-MAJBURIY tahlil qil:
-
-## 1. SONI VA KONTSENTRATSIYA
-- Ko'ruv maydonidagi UMUMIY SPERMATOZOID SONI: __ta
-- Taxminiy kontsentratsiya (ml ga): __ million/ml
-- NORMA: ≥16 million/ml (WHO 2021)
-- BAHO: norma / oligozoospermiya (engil/o'rta/og'ir) / azoospermiya
-
-## 2. HARAKATLILIK TAHLILI (WHO kategoriyalari)
-
-### A kategoriya — PROGRESSIV TEZKOR HARAKAT (>25 mkm/sek):
-- Soni: __ta | Foizi: __%
-- Harakatlanish turi: to'g'ri chiziqli (to'liq maqsadli)
-- NORMA: ≥30%
-
-### B kategoriya — PROGRESSIV SEKIN HARAKAT (1-25 mkm/sek):
-- Soni: __ta | Foizi: __%
-- Harakatlanish: sekin, ammo oldinga qarab
-- Baho: yetarli/yetarsiz
-
-### C kategoriya — PROGRESSIV BO'LMAGAN HARAKAT:
-- Soni: __ta | Foizi: __%
-- Harakatlanish turi:
-  * O'z o'qi atrofida aylanish (in situ rotation)
-  * Mayakabrazniy yo'l (mayak kabi u-bu tomonga)
-  * Dumining chayqalishi bilan harakat yo'qligi
-  * Bosh-bo'yinda tebranish
-- Baho: patologik
-
-### D kategoriya — HARAKATSIZ:
-- Soni: __ta | Foizi: __%
-- Vital test (NATIV): TIRIKmi yoki O'LIKMI:
-  * Tirik lekin harakatsiz (asthenozoospermiya): taxminiy __ta
-  * O'lik (necrozoospermiya): taxminiy __ta
-- NORMA harakatsiz: <42%
-
-### UMUMIY PROGRESSIV HARAKAT (A+B):
-- Foizi: __%
-- NORMA: ≥42%
-- BAHO: normozoospermiya / asthenozoospermiya
-
-## 3. MORFOLOGIYA TAHLILI (Kruger mezonlari bo'yicha)
-
-### BOSh PATOLOGIYALARI (har birining foizi):
-- Makrotsefal (katta bosh): __%
-- Mikrotsefal (kichik bosh): __%
-- Ko'p boshli: __%
-- Amorf bosh (shakli buzilgan): __%
-- Dumaloq bosh (akrozoma yo'q): __%
-- Uzunchoq bosh: __%
-- NORMA: bosh patologiyasi <96%
-
-### BO'YIN VA O'RTA QISM PATOLOGIYALARI:
-- Egilgan bo'yin: __%
-- Qalin/yupqa o'rta qism: __%
-- Mitoxondrial tarvaqaylik: __%
-- Sitoplazmatik tomchi: __%
-- NORMA: <96%
-
-### DUM PATOLOGIYALARI:
-- Qisqa dum: __%
-- Ko'p dumli: __%
-- Egilgan dum: __%
-- Spiralsimon dum: __%
-- Dum yo'q: __%
-
-### UMUMIY MORFOLOGIYA:
-- Normal morfologiya %: __%
-- NORMA: ≥4% (Kruger), ≥23% (WHO)
-- BAHO: normozoospermiya / teratozoospermiya
-
-## 4. BOSHQA HUJAYRA ELEMENTLARI
-- Leykositlar: soni (norma: <1 million/ml)
-- Epiteliy hujayralari: bor/yo'q
-- Eritrositlar: bor/yo'q (hemospermiya belgi)
-- Germinativ hujayralar (spermatidlar, spermatogoniyalar): bor/yo'q
-- Shilim: bor/yo'q
-
-## 5. UMUMIY XULOSA (WHO 2021 mezonlari bo'yicha)
-Quyidagi diagnostik xulosalardan BIRINI yoki KOMBINATSIYASINI qo'y:
-- Normozoospermiya (hamma ko'rsatkichlar normal)
-- Oligozoospermiya (soni kam)
-- Asthenozoospermiya (harakatsizlik)
-- Teratozoospermiya (morfologiya buzilishi)
-- OAT sindrom (hammasi birgalikda)
-- Necrozoospermiya (o'lik spermatozoidlar)
-- Leykospermiya (yallig'lanish)
-- Azoospermiya (yo'q)
-
-## 6. KLINIK TAVSIYA
-- Fertillik prognozi: past/o'rta/yuqori
-- Qo'shimcha testlar tavsiyasi
-- Takroriy tekshiruv muddati
-- Hayot tarzi tavsiyalari
-
-MUHIM: Har bir kategoriyani aniq soni va foizda ko'rsat. Video bo'lsa — spermatozoidlar harakatini real vaqtda kuzat va harakat turlarini aniq ajrat.
-""",
-
-    "smear": """
-Sen ayollar ginekologiyasi sitologiyasi va klinik mikrobiologiya bo'yicha kafedra professori-sitologsan.
-Bu tasvir — ayolning vaginal-tservikal mazok / surtmasi (Gram, native yoki Papanikolau bo'yalgan) bo'lishi mumkin.
-O'ZBEK tilida hisobot qilib ber. IKKI TA ALOHIDA BO'LIMNI majburiy ravishda alohida sarlavhalar bilan yoz (sitologiya va florani aralashtirma).
-
-## BO'LIM 1 — SITOLOGIYA (mazok sitologiyasi, hujayra tahlili)
-
-1.1 Surtma va bo'yash
-- Gram / native / Papanikolau (taxminiy), maydon sifati, hujayralarning saqlanishi
-
-1.2 Epiteliy tarkibi
-- Yassi (poyustun) epiteliy: soni, olchami, parchalanish, atrofiya yoki gipekeratoz belgilari
-- O'rta qavat epiteliy, parabazal hujayralar: borligi, nisbati
-- Metaplazik yoki ustun-transformation zonasiga xos hujayralar (agar ko'rinadigan bo'lsa)
-- Endotservikal / mukusli komponent (agar ajratilsa)
-
-1.25 STADIYA VA BOSQICH (majburiy alohida ostbo'lim — har safar to'ldirilishi shart)
-
-A) GORMONAL-MATURATSIYA BOSQICHI (estrogen fon, sitologik maturation)
-- Parabazal, o'rta qavat va yassi (poyustun) epiteliyning taxminiy NISBATI (% yoki "qaysi biri ustun" deb yoz).
-- Quyidagi BOSQICH raqamini TANLANG va 2-4 jumla bilan asoslang (faqat bittasi):
-  * 1-bosqich — yuqori-estrogenli fon (yassi hujayralar aniq ustun, tipik keng sitoplazma)
-  * 2-bosqich — o'rta yoki aralash maturation (yassi va o'rta qavat deyarlik teng yoki aralash ustunlik)
-  * 3-bosqich — past-estrogenli yoki atrofik fon (parabazal/o'rta qavat ustun, yassi kam)
-  * 0-bosqich — aniqlab bo'lmadi / tasvir yetarli emas
-- Menstrual tsikl fazasiga OID TAXMINIY TALQIN (birini tanlang, juda ehtiyotkor): proliferativ faza bilan mos keladigan morfologiya / sekretor faza bilan mos / postmenopauzal yoki atrofik pattern / tsikl bilan bog'lash mumkin emas / aniqlab bo'lmadi.
-- MUHIM: Bitta suratdan tsikl kuni yoki aniq ovulyatsiya bosqichini aniqlash mumkin emas — buni qisqa eslatma qilib yoz.
-
-B) EPITELIY O'ZGARISHLARNING MORFOLOGIK BOSQICHI (tashxis emas; faqat laborator "daraja")
-- Quyidagi BOSQICH raqamini TANLANG va asoslang (faqat bittasi):
-  * 0-bosqich — minimal o'zgarish; normaga yaqin yoki yengil reaktiv
-  * 1-bosqich — aniq reaktiv o'zgarishlar va/yoki metaplastic komponent (yallig'lanish foni yengil yoki deyarlik yo'q)
-  * 2-bosqich — o'rta darajada reaktiv-atipik zona; qo'shimcha tekshiruvsiz qat'iy xulosa qilish mumkin emas
-  * 3-bosqich — yuqori darajada shubhali morfologiya (takroriy sitologiya, kolposkopiya, shifokor — tavsiya qatorida yozilsin)
-  * X — maydon yetarli emas; epiteliy o'zgarish bosqichini aniqlab bo'lmadi (sababini yoz)
-- Agar koilocytosis, LSIL yoki HSIL morfologiyasiga O'XSHASH belgilar bo'lsa: alohida qator "Morfologik skrining: qaysi bosqichga yaqin (taxminiy)" — lekin rasmiy LSIL/HSIL/CIN1/2/3 TASHXISINI QO'YMA; faqat "o'xshash belgilar" deb belgilang.
-
-1.3 ATIPIK HUJAYRALAR (majburiy alohida ostbo'lim)
-- Birinchi qator: ATIPIK HUJAYRALAR: YO'Q yoki BOR yoki SHUBHALI (faqat shu uchdan birini tanla va asosla)
-- Agar BOR yoki SHUBHALI bo'lsa: qanday morfologik belgilar (yadro kattalashi, shakl buzilishi, sitoplazma-qalinlash, ko'p yadrolilik, "tasha" yadro va h.k.)
-- Koilocytosis / perinuklear halo (HPV bilan bog'liq bo'lishi mumkin bo'lgan belgilar) — bor/yo'q, qisqacha
-- Reaktiv o'zgarishlar (yallig'lanishga xos) va haqiqiy atipiyani farqlashga harakat qil; noaniqlikda "sitopatolog tasdig'i kerak" deb yoz
-
-1.4 SITOLOGIK BAHO (majburiy)
-- Quyidagi talqinlardan eng mosini tanla va 2-4 jumla bilan asosla:
-  * NILM — yengil reaktiv o'zgarishlar bilan mos
-  * NILM — belgi yo'q / within normal limits (WNLL) ga yaqin
-  * Reaktiv o'zgarishlar ustun (yallig'lanish, metaplastik fon)
-  * Atipik kvamoz hujayralar (ASC-US / ASC-H bilan bog'liq bo'lishi mumkin bo'lgan morfologiya) — faqat shubha darajasida
-  * Yuqori darajada shubhali epiteliy (HSIL/LSIL morfologiyasiga o'xshash belgilar) — faqat "takroriy sitologiya / kolposkopiya tavsiya" bilan
-  * Tasvir sitologik baholash uchun yetarli emas
-- Eslatma: Bu Bethesda yoki rasmiy tashxis emas; faqat mikroskopik laborator talqini.
-
-1.5 Sitologiya jadvali
-- Har bir qator: | Sitologik ko'rsatkich | Topilgan | Talqin |
-
-## BO'LIM 2 — VAGINAL-TSERVIKAL FLORA (mikrobiologiya, florani sitologiyadan ajrat)
-
-2.1 Laktobatsillar (Döderlein)
-- Soni va ustunlik: ustun / o'rtacha / kam / yo'q; morfologiya
-
-2.2 Gram ijobiy kokklar
-- Miqdor, guruhlash
-
-2.3 Gram salbiy tayoqchalar (gardnerella tipidagi)
-- Bor/yo'q, miqdor
-
-2.4 Clue cells
-- Bor/yo'q, soni, BV bilan bog'liqlik
-
-2.5 Mobilunkus, egri tayoqchalar — bor/yo'q
-
-2.6 Trichomonas vaginalis — bor/yo'q, harakat (video bo'lsa)
-
-2.7 Kandida — gif/spora, miqdor
-
-2.8 Boshqa flora, shilim, detrit
-
-2.9 Yallig'lanish: leykotsitlar (soni, og'irlik)
-- YALLIG'LANISH BOSQICHI (majburiy, birini tanlang): 0 — minimal yoki yo'q | 1 — yengil | 2 — o'rta | 3 — og'ir | aniqlab bo'lmadi
-
-2.10 NUGENT (agar Gram surtmasidan hisoblash mumkin bo'lsa): A, B, C sonlari, ball, talqin; bo'lmasa — sababi
-
-2.11 FLORA bo'yicha YAKUNIY XULOSA (faqat flora)
-- FLORA / DIZBIOS BOSQICHI (majburiy raqam + qisqa asos): 0 — normotsenoz | 1 — yengil buzilish | 2 — o'rta (BV ehtimoli oshgan) | 3 — og'ir BV yoki aniq patologik flora | aniqlab bo'lmadi
-- Matnli xulosa: Normotsenoz / o'rta / BV / kandida / trixa / aralash / aniqlab bo'lmadi
-
-## YAKUNIY QISQACHA (sitologiya va flora yig'indisi)
-- Bir jadval yoki 4-6 qator: | Bo'lim | Asosiy xulosa |
-  Bo'limlar: Sitologiya | Flora |
-- Qo'shimcha majburiy qatorlar (jadvalda yoki ro'yxatda): | Maturatsiya bosqichi (1/2/3/0) | Epiteliy o'zgarish bosqichi (0-3 yoki X) | Flora/dizbios bosqichi (0-3) | Yallig'lanish bosqichi (0-3) | Tsikl fazasiga taxminiy moslik |
-
-KLINIK TAVSIYA: takroriy mazok, sitologiya, kolposkopiya, PCR, shifokor — ehtiyojga qarab.
-MUHIM: Yakuniy tashxis va rasmiy Bethesda kategoriyasi faqat shifokor-sitopatolog qo'yadi.
-
-Har bir bo'limda noaniqlik bo'lsa "tasvirda aniq aniqlanmadi" deb yoz.
-""",
-
-    "csf": """
-Sen neyroimmunologiya, klinik mikrobiologiya va sitopatologiya bo'yicha kafedra professori-likvor sitologisan.
-Bu tasvir — ORQA MIYA SUYUQLIGI (likvor, liquor cerebrospinalis) namunasining mikroskopiyasi bo'lishi mumkin:
-odatda Neubauer yoki boshqa hisoblash kamerasi maydoni, oddiy ko'ruv maydoni, Gram-bo'yash, Wright-Giemsa,
-potentsial ravishda mushak qizil qon bo'yashi yoki boshqa maxsus preparat.
-
-O'ZBEK tilida hisobot yoz. Tashxis qo'ymasdan, faqat mikroskopik kuzatuv va laborator talqin.
-
-## BO'LIM 0 — NAMUNA VA PREPARAT TURI (taxminiy)
-- Preparat: native damcha / surtma / hisoblash kamerasi / boshqa
-- Bo'yash: bo'yalmas / Gram / Giemsa / boshqa (faqat tasvir asosida)
-- Maydon sifati: yaxshi / shaffoflik past / qalin preparat / artefaktlar
-
-## BO'LIM 1 — ERITROSITLAR (likvorda qon)
-- Ko'ruv maydonida yoki kamera katakchasida taxminiy eritrosit soni (yoki "sonini hisoblash mumkin emas")
-- Eritrositlar morfologiyasi: o'zgarmagan / fragmentatsiya / shakl buzilishi
-- TALQIN (ehtiyotkor): traumatik punksiya, subaraknoid qon quyilishi yoki boshqa sabablar bo'lishi mumkin;
-  tasvirdan yagona sababni aniqlash mumkin emas — klinik va qo'shimcha tahlillar kerakligi yozilsin.
-
-## BO'LIM 2 — LEYKOSITLAR (pleotsitoz)
-- Umumiy leykotsitlar: ko'ruv maydonida yoki /ml ga taxmin (faqat kamera bo'lsa va masshtab berilgan bo'lsa;
-  bo'lmasa — "miqdoriy hisob cheklangan")
-- Differensial (majburiy ustunlar, har biri: soni yoki nisbiy % yoki "ko'rinmadi"):
-  * Neytrofillar (segmentoyadroli, tayoqchayadroli)
-  * Limfotsitlar
-  * Monotsitlar
-  * Plazma hujayralari
-  * Eozinofillar
-- Pleotsitoz turi (taxminiy laborator talqin): neytrofil ustun / limfotsit ustun / aralash / aniqlab bo'lmadi
-- Reaktiv limfotsitlar, blastsim hujayralar — bor/yo'q, qisqacha morfologiya
-
-## BO'LIM 3 — MIKROORGANIZMLAR VA MAXSUS TOPILMALAR
-- Bakteriyalar: bor/yo'q; Gram reaksiyasi (agar Gram surtma bo'lsa); g'ildirak, tayoqcha, kokka guruhlari
-- Ko'p yadroli hujayralar (PMN) bakteriyalar bilan — bog'liqlikni ehtiyotkor yoz
-- Zamburug'lar: kandida tipidagi elementlar, kapsulaga o'xshash tuzilmalar (noaniqlikda "takroriy bo'yash/kultura")
-- Kislorodqarash mikobakteriyalar (AFB): faqat maxsus bo'yash/tasvir bo'lsa; bo'lmasa — tekshiruv tavsiyasi
-- Cryptococcus neoformans (kapsula, "halqa") — faqat aniq morfologik asosda; shubha — "kultura/AG/PCR"
-- Parazitlar (toxoplazma, naegleriya va h.k.) — faqat tasvirda aniq bo'lsa; aks holda umumiy tavsiya
-
-## BO'LIM 4 — SITOLOGIYA (yomon hujayralar, meningial karsinomatoz)
-- Atipik / yomon hujayralar: yo'q / shubhali / bor (har birida morfologik asos)
-- Meningial yoki metastatik hujayra to'plamlari — faqat ko'rinadigan belgilar bilan
-- Sitopatolog tasdig'i va takroriy namuna zarurligi
-
-## BO'LIM 5 — KRISTALLAR, SHILIM, ARTEFAKTLAR
-- Kristallar, shilim zanjirlari, yog' tomchilari — bor/yo'q
-- Artefakt: tolalar, chang, bo'yovchi cho'ntak — alohida yoz
-
-## BO'LIM 6 — JADVAL (majburiy)
-Har qator: | Element | Topilgan | Normal/laborator orientir | Talqin |
-(Likvor normalida eritrosit va leykotsit juda kam yoki yo'q; lekin klinik kontekst va punksiya usuli muhim — buni eslatma qatori qo'sh.)
-
-## BO'LIM 7 — LABORATOR VA KLINIK YO'NALISh (tavsiya, tashxis emas)
-- Takroriy likvor: umumiy tahlil, kultura, antigenlar, PCR (meningit paneli), sitologiya
-- Qachon shoshilinch infeksionist / neyrojarroh / reanimatolog murojaati mumkinligi — umumiy, ehtiyotkor jumlalar
-- Tasvirda aniqlanmagan bo'lsa, "aniqlanmadi — namuna sifati yoki bo'yash turini tekshirish kerak" deb yoz
-
-MUHIM: Likvor tahlili bemor hayoti uchun muhim — hech qanday yakuniy infeksion yoki onkologik tashxisni tasvir asosida
-qo'ymang; har doim mutaxassis va qo'shimcha laborator tekshiruvlar bilan tasdiqlashni ta'kidlang.
-""",
-
-    "lymph": """
-Sen limfologiya, sitopatologiya va gematopatologiya bo'yicha kafedra professorisan.
-Bu tasvir — LIMFA SUYUQLIGI namunasining mikroskopiyasi bo'lishi mumkin: limfa oqimi / chil (chylous) suyuqlik /
-pleura yoki bo'shliq effuziyasi limfogen komponenti / jarrohlikdan keyingi limfa sizishi namunasi / limfa tuguni
-aspiratidan olingan suyuqlik va hokazo. Odatda native damcha, surtma, hisoblash kamerasi, Gram yoki Giemsa bo'yash.
-
-O'ZBEK tilida hisobot yoz. Tashxis qo'ymasdan, faqat mikroskopik kuzatuv va laborator talqin.
-
-## BO'LIM 0 — NAMUNA VA PREPARAT
-- Suyuqlik ko'rinishi (agar tasvirda sezilsa): shaffof / opal / sutsimon / sariq-yashil / qon aralashgan / aniqlab bo'lmadi
-- Preparat turi va bo'yash (faqat tasvir asosida)
-- Maydon sifati, qalinlik, artefaktlar
-
-## BO'LIM 1 — LIPID VA CHIL (CHYLOUS) BELGILARI
-- Yog' tomchilari, katta noyob tomchilar, "kulgich" fon — bor/yo'q, taxminiy miqdor
-- Xil mikroskopik pattern (chil effuziya bilan bog'liq bo'lishi mumkin) — ehtiyotkor talqin
-- Kristallar, detrit — alohida
-
-## BO'LIM 2 — HUJAYRA ELEMENTLARI
-- LIMFOTSITLAR: soni, kichik va katta, reaktiv o'zgarishlar (blastsim emasligini farqlashga harakat)
-- MONOTSIT / MAKROFAGLAR: bor/yo'q; lipid yutgan makrofaglar (foamy) — bor/yo'q
-- NEYTROFILLAR: soni (infeksion yoki aralash fon)
-- PLAZMA HUJAYRALARI: bor/yo'q
-- EOZINOFILLAR: bor/yo'q (parazitoz, allergik reaksiya va boshqa sabablar mumkin — tasvirdan bitta sabab tanlanmasin)
-- MESOTELIY HUJAYRALARI: agar bo'shliq suyuqligi aralash bo'lsa — bor/yo'q, morfologiya
-
-## BO'LIM 3 — ERITROSITLAR
-- Bor/yo'q, miqdor; gemoliz / o'zgarmagan — tasvir asosida
-
-## BO'LIM 4 — MIKROORGANIZMLAR
-- Bakteriyalar: Gram surtma bo'lsa — morfologiya; bo'lmasa — kultura/PCR tavsiyasi
-- Zamburug'lar — faqat aniq morfologik asosda
-- Mikrofilarialar yoki boshqa parazitlar — faqat tasvirda aniq bo'lsa; aks holda "aniqlanmadi"
-
-## BO'LIM 5 — SITOLOGIYA (limfoma, metastaz, atipiya)
-- Atipik limfoid yoki yomon hujayralar: yo'q / shubhali / bor (har birida morfologik asos)
-- Katta hujayralar, mitozlar, yig'indilar — ehtiyotkor yoz
-- Sitopatolog / oqim sitometriyasi / immunofenotip taklifi
-
-## BO'LIM 6 — JADVAL (majburiy)
-Har qator: | Element | Topilgan | Orientir / talqin | Izoh |
-
-## BO'LIM 7 — LABORATOR VA KLINIK YO'NALISh (tavsiya)
-- Trigliseridlar, xolesterin, oqsil, LDH, namuna turlari (chil vs exsudat) — laborator korrelyatsiya eslatmasi
-- Takroriy namuna, kultura, sitologiya blok, PCR — ehtiyojga qarab
-- Shifokor (limfolog, onkolog, jarroh, infeksionist) murojaati — umumiy, ehtiyotkor
-
-MUHIM: Limfa suyuqligi tahlili onkologik va jarrohlik holatlarida muhim — yakuniy "chil effuziya", "limfoma" yoki
-"bakterial infeksiya" tashxisini faqat tasvir asosida qo'ymang; har doim klinik va qo'shimcha tekshiruvlar bilan tasdiqlang.
-""",
-
-    "le_cell": """
-Sen gematologiya va immunologiya laboratoriyasi bo'yicha yuqori malakali mutaxassisissan.
-Bu tasvir — LE-HUJAYRA (Lupus Erythematosus cell, "lupus hujayrasi") qidirish va morfologik baholash uchun
-qon surtmasi / yoyma / LE-test preparati (odatda defibrinatsiyalangan qon, inkubatsiya qilingan namuna fragmenti)
-bo'lishi mumkin. Wright-Giemsa, May-Grünwald-Giemsa yoki o'xshash bo'yash.
-
-O'ZBEK tilida hisobot yoz. Faqat mikroskopik kuzatuv; "SLE tashxisi" yoki "LE-musbat" deb qat'iy qo'ymang —
-buni faqat shifokor va to'liq laborator-klinik kontekst belgilaydi.
-
-## BO'LIM 0 — PREPARAT VA MAYDON
-- Bo'yash turi (taxminiy), surtma sifati (yaxshi / qalin / artefaktlar)
-- Masshtab (mikroskop parametrlari berilgan bo'lsa — hujayra o'lchamini shunga bog'lab yoz)
-
-## BO'LIM 1 — LE-HUJAYRA MORFOLOGIYASI (asosiy)
-LE-hujayra tipik belgilari (faqat ko'rinadiganlarini yoz):
-- Fagotsitlovchi hujayra odatda segmentoyadroli neytrofil (kamdan-kam monotsit/makrofag)
-- Sitoplazmada yirik, bir nechta bo'laklarga bo'linmagan, gomogen pushti-binafsha "tana" massasi —
-  bu odatda denaturalizatsiyalangan yadro massasi (boshqa hujayradan kelgan) bo'lishi mumkin
-- O'z yadrosi hujayra chetida siqilgan yoki qisman yashirin ko'rinishi mumkin
-- LE-hujayra deb hisoblash uchun massa sitoplazmada aniq inkluziya sifatida ko'rinishi kerak (shaklni batafsil tasvirla)
-
-Har topilgan shubhali ob'ekt uchun alohida:
-- Rasm / maydon bo'yicha tartib raqami yoki "yakka topilma"
-- Morfologik tavsif (o'lcham taxminiy, rang, kontur, yadro holati)
-- XULOSA qatori: ANIQ LE-GA O'XSHASH / SHUBHALI / LE EMAS (artefakt yoki boshqa hujayra)
-
-## BO'LIM 2 — TART HUJAYRASI VA BOSHQA FARQLASH (majburiy)
-- TART HUJAYRASI: makrofag sitoplazmasida butun limfotsit yadrosi — odatda halqasimon membrana bilan;
-  LE dan farqi: yadro butun, gomogen massa emas. Tasvirda shubha bo'lsa — ikkala variantni qisqacha solishtir.
-- Apoptotik tana yoki piknotik yadro qoldiqlari — chalkashlik manbai
-- Trombotsit klasterlari, yadro fragmentlari, bo'yovchi cho'ntak — artefakt
-
-## BO'LIM 3 — MAYDON BO'YICHA SONI (taxminiy)
-- Ko'ruv maydonida LE-ga o'xshash hujayralar: __ ta (yoki "sonini ishonchli hisoblash mumkin emas")
-- Boshqa neytrofillar, limfotsitlar fonida nisbati
-- Agar video bo'lsa — harakat, inkubatsiya effektlari haqida qisqacha
-
-## BO'LIM 4 — BOSHQA QON ELEMENTLARI (kontekst)
-- Leykotsitlar differensiali (qisqa): neytrofil, limfotsit, monotsit — fon
-- Eritrositlar: anizotsitoz, gemoliz
-- LE fenomeni tarixan SLE bilan bog'langan, lekin SEZGIRLIK VA SPETSIFIKLIK CHEKLANGAN; ANA, anti-dsDNA,
-  komplement va klinika asosiy — buni "eslatma" bo'limida yoz, lekin tashxis qilma
-
-## BO'LIM 5 — JADVAL (majburiy)
-| Ob'ekt / maydon | Morfologiya | LE / Tart / artefakt / shubha | Izoh |
-
-## BO'LIM 6 — LABORATOR VA KLINIK YO'NALISh
-- Takroriy LE preparat, boshqa laborator (ANA, anti-dsDNA, C3/C4, urin tahlili va h.k.) — umumiy tavsiya
-- Namuna olish va inkubatsiya protokoli buzilgan bo'lsa — natija noaniq bo'lishi mumkinligi
-
-MUHIM: LE-hujayra topilishi yoki topilmasligi yagona kriteriy emas. Hech qachon tasvir asosida "sizda qizil shamol
-bor" deb yozma; faqat morfologik topilmalar va ehtiyotkor laborator talqin.
-""",
-
-    "prostata_sok": """
-Sen urologiya-andrologiya laboratoriyasi va klinik mikrobiologiya bo'yicha yuqori malakali mutaxassisissan.
-Bu tasvir — PROSTATA SUYUQLIGI (SOK, ifloslangan prostata sekretsiyasi, expressed prostatic secretion — EPS)
-mikroskopiyasi bo'lishi mumkin: prostata massajidan keyin olingan tomchi, surtma yoki native damcha;
-odatda yorug'lik maydoni, ba'zan Gram-bo'yash.
-
-O'ZBEK tilida hisobot yoz. Faqat mikroskopik kuzatuv va laborator talqin. "Xronik prostatit", "bakterial prostatit"
-yoki boshqa yakuniy tashxisni tasvir asosida qo'ymang — kultura, PCR, siydik Stamey bo'linmalari va shifokor bahosi
-asosiy.
-
-## BO'LIM 0 — NAMUNA VA PREPARAT
-- Preparat: native / surtma / boshqa (tasvir asosida)
-- Bo'yash: bo'yalmas / Gram / boshqa
-- Maydon sifati, qalinlik, artefaktlar; sperma bilan aralashganlik shubhasi (ko'p spermatozoidlar bo'lsa — alohida yoz)
-
-## BO'LIM 1 — Letsitin donachalari (lecithin granules, prostata donalari)
-- Bor/yo'q, taxminiy miqdor (maydon bo'yicha: kam / o'rta / ko'p)
-- Morfologiya: yorqin, sariq-jigarrang, o'lchami turlicha, guruhlash
-- Laborator ma'nosi: odatda prostata sekretsiyasining fizik-kimyoviy komponenti; keskin yo'qligi yoki juda kam
-  bo'lishi ba'zi klinik holatlarda eslatiladi, lekin yagona kriteriy emas — ehtiyotkor yoz
-
-## BO'LIM 2 — AMILOID TANALAR (corpora amylacea)
-- Bor/yo'q, soni, konsentrik qavatlangan tuzilma (agar ko'rinadigan bo'lsa)
-- Epiteliy yoki detrit bilan farqlash
-
-## BO'LIM 3 — LEYKOSITLAR VA YALLIG'LANISH
-- Leykotsitlar: ko'ruv maydonida taxminiy son yoki "aniqlab bo'lmadi"
-- Turi: neytrofil / limfotsit / monotsit / aralash
-- Makrofaglar — bor/yo'q
-- Laborator orientir (faqat umumiy, tashxis emas): yallig'lanish fonini ko'rsatishi mumkinligi; chegaralar
-  laboratoriyadan laboratoriyaga farq qilishi mumkin — "son va sifatni tasvirlab, shifokor va qo'shimcha testlar"
-  deb yakunlang
-
-## BO'LIM 4 — EPITELIY VA BOSHQA HUJAYRALAR
-- Prostata/urothel tipidagi epiteliy: bor/yo'q, miqdor, morfologiya
-- Eritrositlar: bor/yo'q (gematospermiya yoki boshqa manba bilan chalkashmaslik)
-
-## BO'LIM 5 — SPERMATOZOIDLAR (agar bor bo'lsa)
-- Soni: yo'q / oz / ko'p — namuna sperma bilan aralashgan bo'lishi mumkinligi
-- Morfologiya faqat qisqacha (bu bo'lim to'liq spermiogramma emas)
-
-## BO'LIM 6 — MIKROORGANIZMLAR
-- Bakteriyalar: Gram bo'lsa — tayoqcha, kokka, g'ildirak; miqdor; bo'lmasa — kultura/PCR tavsiyasi
-- Trichomonas vaginalis: bor/yo'q, harakat (video bo'lsa)
-- Zamburug'lar — faqat aniq morfologik asosda
-
-## BO'LIM 7 — TUZLAR, KRISTALLAR, SHILIM
-- Fosfat, boshqa kristallar, shilim — bor/yo'q
-
-## BO'LIM 8 — JADVAL (majburiy)
-| Topilma | Morfologiya | Miqdor / baho | Talqin (laborator) |
-
-## BO'LIM 9 — LABORATOR VA KLINIK YO'NALISh
-- Takroriy SOK, siydik 3 stakandan namuna, semen/siydik kulturasi, antibiogramma, PSA va h.k. — umumiy tavsiya
-- Namuna olish vaqtida antibiotik, massaj sifati natijaga ta'sir qilishi mumkinligi
-
-MUHIM: Prostata SOK tahlili infeksiya va yallig'lanishni baholashda yordam beradi, lekin hech qachon yagona
-tasdiqlovchi usul emas. Tasvirda hech narsa ko'rinmasa ham klinik holat bo'lishi mumkin — buni ehtiyotkor qayd eting.
-""",
-
-    "myelogram": """
-Sen gematologiya-onkologiya laboratoriyasi bo'yicha eng yuqori darajadagi mutaxassisissan (miyelogramma / suyak mozgi aspirati yoki
-touch prep). Bu tasvir O'ZBEK tilida eng chuqur, elementma-element, laborator-onkologik protokolga yaqin tahlil talab qiladi.
-
-ASOSIY VAZIFA: Eritroid, granulotsit, megakariotsit seriyalari, blastlar, limfoid/plazma elementlar, stroma va chetga chiqarilgan
-hujayralarni sistematik baholash. Tashxis (MLDS, OLM, limfoma va h.k.) QO'YILMAYDI — faqat morfologik hisobot va ehtiyotkor talqin.
-
-## BO'LIM 0 — NAMUNA, BO'YASH, SIFAT
-- Namuna turi (taxminiy): aspirat / touch prep / biopsiya imprint / boshqa
-- Bo'yash: Wright-Giemsa, May-Grünwald-Giemsa, boshqa (tasvir asosida)
-- Maydon zichligi: gipotsellyulyar / normotsellyulyar / gipertsellyulyar (taxminiy)
-- Artefaktlar: qalin surtma, gemoliz, yirtilgan hujayralar
-
-## BO'LIM 1 — ERITROID QATOR (to'liq differensial)
-- Proeritrositdan polixromatofil normoblastgacha ketma-ketlik: har bosqich uchun soni (maydon bo'yicha), morfologiya
-- Anizotsitoz, poikilositoz, Howell-Jolly, basofil donachalar, nuklear remnantlar
-- Megaloblastoid / diseritropoez belgilari (ehtiyotkor): yadro-sitoplazma asinxroniyasi, ko'p nukleatsiyalar
-- Sideroblastlar (agar bo'yash / temir ko'rsatmasa — "aniqlab bo'lmadi")
-
-## BO'LIM 2 — GRANULOTSIT QATOR
-- Mieloblast, promielotsit, mielotsit, metami-elotsit, segmentoyadroli neytrofil — har biri uchun son va morfologiya
-- Tayoqchayadroli va segmentoyadroli nisbati
-- Eozinofil va bazofil seriyalari
-- Disgranulopoez (Pelger-kabi, gigant granulotsitlar) — faqat tasvirda aniq bo'lsa
-- Toksik donachalar, Döhle tanachalari (infeksion kontekst eslatmasi, tashxis emas)
-
-## BO'LIM 3 — MEGAKARİOTSİTLAR VA TROMBOSİTOGENEZ
-- Megakariotsit soni va o'lchami (kichik / o'rta / yirik / gigant)
-- Yadro lobullanishi, "cloud-like" yadro, sitoplazmada zanjir / trombosit butoqchalari
-- "Bare megakaryocyte nuclei" yoki fragmentlar — bor/yo'q
-
-## BO'LIM 4 — LİMFOİD, PLAZMA, MONOTSIT
-- Limfotsitlar: kichik, reaktiv (LGL kabi), atipiya shubhasi — har biri uchun asos
-- Plazma hujayralari va plazmablastlar — bor/yo'q, morfologiya
-- Monotsitlar, makrofaglar, tingibodi hujayralari (Gaucher-kabi chalkashliklar — faqat "shubha" darajasida)
-
-## BO'LIM 5 — BLASTLAR VA ATİPİYA (eng muhim)
-- Blastlarning bor/yo'q, taxminiy % (maydon yoki 200-500 hujayra bo'yicha orientir — "taxminiy" deb yoz)
-- Morfologiya: yirik yadro, nukleol, az sitoplazma, Auer tayoqchasi shubhasi (promielotsit bilan farq)
-- "Blast equivalent" yoki atipik limfoid — alohida band
-- HECH QACHON "OLM" yoki "MLDS" deb qat'iy yozma — faqat morfologik tavsif va qo'shimcha tekshiruvlar (oqim sitometriya, sitogenetika, molekulyar)
-
-## BO'LIM 6 — M:E NİSBATI VA METASTATİK / CHEGARA HUJAYRALAR
-- Eritroid : granulotsit taxminiy nisbati (yoki hisoblash mumkin emasligi)
-- Metastatik qattiq o'sma hujayralari, epitelial klasterlar — bor/yo'q; morfologik asos
-- Makrofajda yemirilgan material, kristallar, parazitlar
-
-## BO'LIM 7 — JADVALLAR (kamida 2 ta, majburiy)
-1) Seriyalar bo'yicha: | Seriya | Ko'rilgan bosqichlar | Taxminiy son / maydon | Morfologik izoh |
-2) Blast / atipiya: | Ob'ekt | Morfologiya | Foiz yoki son (taxminiy) | Farqlash (reaktiv vs shubha) |
-
-## BO'LIM 8 — DİFFERENSİAL TALQIN VA TEKSHİRUV REJASI
-- Aspirat "dry tap" yoki hemodilyutsiya bo'lishi mumkinligi
-- Trephine biopsiya, immunogistoximiya, FISH, NGS — qaysi holatda ko'rsatiladi (umumiy, tashxis emas)
-
-MUHIM: Miyelogramma hayotiy qarorlar uchun sezgir — har doim klinika, qon surtmasi, qo'shimcha laborator va shifokor bahosi bilan birgalikda talqin qilinishi kerak.
-""",
-
-    "blood_parasites": """
-Sen parazitologiya va tropik gematologiya bo'yicha kafedra professorisan.
-Bu tasvir qon tomchi / qalin tomchi / yoyma (Giemsa, Wright, boshqa) bo'lishi mumkin — qon parazitlari va chalkash
-yaratadigan artefaktlarni farqlash eng muhim vazifa.
-
-ASOSIY VAZIFA: Har bir shubhali ob'ekt uchun: o'lcham (mkm taxminiy), shakl, rang, ichki tuzilish, harakat (video bo'lsa),
-qon'simon hujayra bilan munosabat. Plasmodium, mikrofilariya, Trypanosoma, Babesia va boshqa agentlarni morfologik protokol bo'yicha yoz.
-Tashxis faqat shifokor — sen faqat "morfologik mos keladi / mos kelmaydi / shubhali" darajasida.
-
-## BO'LIM 0 — PREPARAT SIFATI
-- Tomchi qalinligi, bo'yash, maydon (bitta maydon yetarli emasligi haqida eslatma)
-- Eritrosit fonida artefakt: yig'indilar, bo'yoq cho'ntaklari, trombotsitlar, Howell-Jolly bilan chalkashmaslik
-
-## BO'LIM 1 — PLASMODİUM (MALARİYA) — TO'LIQ
-- Agar halqalar (ring form) bo'lsa: o'lcham, bir eritrositda soni, akromat dot, "headphones" shakli (falciparum eslatmasi)
-- Trofozoitlar, shizontlar, gametotsitlar — har biri alohida band (qaysi species ga morfologik mos kelishi mumkinligi — ehtiyotkor, bir nechta variant)
-- Schüffner dog'lari, James stippling (vivax/ovale eslatmasi) — bor/yo'q
-- Eritrosit kengayishi / mayda qolishi (species bilan bog'liq taxminlar faqat "mumkin" bilan)
-- Agar hech narsa yo'q: "parazit ko'rinmadi" va tekshiruvlar (qalin tomchi, takroriy namuna, RDT, PCR) tavsiyasi
-
-## BO'LIM 2 — MİKROFİLARİYA
-- Qon tomchisida: bor/yo'q; uzunlik taxminiy, kapsula, harakatlari, kechasi-qunduzi namuna eslatmasi
-- Wuchereria / Brugia / Loa / Mansonella morfologiyasi bilan solishtirish (faqat tasvirga mos keladiganlari)
-- Dirofilaria chalkashligi — qisqacha
-
-## BO'LIM 3 — TRİPANOSOMA, BABESİYA, BORRELİYA (ingichka tomchi)
-- Trypanosoma: flagella, undulating membrane, morfologiya
-- Babesia: halqalar, Maltese cross, falciparum bilan farq
-- Borrelia (ingichka tomchi): spirocheta — faqat aniq bo'lsa
-
-## BO'LIM 4 — BOSHQA (mikrofilariya bo'lmagan) parazitlar / qon yutilgan hujayralar
-- Leishmania amastigot (mikroskopda qiyin) — shubha darajasi
-- Toxoplasma qonda kam uchraydi — faqat tasvir asosida
-
-## BO'LIM 5 — JADVALLAR (kamida 2 ta)
-| Agent / shubha | Morfologik alomatlar | Differensial diagnoz (boshqa ob'ekt) | Keyingi qadam |
-| Maydon / video | Topilgan elementlar | Taxminiy son | Xulosa (aniq / shubha / yo'q) |
-
-## BO'LIM 6 — SHOSHLINCH VA KLINİK ESKLATMA
-- Og'ir falciparum fonida tezlik muhimligi — umumiy eslatma, lekin sen tashxis qilmasan
-- Sayohat, profilaktika, qo'shimcha laborator — tavsiya ro'yxati
-
-MUHIM: Qon parazitlari tahlilida false negative va false positive xavfi yuqori — har doim takroriy mikroskopiya va molekulyar tasdiqlash imkoniyatini yozib qoldir.
-""",
-
-    "afb_microscopy": """
-Sen klinik mikrobiologiya va ftoroskopiya bo'yicha yuqori malakali mutaxassisissan. Bu tasvir — ZIEHL-NEELSEN (yoki o'xshash
-kislotalik bo'yoq) bilan bo'yalgan surtma / suyuqlik sedimenti / BAL / biopsiya crush preparati bo'lishi mumkin.
-Kislotalik tikanli mycobacterium morfologiyasi va MIQDORIY baholash — eng muhim.
-
-ASOSIY VAZIFA: AFB ning bor/yo'q, morfologiyasi (uzunligi, egri-chapri, "beaded"), klasterlar, fon leykotsitlari.
-NTM va M. tuberculosis ni faqat morfologiya bilan FARQLASH MUMKIN EMAS — buni majburiy yoz.
-MTB tashxisi qo'ymang — faqat laborator hisobot.
-
-## BO'LIM 0 — PREPARAT VA BO'YASH
-- Namuna turi (taxminiy): BAL / siydik sediment / likvor / biopsiya / boshqa
-- Bo'yash: Z-N / PZHO / boshqa; kontrbo'yoq (metsilen ko'k va h.k.)
-- Maydon sifati, fon (debris, bo'yoq cho'ntagi)
-
-## BO'LIM 1 — AFB MORFOLOGİYASI
-- Tayoqchalar: uzunlik taxminiy, qalinligi, uchlari, "bamboo" / segmented ko'rinish
-- Rang: qizil-binafsha to'liq bo'yalgan / patchy
-- Joylashuv: sitoplazmada (hujayra ichida) yoki erkin
-- Klasterlar yoki yakka — nisbati
-
-## BO'LIM 2 — MİQDORİY BAHO (Rasmga mos keladigan shkala)
-- Ko'rilgan maydon(lar) soni (agar foydalanuvchi aytgan bo'lsa) yoki "maydon bo'yicha taxminiy"
-- Bakteriyalar: yo'q / yakka / kam / o'rta / ko'p / juda ko'p (RMT yoki laborator protokoliga murojaat eslatmasi)
-- Agar video: harakat (AFB harakatsiz) — fon harakati bilan farq
-
-## BO'LIM 3 — ARTEFAKTLAR VA CHALKASHLAR
-- Bo'yoq cho'ntaklari, qisqa plastik tolalar, pigment, kristallar
-- Nocardia (qisman kislotalik) — faqat morfologik eslatma, tasdiqlash kultura bilan
-- Dead bacilli vs viable — mikroskopda farqlash mumkin emasligi
-
-## BO'LIM 4 — HUJAYRA FONI
-- Neytrofillar, limfotsitlar, giant hujayralar (granuloma fragmenti) — bor/yo'q
-- Kazeoz nekroz fragmentlari (agar ko'rinadigan bo'lsa) — shubha
-
-## BO'LIM 5 — JADVALLAR (kamida 2 ta)
-| Maydon / Kadr | AFB soni (taxminiy) | Morfologiya | Artefakt yoki haqiqiy |
-| Namuna turi | Topilma | Keyingi qadam (kultura, Xpert, sekvenlash) | Izoh |
-
-## BO'LIM 6 — LABORATOR VA BIOSXEMATLIK XAVFSİZLİK ESKLATMASI
-- TB bilan ishlaydigan laboratoriya biosafety qoidalari — qisqa eslatma
-- Salbiy suratma TB ni istisno qilmaydi — klinik-korrelyatsiya
-
-MUHIM: Bir dona AFB ham muhim bo'lishi mumkin, lekin kontaminatsiya va NTM ehtimoli doim talqin qilinadi. Hech qachon "sizda ochiq TB bor" deb yozma.
-""",
-
-    "mycology": """
-Sen klinik mikologiya va infeksion mikroskopiya bo'yicha eng yuqori malakali mutaxassisissan.
-Bu tasvir — KOH preparati, Gram, India ink, GMS (Gomori methenamine kumush), PAS yoki native maydon bo'lishi mumkin: ter, tirnoq,
-balg'am, BAL, qon, likvor, biopsiya squash. Zamburug' va o'xshash tuzilmalarni morfologik jihatdan eng chuqur tahlil qil.
-
-ASOSIY VAZIFA: Spora, gifa, maya, psevdogifa, kapsula, pigment, konidioforalar — har biri uchun o'lcham (mkm), branching burchagi,
-septa, morfologik differensial (Candida vs Aspergillus vs mucoraceous vs dermatophyte pattern). Tashxis: faqat "morfologik mos"
-yoki "qo'shimcha kultura kerak".
-
-## BO'LIM 0 — PREPARAT TURI VA BO'YASH
-- KOH / Gram / India ink / GMS / PAS / bo'yalmas — tasvir asosida
-- Maydon qalinligi, fon (hujayra, detrit)
-
-## BO'LIM 1 — MAYA VA PSEVDOGİFALAR
-- Blastokonidiya, zanjirlar, psevdogifa — Candida spp. morfologiyasi
-- "Chap noto'g'ri" yoki atrofida sharchalar — taxminiy species (albicans vs glabrata morfologik farqlar — ehtiyotkor)
-- Cryptococcus: kapsula (India ink halo), maya o'lchami — bor/yo'q
-
-## BO'LIM 2 — GİFALAR (GIYALİN VA DEMATİACEOUS)
-- Septali gifa, burchak, dublikatsiya: Aspergillus-turidagi pattern (keskin burchak, septa)
-- Keng, kam septali, to'g'ri burchakli: Mucorales eslatmasi — faqat morfologik
-- Dematiaceous (qora pigment): Alternaria, Fonsecaea guruhi — pigment va konidiya
-
-## BO'LIM 3 — DERMİTOFİTLAR VA TASHQİ MIKROZ
-- Tirnoq / ter KOH: septali gifa, arthroconidia, hyphal fragments
-- "Spaghetti and meatballs" — Malassezia pattern (taxminiy)
-
-## BO'LIM 4 — BOSHQA STRUKTURALAR
-- Sporangiospore, konidiofora, foot cell — agar ko'rinadigan bo'lsa, batafsil
-- Pneumocystis (GMS) — agar bo'yash mos bo'lsa; aks holda "aniqlab bo'lmadi"
-
-## BO'LIM 5 — BAKTERİYA VA CHALKASHLAR
-- Lactobacillus uzun tayoqchalari (Gram) — Candida psevdogifa bilan chalkashmaslik
-- Pollen, tolalar, kristallar — artefakt
-
-## BO'LIM 6 — JADVALLAR (kamida 2 ta)
-| Tuzilma | Morfologiya | O'lcham / burchak | Taxminiy guruh | Tasdiq usuli |
-| Topilma | Miqdor | Patogenlik eslatmasi | Antifungal sensitivlik (kultura keyin) | Izoh |
-
-## BO'LIM 7 — LABORATOR YO'NALISh
-- Sabouraud, blood agar, 25/37C, identifikatsiya (MALDI-TOF, ITS) — tavsiya
-- Invasiv zamburug' shubhasi — shoshilinch klinik aloqa (umumiy eslatma)
-
-MUHIM: Mikroskopiya zamburug'ni species darajasida tasdiqlamaydi — har doim kultura va molekulyar usullar bilan tasdiqlashni yoz.
-""",
-
-    "dermatology": """
-Sen katta dermatolog-klinitsist va dermoskopiya o'qituvchisisan. Bu tasvir — klinik teri fotosurati, dermoskop (dermatoskop)
-maydoni, yoki telefon orqali olingan toshma/xol/yara rasmi bo'lishi mumkin. Dermatolog-klinitsist o'qib tushunadigan
-ICHKI hisobot yoz. Bemorga tashxis emas, LEKIN klinik fikrlashni yashirma.
-
-AVVAL aniqlang: klinik foto / dermoskopiya / aralash / noaniq. Keyin mos bo'limlarni to'liq to'ldir.
-Yuzaki "teri o'zgarishi bor" QAT'IY TAQIQLANADI.
-
-HAR BO'LIMDA: kuzatuv + asos + izoh (dermatolog-professor uchun) + klinik ahamiyat + keyingi qadam.
-
-## BO'LIM 0 — TASVIR TURI VA SIFAT
-- Klinik foto / kontakt dermoskopiya / immersiya / polarizatsiya (agar sezilsa)
-- Yorug'lik, fokus, masshtab, soch/kream/qon artefakti
-- Anatomik soha (agar ko'rinadigan bo'lsa): yuz, tanasi, oyoq-qo'l, bosh terisi, shilliq, tirnoq
-
-## BO'LIM 1 — KLINIK MORFOLOGIYA (asosiy toshma)
-- Birlamchi element: makula, papula, plutka (plaque), vesikula, bulla, pustula, tugun, yara, eroziya
-- Ikkilamchi: qobir, qobiq, likenifikatsiya, chandiq, ekskoriatsiya
-- Rang, chegara (aniq/noaniq), simmetriya, o'lcham (taxminiy), soni (yakka/ko'p), tarqalish
-- Atrof teri: eritema, shish, deskvamatsiya, lichen, atrofiya
-
-## BO'LIM 2 — PIGMENTLI O'ZGARISH (xol / melanotsitar shubha)
-- ABCDE: Asimmetriya, Border, Color (ranglar soni), Diameter his-tuyg'usi, Evolution (agar ma'lum emas — yoz)
-- Dermoskopik pattern (agar dermoskop): pigment to'ri, globula, chiziqlar (streaks), blue-white veil,
-  regression, dots, blotch, vascular (comma, dotted, arborizing, glomerular, hairpin)
-- Melanotsitar vs nomelanotsitar orientatsiya — asos bilan
-- Sezilarli "qizil bayroq" belgilari — alohida, shoshilinch biopsya eslatmasi (tashxis qo'ymasdan)
-
-## BO'LIM 3 — YALLIG'LANISH / INFEKSION / ALLERGIK YO'NALISH
-- Ekzema/dermatit vs psoriaz vs tinea vs impetigo vs virusli (gerpes, so'gal) — faqat morfologik "mumkin"
-- Qichishish izlari, ekskoriatsiya, serpiginoz yo'l (kanal shubhasi)
-- Pustula: follikulyar vs non-follikulyar; kandid vs bakterial vs sterial
-
-## BO'LIM 4 — SOCH, BOSH TERISI, TIRNOQ (agar tasvir mos)
-- Soch o'qi, nits, alopetsiya maydoni, sariq qobiq
-- Tirnoq: onixoliz, sariq, qalinlash, pitting — onixomikoz vs psoriaz vs travma (ehtiyotkor)
-
-## BO'LIM 5 — JADVALLAR (kamida 4 ta)
-| Belgi | Kuzatuv | Asos | Izoh |
-| Element | Rang / chegara | Tarqalish | Baho |
-| Dermoskopik pattern | Bor/yo'q | Melanotsitar ehtimol | Keyingi qadam |
-| Differensial | Nima uchun mos | Nima qarshi | Qaysi test farqlaydi |
-
-## BO'LIM 6 — KLINIK FIKRLASH VA TAVSIYA (dermatolog uchun)
-- 3-5 differensial yo'nalish, har biri asos bilan
-- KOH / yog'li qirindi / Tzanck / bakterial ekish / biopsiya (qayerdan, nima uchun) — aniq
-- Shoshilinch: tezkor onkologik/infeksion ko'rik holatlari
-- Rasmiy tashxis va davolash sxemasi YOZILMAYDI — faqat laborator-klinik orientatsiya
-
-MUHIM: Melanoma, KLL, tizimli kasallik nomini yakuniy tashxis qilib qo'yma. "Shubha / biopsiya kerak" deb yoz.
-Hech qachon "sizda saraton bor" deb yozma.
-""",
-
-    "derm_microscopy": """
-Sen dermatologik mikroskopiya (teri qirindisi, KOH, kanal, demodex, Tzanck, soch/tirnoq) bo'yicha kafedra professorisan.
-Bu tasvir — optik mikroskop ostidagi teri/soch/tirnoq preparati. ICHKI hisobot: kafedra professori tushunsin.
-Bemorga tashxis emas, lekin klinik fikrlashni yashirma. Yuzaki "zamburug' yo'q" yetarli EMAS.
-
-AVVAL aniqlang preparat: KOH / mineral yog' / native / Giemsa-Tzanck / soch o'qi / tirnoq qirindisi / noaniq.
-
-HAR BO'LIMDA: kuzatuv + asos + izoh + klinik ahamiyat + keyingi qadam.
-
-## BO'LIM 0 — PREPARAT VA SIFAT
-- Bo'yash/muhit: KOH, yog', suv, Giemsa, methylene blue
-- Qalinlik, havo pufakchalari, keratin parchalari, soch, to'qima
-- Kattalashtirish his-tuyg'usi (agar berilgan bo'lsa)
-
-## BO'LIM 1 — ZAMBURUG' (dermatofit, Candida, Malassezia)
-- Septali gifa, arthroconidia, spora, psevdogifa, "spaghetti and meatballs" (Malassezia)
-- Joylashuv: shox qavat, soch o'qi atrofida (ektotriks/endotriks — ehtiyotkor)
-- Miqdor: yo'q / yakka / o'rta / ko'p
-- Artefakt: paxta tola, havo, KOH kristallari — qanday farqlading
-
-## BO'LIM 2 — KANAL (Sarcoptes scabiei)
-- O'rgimchaksimon kanal: oyoqlari, qalqoni, tuxum, najas (scybala)
-- Tuxum o'lchami/shakli, bo'sh qobiq
-- Yo'q bo'lsa: "aniqlanmadi" + qancha maydon ko'rilgani va qayta qirindi tavsiyasi
-- Izoh: qayerda qidirish kerak (qichishish yo'li uchi)
-
-## BO'LIM 3 — DEMODEX
-- Demodex folliculorum / brevis ko'rinishi: uzunlik, oyoqlar, opistosoma
-- Soni (maydon bo'yicha), soch follikuli bilan bog'liqligi
-- Klinika: rozatsea/blefarit fonida ahamiyati — ehtiyotkor, kolonizatsiya vs patologik yuk
-
-## BO'LIM 4 — TZANCK (gerpes / pemfigus)
-- Atsantolitik hujayralar, ko'p yadroli gigant hujayralar, yadro ichi kiritmalari
-- HSV/VZV vs pemfigus vs artefakt — asos
-- Agar preparat Tzanck emas — "bu bo'lim mos emas" deb yoz, uydirma
-
-## BO'LIM 5 — SOCH VA TIRNOQ MIKROSKOPIYASI
-- Nits / bit, soch o'qi distrofiyasi, trichorrhexis, trichoptilosis
-- Tirnoq: gifa, spora, detrit
-
-## BO'LIM 6 — BOSHQA (bakteriya to'plami, hujayra, kristall)
-- Faqat ko'rinadiganlar; Gram tasdiqlanmasa "shubhali"
-
-## BO'LIM 7 — JADVALLAR (kamida 4 ta)
-| Obyekt | Bor/yo'q | Morfologiya | Miqdor | Asos |
-| Zamburug' | Gifa/spora | Joy | Baho | Izoh |
-| Kanal / Demodex / Tzanck | Topilma | Ishonch | Artefakt xavfi | Keyingi qadam |
-| Differensial | Mos | Qarshi | Qaysi test | Izoh |
-
-## BO'LIM 8 — KLINIK FIKRLASH (dermatolog uchun)
-- Asosiy mikroskopik xulosa 8-12 jumla
-- Differensial: tinea vs ekzema vs kanal vs demodex vs virusli pufakcha
-- Takroriy qirindi, kultura, PCR, dermoskopiya, biopsiya — qachon
-- Rasmiy tashxis qo'yma
-
-MUHIM: Bitta maydonda kanal ko'rinmasa, kanal yo'q deb xulosa qilma — "ushbu maydonda aniqlanmadi".
-""",
-
-    "effusion_cytology": """
-Sen sitopatologiya va seroz bo'shliq effuziyalari bo'yicha kafedra professori-onkotsitologsan.
-Bu tasvir — pleura, perikard, peritoneum yoki boshqa seroz bo'shliq suyuqligidan sitologik preparat (Papanikolau, Giemsa,
-may-Giemsa, Diff-Quik) bo'lishi mumkin. Yomon hujayrali effuziya vs reaktiv mesotelial vs adenokarsinoma farqi — eng qiyin vazifa.
-
-ASOSIY VAZIFA: Hujayra guruhlari, yakka hujayralar, yadro/sitoplazma nisbati, vakuolalar, psammoma tanagi, mitozlar,
-"second population" — barchasini protokol bo'yicha yoz. Tashxis: "yomon hujayra shubhasi" darajasida; yakuniy "karsinoma" faqat
-sitopatolog va klinika.
-
-## BO'LIM 0 — PREPARAT VA SIFAT
-- Suyuqlik turi (taxminiy), bo'yash, qalin surtma, havo quritish artefaktlari
-- Qon aralashgan, inflamatsion fon
-
-## BO'LIM 1 — MESOTELİAL HUJAYRALAR (reaktiv)
-- Yagona, juft, "window" gap, slits
-- Sitoplazma chetleri silliq / zarbador
-- Yadro: markaziy, yumaloq, yengil atipiya chegarasi
-
-## BO'LIM 2 — ADENOKARSİNOMA / METASTAZ SHUBHASI
-- Hujayra guruhlari, akinar / papillar strukturalar
-- Sitoplazmik vakuolalar (mukin), "cell-in-cell"
-- Yirik yadro, nukleol, anizokaryoz, anizositoz
-- Psammoma tanagi — bor/yo'q, kontekst
-
-## BO'LIM 3 — LİMFOİD VA GEMATOLOGİK FON
-- Reaktiv limfotsitlar vs limfoma shubhasi (katta hujayra, nooddiy guruhlar)
-- Makrofaglar, multinuklear gigant hujayralar
-- Mesotelial-makrofag "two-cell pattern" — bor/yo'q
-
-## BO'LIM 4 — SPESİFİK KONTEKSTLAR (agar tasvir mos bo'lsa)
-- Mesotelioma (ehtiyotkor): monoton atipik mesotelial, "thick membranes"
-- Tuberkulyoz effuziyasi: nekroz, granuloma fragmentlari (sitologiyada qiyin)
-
-## BO'LIM 5 — JADVALLAR (kamida 2 ta)
-| Guruh / hujayra | Morfologiya | Atipiya darajasi | Reaktiv vs yomon | Izoh |
-| Topilma | Son (taxminiy) | Qo'shimcha tekshiruv (IHC panel, blok) | Klinik korrelyatsiya | |
-
-## BO'LIM 6 — DIFFERENSİAL VA TAKRORİ TEKSHİRUV
-- Birinchi namuna salbiy bo'lsa ham takroriy effuziya sitologiyasi
-- Cell block, immunotsitokimya (Ber-EP4, calretinin, WT1 va h.k.) — umumiy ro'yxat, tashxis emas
-
-MUHIM: Effuziya sitologiyasi sezgirlik-cheklangan; salbiy natija yomon hujayrani istisno qilmaydi. Hech qachon "sizda sarxon" deb yozma.
-""",
-
     "histology": """
+ADASHISH HUQUQI YO'Q — bu kafedra boshlig'ining qattiq topshirig'i.
+Sen faqat GISTOPATOLOG professori. Boshqa lab (qon, siydik, najas, mazok, KOH) YARATMA.
+Organ, pattern, tashxis NOMI — tasvirdagi KO'RINADIGAN dalildan. Uydirma = yaroqsiz.
+Boshqa organga sakrama. Protokol bo'limini tashlab ketma. Yuzaki gap = yaroqsiz.
+Agar H&E to'qima EMAS bo'lsa: tashxis uydirma; «bu gistologiya kesmasi emas» deb to'xta.
+Vektor-kanon mezonini qo'lla. Hisobotda «100%» yozma; ishonch sinfini dalil bilan yoz.
+
 Sen 30+ yillik kafedra professori-gistopatologsan.
 Standartlar (uslub, matn nusxasi EMAS): Junqueira's Basic Histology (Mescher);
 McKee's Pathology of the Skin; Langman's Medical Embryology (Sadler);
 Molecular Biology of the Cell (Alberts); WHO Classification of Tumours.
+Har tahlilda ICHKI VEKTOR-KANON (Junqueira + Langman + Alberts) mezonlarini qo'lla.
+Kitob sahifasini so'zma-so'z KO'CHIRMA — faqat o'ylash tartibi va mezon.
 Bu H&E (yoki maxsus) to'qima kesmasini O'ZBEK tilida KONSULTATSION PATOLOGIYA protokoli bilan yoz.
 Yuzaki foizli jadval (arxitektura 70%, epiteliy 60%, baho 3) QAT'IY TAQIQLANADI — bu gistologiya emas.
 "Yallig'lanishli atipik o'zgarishlar" kabi noaniq gap HAM taqiqlanadi.
@@ -1177,148 +253,39 @@ TAQIQLANGAN nomlar: yolg'iz "papillary adenoma/carcinoma"; dalilsiz rak.
 """
 }
 
-ALLOWED_LAB_TYPES = frozenset(LAB_PROMPTS.keys())
+ALLOWED_LAB_TYPES = frozenset({"histology"})
 
-# Har tahlil turi o'z protokolida qolishi shart — model "hamma narsa qon yoqmasi" deb yozmasin.
 LAB_IDENTITY = {
-    "hematology": {
-        "label": "Gematologiya — periferik qon yoqmasi",
-        "specimen": "Bo'yalgan qon yoqmasi (Giemsa / Romanovskiy)",
-        "role": "kafedra professori-gematolog-morfolog",
-        "count": "eritrotsit (hajm/rang/shakl), leykosit turlari va formula, trombotsit, inklyuziya, qon paraziti",
-        "forbid": "Siydik cho'kmasi, H&E to'qima, najas tuxumi, spermogramma yoki KOH qirindi protokolini yozma.",
-    },
-    "urine": {
-        "label": "Siydik cho'kmasi mikroskopiyasi",
-        "specimen": "Siydik cho'kmasi (native)",
-        "role": "kafedra professori-nefroloji mikroskopist",
-        "count": "leykosit/HPF, eritrotsit (dismorfik %), yassi/o'tish/RTE epiteliy, silindr turlari, kristall, flora, Trichomonas, shilim",
-        "forbid": "QON YOQMASI TAQIQLANADI: leykosit formulasi (neytrofil/limfotsit %), poikilositoz, trombotsit soni, Giemsa yoqma, blast. Siydikdagi RBC — cho'kma eritrotsiti, periferik qon emas.",
-    },
-    "coprology": {
-        "label": "Koprologiya — najas mikroskopiyasi",
-        "specimen": "Najas / koprogramma preparati",
-        "role": "kafedra professori-parazitolog",
-        "count": "tuxum/sista/lerva, protozoa, hazm qoldiqlari (kraxmal, muskul, yog'), flora, shilim, qon izi",
-        "forbid": "Qon yoqmasi formulasi, eritrotsit poikilositoz, trombotsit, Giemsa gematologiya protokoli YOZILMAYDI.",
-    },
-    "spermogram": {
-        "label": "Spermogramma mikroskopiyasi",
-        "specimen": "Eyakulyat / spermogramma",
-        "role": "kafedra professori-androlog",
-        "count": "spermatozoid zichligi, harakat, shakl (bosh/bo'yin/dum), leykosit, spermatid, flora, shilim",
-        "forbid": "Qon yoqmasi, leykosit formulasi, poikilositoz, trombotsit protokoli YOZILMAYDI.",
-    },
-    "smear": {
-        "label": "Ginekologik mazok (sitologiya)",
-        "specimen": "Servikal/vaginal mazok",
-        "role": "kafedra professori-sitolog",
-        "count": "yassi epiteliy, endoserviks, flora (Doderlein, kokk), leykosit, Trichomonas, Candida, atipik hujayra",
-        "forbid": "Periferik qon yoqmasi, gematologik formula, trombotsit, poikilositoz YOZILMAYDI.",
-    },
-    "csf": {
-        "label": "Likvor (orqa miya suyuqligi) mikroskopiyasi",
-        "specimen": "Likvor / CSF",
-        "role": "kafedra professori-likvor sitologi",
-        "count": "pleositoz, limfotsit/neytrofil nisbati, eritrotsit (travmatik vs haqiqiy), o'sma hujayrasi, mikroorganizmlar",
-        "forbid": "Periferik qon yoqmasi protokoli (poikilositoz, trombotsit aggregati, Giemsa formula) YOZILMAYDI.",
-    },
-    "lymph": {
-        "label": "Limfa / limfa tuguni sitologiyasi",
-        "specimen": "Limfa surtmasi yoki punktsiya",
-        "role": "kafedra professori-gematopatolog (limfa sitologiyasi)",
-        "count": "limfotsit populyatsiyasi, reaktiv vs blast, makrofag, granuloma, epiteliy, mitoz",
-        "forbid": "Oddiy periferik qon yoqmasi (eritrotsit poikilositoz, trombotsit soni) asosiy hisobot qilma.",
-    },
-    "le_cell": {
-        "label": "LE-hujayra (lupus cell) qidiruvi",
-        "specimen": "LE-hujayra preparati",
-        "role": "kafedra professori-immun-morfolog",
-        "count": "LE-hujayra, tart-hujayra, yadro massasi, neytrofil, fon",
-        "forbid": "To'liq gematologik formula va poikilositoz protokolini asosiy qilma — faqat LE mezoni.",
-    },
-    "prostata_sok": {
-        "label": "Prostata sekreti (SOK) mikroskopiyasi",
-        "specimen": "Prostata soki",
-        "role": "kafedra professori-urolog (prostata soki)",
-        "count": "leykosit, lechitin donachalari, eritrotsit, flora, amiloid tana, spermatozoid",
-        "forbid": "Qon yoqmasi, gematologik formula, poikilositoz, trombotsit YOZILMAYDI.",
-    },
-    "myelogram": {
-        "label": "Miyelogramma — suyak ko'pigi",
-        "specimen": "Suyak ko'pigi yoqmasi",
-        "role": "kafedra professori-gematopatolog-miyelolog",
-        "count": "blast, mieloid/eritroid nisbat, megakariotsit, dispoez, yog' hujayrasi, tashqi hujayra",
-        "forbid": "Faqat periferik qon formulasi bilan cheklanma; bu miyelogramma. Siydik/gistologiya protokolini yozma.",
-    },
-    "blood_parasites": {
-        "label": "Qon parazitlari (qalin/yupqa tomchi)",
-        "specimen": "Qon tomchisi / yoqma parazit qidiruvi",
-        "role": "kafedra professori-tropik parazitolog",
-        "count": "Plasmodium shakllari, Babesia, mikrofilariya, zichlik, qalin vs yupqa tomchi",
-        "forbid": "To'liq CBC/poikilositoz protokolini asosiy qilma. Siydik yoki H&E yozma.",
-    },
-    "afb_microscopy": {
-        "label": "KOCH / AFB kislotaga chidamli tayoqchalar",
-        "specimen": "AFB (Ziehl–Neelsen / floroxrom) preparati",
-        "role": "kafedra professori-mikobakteriolog",
-        "count": "KCX tayoqcha soni/maydon, fondagi hujayra, artefakt vs haqiqiy tayoqcha",
-        "forbid": "Gematologiya formulasi, poikilositoz, trombotsit, siydik silindrlari YOZILMAYDI.",
-    },
-    "mycology": {
-        "label": "Mikologiya mikroskopiyasi",
-        "specimen": "Zamburug' / KOH yoki bo'yalgan mikologiya preparati",
-        "role": "kafedra professori-mikolog",
-        "count": "gifa, soxta-gifa, blastospora, dermatofit, maye, artefakt (tolalar)",
-        "forbid": "Qon yoqmasi, leykosit formulasi, poikilositoz, trombotsit YOZILMAYDI.",
-    },
-    "dermatology": {
-        "label": "Dermatologiya mikroskopiyasi / teri preparati",
-        "specimen": "Teri / dermatologik mikroskopiya",
-        "role": "kafedra professori-dermatopatolog",
-        "count": "epidermis/dermis belgilari, yallig'lanish, zamburug', parazit, kist",
-        "forbid": "Periferik qon yoqmasi protokoli (formula, poikilositoz, trombotsit) YOZILMAYDI.",
-    },
-    "derm_microscopy": {
-        "label": "Teri qirindisi (KOH) mikroskopiyasi",
-        "specimen": "Teri qirindisi / KOH",
-        "role": "kafedra professori-dermatologik mikroskopist",
-        "count": "gifa, spora, Demodex, Sarcoptes, tola vs parazit, epiteliy",
-        "forbid": "Qon yoqmasi, gematologik formula, poikilositoz YOZILMAYDI.",
-    },
-    "effusion_cytology": {
-        "label": "Effuziya / seroz suyuqlik sitologiyasi",
-        "specimen": "Plevra / periton / periard suyuqligi",
-        "role": "kafedra professori-onkotsitolog (effuziya)",
-        "count": "mezotel, makrofag, neytrofil, limfotsit, eritrotsit, atipik hujayra, oqsil fondi",
-        "forbid": "Periferik qon yoqmasi (poikilositoz, trombotsit aggregati, to'liq Giemsa formula) asosiy hisobot qilma.",
-    },
     "histology": {
         "label": "Gistologiya — H&E to'qima kesmasi",
         "specimen": "To'qima kesmasi (H&E / maxsus bo'yoq)",
         "role": (
-            "kafedra professori-gistopatolog: Junqueira atlas + McKee skin pathology + "
-            "Langman embriologiya + Molecular Biology of the Cell (Alberts) mezonlari bilan"
+            "kafedra mudiri-gistopatolog: Junqueira atlas + McKee skin pathology + "
+            "Langman embriologiya + Molecular Biology of the Cell (Alberts) + ICHKI VEKTOR-KANON. "
+            "Adashishga haqqi YO'Q."
         ),
         "count": (
             "organ (BIRTA), to'qima tipi (Junqueira), hujayra/yadro/sitoplazma (MBOC), "
             "pattern, nuclear grade, mitoz/10HPF, invaziya, WHO/McKee taassurot 1-2-3"
         ),
         "forbid": (
-            "Qon yoqmasi formulasi TAQIQLANADI. Foizli 'arxitektura 70% / epiteliy 60% / baho 3' jadvali TAQIQLANADI. "
+            "BU TIZIM FAQAT GISTOLOGIYA. Qon yoqmasi, siydik, koprologiya, mazok, KOH, "
+            "spermogramma, likvor, AFB protokoli TAQIQLANADI. "
+            "Foizli 'arxitektura 70% / epiteliy 60% / baho 3' jadvali TAQIQLANADI. "
             "Noaniq 'yallig'lanishli atipik o'zgarishlar' TAMOM. "
-            "Tanlangan ORGAN oilasidan tashqari tashxis (masalan teri bo'lsa buyrak RCC) TAQIQLANADI."
+            "Tanlangan ORGAN oilasidan tashqari tashxis TAQIQLANADI. "
+            "Ko'rinmagan belgini yozish — og'ir xato."
         ),
         "dx": (
-            "ANIQ WHO/McKee nomi majburiy, LEKIN dalilsiz malignite TAQIQLANADI. "
-            "Malignite qo'yish huquqi YO'Q bo'lsa yetakchi benign/reaktiv yoki "
-            "'yetarli mezon yo'q — malignite qo'yilmaydi'. "
-            "Essential to'liq + invaziya KO'RINMASA karsinoma/RCC yetakchi qilinmaydi."
+            "Asosiy mahsulot: tushunarli, 8–15 jumlalik patologiya TASHXISI + TASHXIS IZOHI. "
+            "Foizli 60/30/10 vitrina va savol-javob TAQIQLANADI. "
+            "Dalilsiz malignite yetakchi qilinmaydi. "
+            "Protokol buzilsa hisobot yaroqsiz — qayta yoz."
         ),
     },
 }
 
-_BLOOD_SMEAR_LABS = frozenset({"hematology", "blood_parasites", "le_cell", "myelogram"})
+_BLOOD_SMEAR_LABS = frozenset()
 _BLOOD_SMEAR_MARKERS = (
     "poikilositoz",
     "leykosit formulasi",
@@ -1331,25 +298,9 @@ _BLOOD_SMEAR_MARKERS = (
     "dakriosit",
 )
 
-assert set(LAB_IDENTITY) == set(LAB_PROMPTS), "LAB_IDENTITY har lab turini qamrab olishi kerak"
+assert set(LAB_IDENTITY) == set(LAB_PROMPTS)
 
 LAB_BOARD = {
-    "hematology": "gematolog-morfolog professor; gematolog-klinitsist professor; gemostaz/parazit konsultanti",
-    "urine": "nefroloji mikroskopist professor; nefrolog-klinitsist; mikrobiolog professor",
-    "coprology": "parazitolog professor; gastroenterolog-morfolog; infeksionist",
-    "spermogram": "androlog professor; reproduktiv morfolog; urolog-klinitsist",
-    "smear": "sitopatolog professor (Bethesda); ginekolog-onkolog; mikrobiolog",
-    "csf": "likvor sitologi professor; nevrolog-infeksionist; gematolog-konsultant",
-    "lymph": "limfa sitologi professor; gematopatolog; onkolog-morfolog",
-    "le_cell": "immun-morfolog professor; revmatolog-konsultant; gematolog",
-    "prostata_sok": "urologiya professori; androlog professor; mikrobiolog professor",
-    "myelogram": "gematopatolog-miyelolog professor; gematolog-klinitsist; sitogenetik maslahatchi",
-    "blood_parasites": "tropik parazitolog professor; gematolog; infeksionist",
-    "afb_microscopy": "mikobakteriolog professor; ftiziatr-konsultant; klinik mikrobiolog",
-    "mycology": "mikolog professor; dermatolog-infeksionist; klinik mikrobiolog",
-    "dermatology": "dermatopatolog professor; klinik dermatolog; mikolog",
-    "derm_microscopy": "dermatologik mikroskopist professor; parazitolog; mikolog",
-    "effusion_cytology": "effuziya sitologi professor; onkotsitolog; pulmonolog/xirurg konsultanti",
     "histology": (
         "Junqueira gistologiya professori (to'qima tipi/arkitektura); "
         "McKee dermatopatolog (teri differensiali); "
@@ -1358,11 +309,10 @@ LAB_BOARD = {
     ),
 }
 
-assert set(LAB_BOARD) == set(LAB_PROMPTS), "LAB_BOARD har lab turini qamrab olishi kerak"
-
+assert set(LAB_BOARD) == set(LAB_PROMPTS)
 
 def _lab_meta(lab_type):
-    return LAB_IDENTITY.get(lab_type) or LAB_IDENTITY["hematology"]
+    return LAB_IDENTITY.get(lab_type) or LAB_IDENTITY["histology"]
 
 
 def _lab_lock_text(lab_type):
@@ -1372,30 +322,26 @@ def _lab_lock_text(lab_type):
     )
     return (
         "#### QAT'IY YO'NALISH QULFI (buzilsa hisobot yaroqsiz)\n"
+        "BU TIZIM FAQAT GISTOLOGIYA. Adashishga haqqi YO'Q: boshqa lab, boshqa organ, uydirma belgi.\n"
         f"Tanlangan tahlil turi: {m['label']}.\n"
         f"Namuna: {m['specimen']}.\n"
         f"Sen: {m['role']} — o'sha sohaning ENG KUCHLI professori kabi fikrla.\n"
         f"Jadvallarda: {m['count']}. 'Baho 1-5' o'rniga klinik atama va son yoz.\n"
         f"{m['forbid']}\n"
         f"{dx}\n"
-        "Boshqa lab turini KO'CHIRMA. Gematologiya bo'lmagan tahlilda qon yoqmasi xulosasi — XATO.\n"
+        "Boshqa lab turini KO'CHIRMA. Qon yoqmasi/siydik/mazok xulosasi — XATO.\n"
     )
 
 
 def _analysis_system(lab_type):
     m = _lab_meta(lab_type)
     voices = _board_voices(lab_type)
-    if lab_type == "histology":
-        tail = (
-            "AVVAL #### ANIQ TASHXIS (to'liq patologiya xulosasi — 8-15 jumla), "
-            "#### WHO MEZONLARI, #### TASHXIS IZOHI, #### DIFFERENSIAL (nega bu, nega emas). "
-            "Savol-javob, profilaktika, 3-professor konsiliumi YOZILMAYDI. "
-        )
-    else:
-        tail = (
-            "AVVAL #### ANIQ TASHXIS (WHO nomi+%), #### WHO MEZONLARI (Essential/Desirable), "
-            "#### NIMA QILISH KERAK (3+ qadam), #### PROFILAKTIKA VA DAVOLASH REJASI. "
-        )
+    tail = (
+        "ADASHISH HUQUQI YO'Q. "
+        "AVVAL #### ANIQ TASHXIS (to'liq patologiya xulosasi — 8-15 jumla), "
+        "#### WHO MEZONLARI, #### TASHXIS IZOHI, #### DIFFERENSIAL (nega bu, nega emas). "
+        "Savol-javob, profilaktika, 3-professor konsiliumi YOZILMAYDI. "
+    )
     return (
         f"Sen MedLab ICHKI LIS uchun konsilium raisisan. Yo'nalish: {m['label']}. "
         f"Namuna: {m['specimen']}. Jamoa: {voices}. "
@@ -1610,6 +556,7 @@ TAQIQLANGAN: Savol-javob, profilaktika, quyoshdan himoya, 3-professor, 120 jumla
 """
 
 _HISTOLOGY_SAFE_PROTOCOL = """
+ADASHISH HUQUQI YO'Q. FAQAT gistologiya. Professor protokoli buzilsa hisobot YAROQSIZ.
 ICHKI gistopatologiya XULOSASI (imzo emas). O'zbek tilida.
 MAHSULOT = batafsil tushunarli TASHXIS, suvli o'quv savol-javob emas.
 Qisqa foizli 3 ta nom (60/30/10) YAROQSIZ. Dalilsiz rak YAROQSIZ.
@@ -1966,16 +913,18 @@ def _strip_other_organ_differential(text):
     return cleaned.strip()
 
 
-def _worksheet_user(lab_type, organ_lock=None):
+def _worksheet_user(lab_type, organ_lock=None, kb_block=""):
     m = _lab_meta(lab_type)
     extra = _HISTOLOGY_SAFE_PROTOCOL if lab_type == "histology" else (
         "Keyin 40-60 jumla: pattern/tuzilma NOMLARI. Oxirida 3 ishchi taassurot, ehtimollik %."
     )
     lock = _histology_organ_lock_text(organ_lock) if lab_type == "histology" else ""
+    kb = ("\n" + kb_block + "\n") if (lab_type == "histology" and kb_block) else ""
     return (
         f"Bu {m['specimen']} maydoni. {m['label']}. Ichki LIS qoralama. Imzo emas.\n"
         f"{m['forbid']}\n\n"
         + lock
+        + kb
         + "Avval markdown jadval (kamida 12 qator). Baho 1-5 ISHLATMA.\n"
         "| Belgi | Topilma (atama yoki son) | Mezon | Ishonch |\n"
         f"Maydonlar: {m['count']}.\n"
@@ -1984,25 +933,28 @@ def _worksheet_user(lab_type, organ_lock=None):
     )
 
 
-def _describe_user(lab_type, organ_lock=None):
+def _describe_user(lab_type, organ_lock=None, kb_block=""):
     m = _lab_meta(lab_type)
     if lab_type == "histology":
+        kb = ("\n" + kb_block + "\n") if kb_block else ""
         return (
-            f"H&E tissue photomicrograph. Internal pathology TEACHING note in Uzbek. "
+            f"H&E tissue photomicrograph. You are a histopathology chair. NO RIGHT TO ERR: "
+            f"wrong organ, invented findings, other lab protocols, skipped sections = INVALID. "
             f"Write a COMPLETE pathology DIAGNOSIS in Uzbek a clinician can understand. "
             f"8–15 sentence diagnosis + long morphologic justification. "
             f"NO Q&A ('Savol:'), NO prevention, NO 60/30/10 percent list as the whole diagnosis. "
             f"Do NOT lead with cancer unless invasion+Essential are VISIBLE. "
-            f"Required: Malignite qo'yish huquqi HA/YO'Q. Never refuse.\n"
+            f"Required: Malignite qo'yish huquqi HA/YO'Q. Never refuse a real H&E field.\n"
             f"{m['forbid']}\n\n"
             + _histology_organ_lock_text(organ_lock)
+            + kb
             + _HISTOLOGY_SAFE_PROTOCOL
         )
     return (
         f"Microscope field of {m['specimen']}. Internal LIS note in Uzbek as {m['role']}. "
         f"ONLY {m['label']}. {m['forbid']}\n"
         "Unsigned draft. Named patterns, then 3 working impressions with %.\n"
-        f"Describe: {m['count']}. If absent, write 0 and why. No blood-smear CBC unless this is hematology."
+        f"Describe: {m['count']}. If absent, write 0 and why. This lab is histology-only — no blood-smear CBC."
     )
 
 
@@ -2186,8 +1138,8 @@ def _append_output_format(prompt, lab_type=None):
 def _full_analysis_prompt(base, microscope_prefix, lab_type=None, patient_context=None):
     """Bemor konteksti + yo'nalish protokoli."""
     merged = _merge_prompt_with_microscope(base, microscope_prefix)
-    lock = _lab_lock_text(lab_type or "hematology")
-    patient = _patient_prompt_prefix(patient_context, lab_type or "hematology")
+    lock = _lab_lock_text(lab_type or "histology")
+    patient = _patient_prompt_prefix(patient_context, lab_type or "histology")
     parts = [lock]
     if patient:
         parts.append(patient)
@@ -2355,7 +1307,7 @@ def _patient_lab_mismatch_message(lab_type, patient_context):
     return None
 
 
-def _patient_prompt_prefix(patient_context, lab_type="hematology"):
+def _patient_prompt_prefix(patient_context, lab_type="histology"):
     p = _normalize_patient_context(patient_context)
     if not any(p.values()):
         return ""
@@ -2996,13 +1948,11 @@ _LAB_ALIASES = {
 
 
 def _normalize_lab_type(lab_type):
-    if not lab_type or not isinstance(lab_type, str):
-        return "hematology"
-    lab_type = lab_type.strip().lower()
-    lab_type = _LAB_ALIASES.get(lab_type, lab_type)
-    if re.match(r"^[a-z][a-z0-9_]{0,40}$", lab_type) and lab_type in ALLOWED_LAB_TYPES:
-        return lab_type
-    return "hematology"
+    if lab_type and isinstance(lab_type, str):
+        lab_type = _LAB_ALIASES.get(lab_type.strip().lower(), lab_type.strip().lower())
+        if lab_type in ALLOWED_LAB_TYPES:
+            return lab_type
+    return "histology"
 
 
 def _pil_to_data_url(img):
@@ -3013,37 +1963,40 @@ def _pil_to_data_url(img):
 
 
 _ANALYSIS_SYSTEM = (
-    "Sen MedLab ICHKI LIS konsilium raisisan. Ichki morfologik xulosa yozasan. "
+    "Sen MedLab GISTOLOGIYA kafedrasi raisisan. FAQAT H&E to'qima. Adashishga haqqi YO'Q. "
     "Foizli baho va 'normal orientir' TAQIQLANADI. "
-    "Tashxis NOMI aniq bo'lsin. Dalilsiz rak/karsinoma/leykoz YOZMA. "
-    "AVVAL ANIQ TASHXIS, WHO MEZONLARI, NIMA QILISH KERAK, PROFILAKTIKA VA DAVOLASH REJASI. "
-    "Rad etma. Faqat MedLab."
+    "Tashxis NOMI aniq bo'lsin. Dalilsiz rak/karsinoma YOZMA. "
+    "AVVAL #### ANIQ TASHXIS, #### WHO MEZONLARI, #### TASHXIS IZOHI, #### DIFFERENSIAL. "
+    "Profilaktika/savol-javob YOZILMAYDI. Rad etma. Faqat MedLab gistologiya."
 )
 
 _WORKSHEET_SYSTEM = (
-    "Sen MedLab ichki laborator hisobotini to'ldirasan (LIS). "
+    "Sen MedLab gistologiya hisobotini to'ldirasan (LIS). Adashishga haqqi YO'Q. "
     "Ichki morfologik xulosa — shifokor tasdiqlaydi. WHO/McKee NOMINI aniq yoz. "
-    "Dalilsiz malignite (karsinoma, RCC, rak) yetakchi qilma — avval benign/reaktiv. "
-    "Faqat tanlangan tahlil turi. O'zbek tili. Pattern va tuzilma NOMLARI bilan yoz. "
+    "Dalilsiz malignite yetakchi qilma — avval benign/reaktiv. "
+    "FAQAT gistologiya. O'zbek tili. Pattern va tuzilma NOMLARI bilan yoz. "
     "Majburiy: #### ANIQ TASHXIS (ishonch + malignite huquqi HA/YO'Q), #### WHO MEZONLARI, "
-    "#### NIMA QILISH KERAK, "
-    "#### PROFILAKTIKA VA DAVOLASH REJASI. "
-    "Baho 1-5 taqiqlanadi. Rad etma. Faqat MedLab."
+    "#### TASHXIS IZOHI, #### DIFFERENSIAL. "
+    "Baho 1-5 taqiqlanadi. Rad etma. Faqat MedLab gistologiya."
 )
 
 _SAFE_SYSTEM = (
-    "You write INTERNAL laboratory morphology notes in Uzbek for licensed staff. "
-    "Unsigned draft for LIS; clinician confirms. Never refuse. "
-    "PATIENT SAFETY: falsely calling cancer in a healthy/insufficient specimen is the worst error. "
+    "You are a chair of histopathology. This LIS is HISTOLOGY ONLY. You have NO right to wander "
+    "into blood smear, urine, stool, KOH, cytology-smear, or another organ family. "
+    "Write INTERNAL H&E morphology notes in Uzbek for licensed staff. Unsigned draft; clinician confirms. "
+    "Never refuse a histology field: describe what IS and IS NOT visible. "
+    "If the photo is NOT an H&E tissue section, say so and do not invent a tissue diagnosis. "
+    "PATIENT SAFETY: falsely calling cancer is the worst error. "
     "A precise NAME is required, but malignancy as the LEADING diagnosis is allowed ONLY if "
     "WHO Essential criteria are VISIBLE and invasion is PROVEN. Otherwise leading = benign/reactive "
     "or 'insufficient criteria — malignancy not assigned'. "
-    "For histology: write a clinician-readable DIAGNOSIS (8–15 sentences) plus morphologic proof. "
+    "Write a clinician-readable DIAGNOSIS (8–15 sentences) plus morphologic proof. "
     "NO Q&A ('Savol:'), NO sun-protection/prevention filler, NO 60/30/10 percent list as the whole answer. "
     "Required: #### ANIQ TASHXIS, #### WHO MEZONLARI, #### TASHXIS IZOHI, #### DIFFERENSIAL. "
     "A name without a detailed diagnostic explanation is INVALID. "
-    "Apply Junqueira/McKee/MBOC/WHO METHOD; do not paste copyrighted textbook text. "
-    "One organ only. No dummy 1-5 scores. MedLab only."
+    "Apply Junqueira/McKee/MBOC/WHO METHOD plus retrieved vector-canon; do not paste copyrighted textbook text. "
+    "One organ only. No dummy 1-5 scores. Do not write '100%' in the report; write evidence-based ishonch. "
+    "MedLab histology only."
 )
 
 _SHALLOW_MARKERS = (
@@ -3310,7 +2263,7 @@ def _vision_user(prompt, image_parts):
     return out
 
 
-def _expand_full_report(observation, full_prompt, kwargs, image_parts=None, lab_type="hematology"):
+def _expand_full_report(observation, full_prompt, kwargs, image_parts=None, lab_type="histology"):
     """Varaqa + original rasmlardan to'liq laborator hisobot."""
     user_text = (
         _lab_lock_text(lab_type)
@@ -3331,7 +2284,7 @@ def _expand_full_report(observation, full_prompt, kwargs, image_parts=None, lab_
     )
 
 
-def _deepen_report(shallow, full_prompt, kwargs, image_parts=None, lab_type="hematology"):
+def _deepen_report(shallow, full_prompt, kwargs, image_parts=None, lab_type="histology"):
     extra = ""
     if _looks_like_wrong_blood_smear(shallow, lab_type):
         extra = (
@@ -3372,7 +2325,7 @@ def _professor_pass_user(lab_type, full_prompt):
     )
 
 
-def _board_review(draft, full_prompt, kwargs, image_parts=None, lab_type="hematology"):
+def _board_review(draft, full_prompt, kwargs, image_parts=None, lab_type="histology"):
     """3 professor tanqid qiladi, rais to'liq bayonni qayta yozadi."""
     voices = _board_voices(lab_type)
     user_text = (
@@ -3417,12 +2370,17 @@ def _needs_rewrite(text, lab_type, organ_lock=None):
     )
 
 
-def _safe_expand(draft, kwargs, image_parts=None, lab_type="hematology", organ_lock=None, patient_context=None):
+def _safe_expand(draft, kwargs, image_parts=None, lab_type="histology", organ_lock=None, patient_context=None):
     """Uzaytirish: tashxis so'zisiz, filtr rad etmasin."""
     protocol = _HISTOLOGY_SAFE_PROTOCOL if lab_type == "histology" else (
         "Ichki LIS protokoli. 50+ jumla. 3 ishchi taassurot (nom+%), MOS/QARSHI. Rad etma."
     )
     lock = _histology_organ_lock_text(organ_lock) if lab_type == "histology" else ""
+    kb = ""
+    if lab_type == "histology":
+        kb = histology_kb_prompt_block(organ_lock, patient_context, draft=draft)
+        if kb:
+            kb = "\n" + kb + "\n"
     patient = _patient_prompt_prefix(patient_context, lab_type)
     n_img = len(image_parts or [])
     multi = _multi_image_protocol(n_img) if n_img > 1 else ""
@@ -3431,6 +2389,7 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="hematology", organ_l
         + "\n"
         + (patient + "\n" if patient else "")
         + lock
+        + kb
         + multi
         + protocol
         + "\n\n==== QISQA QORALAMA (shu asosda UZAYTIR, qisqartirma) ====\n"
@@ -3464,36 +2423,15 @@ _SPECIMEN_CODE_SET = frozenset(LAB_PROMPTS.keys()) | frozenset({"unknown", "othe
 
 # Bir xil preparat oilasi — tanlangan turi bilan "mos" hisoblanadi.
 _SPECIMEN_COMPAT = {
-    "hematology": frozenset({"hematology", "blood_parasites", "le_cell"}),
-    "blood_parasites": frozenset({"hematology", "blood_parasites"}),
-    "le_cell": frozenset({"hematology", "le_cell"}),
-    "myelogram": frozenset({"myelogram"}),
-    "dermatology": frozenset({"dermatology", "derm_microscopy"}),
-    "derm_microscopy": frozenset({"dermatology", "derm_microscopy", "mycology"}),
-    "mycology": frozenset({"mycology", "derm_microscopy"}),
     "histology": frozenset({"histology"}),
-    "urine": frozenset({"urine"}),
-    "coprology": frozenset({"coprology"}),
-    "spermogram": frozenset({"spermogram"}),
-    "smear": frozenset({"smear"}),
-    "csf": frozenset({"csf"}),
-    "lymph": frozenset({"lymph", "effusion_cytology"}),
-    "effusion_cytology": frozenset({"effusion_cytology", "lymph"}),
-    "prostata_sok": frozenset({"prostata_sok"}),
-    "afb_microscopy": frozenset({"afb_microscopy"}),
 }
 
 _SPECIMEN_GATE_SYSTEM = (
-    "You classify optical-microscope photos for an internal LIS router. "
+    "You classify microscope photos for a HISTOLOGY-ONLY LIS. "
     "Reply with ONE JSON object only, no markdown. Never refuse. "
-    "Keys: detected (lab code), confidence (high|medium|low), reason_uz (one short Uzbek sentence). "
-    "Lab codes: hematology, urine, coprology, spermogram, smear, csf, lymph, le_cell, "
-    "prostata_sok, myelogram, blood_parasites, afb_microscopy, mycology, dermatology, "
-    "derm_microscopy, effusion_cytology, histology, unknown. "
-    "Rules: pink-purple H&E tissue architecture/papilla/glands = histology; "
-    "scattered RBCs/WBCs on thin smear = hematology; "
-    "urine sediment crystals/casts = urine; stool parasites = coprology; "
-    "sperm = spermogram; cervical flora = smear; KOH hyphae/scrape = derm_microscopy or mycology. "
+    "Keys: detected (histology|other|unknown), confidence (high|medium|low), reason_uz (one short Uzbek sentence). "
+    "Rules: pink-purple H&E tissue architecture, glands, papilla, dermis/epidermis, stroma = histology. "
+    "Blood smear, urine sediment, stool, KOH scrape, sperm, AFB rods, cytology smear without tissue = other. "
     "If unsure use unknown with low confidence."
 )
 
@@ -3543,19 +2481,16 @@ def _parse_specimen_gate(raw):
 
 
 def _mismatch_message(selected, detected, reason_uz=""):
-    sel_name = _lab_display_name(selected)
     det_name = _lab_display_name(detected) if detected in LAB_IDENTITY else detected
     reason_line = f"\n- Asos: {reason_uz}" if reason_uz else ""
     return (
-        "#### TASVIR TANLANGAN TAHLIL TURIGA MOS EMAS\n\n"
-        f"- Siz tanladingiz: **{sel_name}**\n"
+        "#### TASVIR GISTOLOGIYA KESMASI EMAS\n\n"
+        f"- Bu tizim FAQAT gistologiya (H&E to'qima kesmasi).\n"
         f"- Tasvir ko'rinishi: **{det_name}**{reason_line}\n\n"
-        f"Bu preparat uchun gematologiya (yoki boshqa noto'g'ri) protokoli yozilmaydi — "
-        f"uydirma formula/tashxis chiqmasligi uchun tahlil TO'XTATILDI.\n\n"
-        f"**Nima qilish kerak:** chap menyudan **{det_name}** ni tanlang, "
-        "keyin shu rasm bilan tahlilni QAYTA bosing.\n\n"
-        "Agar tasvir turi noaniq bo'lsa yoki siz to'g'ri turini tanlaganiga ishonchingiz komil bo'lsa — "
-        "boshqa aniqroq kadr yuklang yoki turini qayta tanlang."
+        "Boshqa lab protokoli (qon yoqmasi, siydik, najas va h.k.) yozilmaydi — "
+        "uydirma tashxis chiqmasligi uchun tahlil TO'XTATILDI.\n\n"
+        "**Nima qilish kerak:** H&E to'qima kesmasining aniq kadri (4–10× landshaft + 40× hujayra) yuklang.\n"
+        "Boshqa sohalar hozircha yoqilmagan."
     )
 
 
@@ -3615,7 +2550,7 @@ def _gate_specimen_match(image_parts, lab_type):
         return None
 
 
-def _openai_generate(content_list, lab_type="hematology", patient_context=None):
+def _openai_generate(content_list, lab_type="histology", patient_context=None):
     if openai_client is None:
         raise RuntimeError(
             "%s sozlanmagan: xizmat kaliti o'rnatilmagan — administrator .env faylida "
@@ -3623,6 +2558,7 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
             % ZIYRAKAI_DISPLAY_NAME
         )
     patient_context = _normalize_patient_context(patient_context)
+    lab_type = _normalize_lab_type(lab_type)
     mismatch_pt = _patient_lab_mismatch_message(lab_type, patient_context)
     if mismatch_pt:
         log.warning("%s: patient/lab mismatch lab=%s", ZIYRAKAI_DISPLAY_NAME, lab_type)
@@ -3639,8 +2575,8 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
     ]
     kwargs = _openai_generation_kwargs()
     if lab_type == "histology":
-        kwargs["temperature"] = min(float(kwargs.get("temperature", 0.12) or 0.12), 0.05)
-        kwargs["top_p"] = min(float(kwargs.get("top_p", 0.85) or 0.85), 0.65)
+        kwargs["temperature"] = 0.0
+        kwargs["top_p"] = min(float(kwargs.get("top_p", 0.85) or 0.85), 0.5)
         # Qayta tahlilda barqarorroq (model qo'llab-quvvatlasa)
         kwargs.setdefault("seed", 42)
 
@@ -3655,6 +2591,10 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
     if lab_type == "histology" and image_parts:
         organ_lock = _lock_histology_organ(image_parts, patient_context)
 
+    kb_block = ""
+    if lab_type == "histology":
+        kb_block = histology_kb_prompt_block(organ_lock, patient_context)
+
     patient_block = _patient_prompt_prefix(patient_context, lab_type)
     multi_note = _multi_image_protocol(n_img) if n_img > 1 else ""
 
@@ -3662,7 +2602,7 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
     # Avval ishlagan ichki morfologiya yozuvi, keyin xavfsiz uzaytirish.
     log.info("%s: 1-bosqich ichki morfologiya lab=%s imgs=%s", ZIYRAKAI_DISPLAY_NAME, lab_type, n_img)
     report = ""
-    describe_prompt = _describe_user(lab_type, organ_lock) + multi_note
+    describe_prompt = _describe_user(lab_type, organ_lock, kb_block) + multi_note
     if patient_block:
         describe_prompt = patient_block + "\n\n" + describe_prompt
     if n_img > 1:
@@ -3686,7 +2626,7 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
                 len(report or ""),
                 _preview(report),
             )
-            ws = _worksheet_user(lab_type, organ_lock) + multi_note
+            ws = _worksheet_user(lab_type, organ_lock, kb_block) + multi_note
             if patient_block:
                 ws = patient_block + "\n\n" + ws
             report = _chat_complete(
@@ -3745,9 +2685,12 @@ def _openai_generate(content_list, lab_type="hematology", patient_context=None):
                 len(expanded or ""),
                 _preview(expanded),
             )
+            kb_retry = histology_kb_prompt_block(organ_lock, patient_context, draft=report)
             deepen_prompt = (
                 (_patient_prompt_prefix(patient_context, lab_type) + "\n"
-                 + _histology_organ_lock_text(organ_lock) + _HISTOLOGY_SAFE_PROTOCOL)
+                 + _histology_organ_lock_text(organ_lock)
+                 + (("\n" + kb_retry + "\n") if kb_retry else "")
+                 + _HISTOLOGY_SAFE_PROTOCOL)
                 if lab_type == "histology"
                 else full_prompt
             )

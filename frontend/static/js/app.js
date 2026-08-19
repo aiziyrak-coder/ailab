@@ -1,7 +1,7 @@
 /* MedLab AI – Laboratoriya Tahlil Tizimi */
 /* apiPath, getCookie, csrfHeaders — auth.js (index.html da oldin yuklanadi) */
 
-let currentLab   = 'hematology';
+let currentLab   = 'histology';
 let currentSource = 'upload'; // upload | phone | scope
 let uploadedFiles = [];
 let cameraRunning = false;
@@ -22,222 +22,14 @@ let _thumbUrlByKey = {};
 const MAX_CLIENT_UPLOAD = 48;
 
 const LAB_META = {
-  hematology: {
-    icon:'🩸', name:'Gematologiya Natijasi', color:'var(--hema)',
-    brief:'Bo‘yalgan qon yoqmasi: eritrotsit, leykosit formulasi, trombotsit.',
-    checks:['Eritrotsitlar','Leykosit %','Trombotsit','Inklyuziya'],
-    uploadMain:'Qon yoqmasi rasmini yuklang', uploadHint:'Giemsa / Romanovskiy · 40× yoki 100× immersiya',
-    overlayUpload:'Qon yoqmasini yuklang', overlayPhone:'Telefonni yoqma ustiga tuting', overlayScope:'Yorug‘ maydon, immersiya moyi',
-    emptyTitle:'Gematologiya kutilmoqda', emptyHint:'Bo‘yalgan qon yoqmasi. Tavsiya: 100× immersiya.',
-    analyze:'🔬 Yoqmani tahlil qil', loading:'Yoqma o‘qilmoqda...',
-    phoneHint:'Telefonni mikroskop okulyariga mahkam tuting — yoqma kadr.',
-    scopeHint:'Yorug‘ maydon + immersiya moyi. 100× obyektiv tavsiya.',
-    srcUpload:'📎 Yoqma rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'100× (immersion)', microTitle:'Kattalashtirish · immersiya',
-  },
-  urine: {
-    icon:'🧪', name:'Siydik Tahlili Natijasi', color:'var(--urine)',
-    brief:'Siydik cho‘kmasi: hujayra, silindr, tuz, bakteriya.',
-    checks:['Leykosit/eritrosit','Silindrlar','Kristallar','Bakteriya'],
-    uploadMain:'Siydik mikroskopiyasi rasmini yuklang', uploadHint:'Cho‘kma, yorug‘ maydon · 40×',
-    overlayUpload:'Siydik cho‘kmasi kadri', overlayPhone:'Cho‘kmani telefonda oling', overlayScope:'Siydik preparatini yoqing',
-    emptyTitle:'Siydik tahlili kutilmoqda', emptyHint:'Markazdan qochirma cho‘kmasi, 40× obyektiv.',
-    analyze:'🔬 Cho‘kmani tahlil qil', loading:'Cho‘kma o‘qilmoqda...',
-    phoneHint:'Preparatni yorug‘ fonda, 40× atrofida oling.',
-    scopeHint:'Qoplama oyna, yorug‘ maydon. Silindrlarni chetda qidiring.',
-    srcUpload:'📎 Cho‘kma rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · cho‘kma',
-  },
-  coprology: {
-    icon:'🧫', name:'Koprologiya Natijasi', color:'var(--copro)',
-    brief:'Najas: hazm qoldiqlari, gijja tuxumi, sodda hayvonlar.',
-    checks:['Tuxum/parazit','Muskul/yog‘','Leykosit','Shilim'],
-    uploadMain:'Koprologiya preparati rasmini yuklang', uploadHint:'Native yoki Lyugol · 10× va 40×',
-    overlayUpload:'Najas preparatini yuklang', overlayPhone:'Preparatni telefonda oling', overlayScope:'Koprologiya maydonini yoqing',
-    emptyTitle:'Koprologiya kutilmoqda', emptyHint:'Bir nechta maydon: 10× skan, 40× tasdiq.',
-    analyze:'🔬 Preparatni tahlil qil', loading:'Parazit izlanmoqda...',
-    phoneHint:'Yorug‘ maydon, avval 10× butun shisha, keyin 40×.',
-    scopeHint:'Tuxum va sistalar uchun bir nechta maydonni suring.',
-    srcUpload:'📎 Preparat rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'10×', microTitle:'Kattalashtirish · skan',
-  },
-  spermogram: {
-    icon:'🫧', name:'Sperma Analiz Natijasi', color:'var(--sperm)',
-    brief:'Spermogramma: son, harakatlilik (A–D), morfologiya.',
-    checks:['Kontsentratsiya','Harakat A–D','Shakl','Leykosit'],
-    uploadMain:'Native sperma kadri yoki videosini yuklang', uploadHint:'Harakat uchun qisqa video foydali · 40×',
-    overlayUpload:'Native kadr yoki video', overlayPhone:'Harakatni videoga oling', overlayScope:'Makler/native kamerani yoqing',
-    emptyTitle:'Spermogramma kutilmoqda', emptyHint:'Native preparat. Harakat uchun 5–10 s video.',
-    analyze:'🔬 Spermogrammani tahlil qil', loading:'Harakat baholanmoqda...',
-    phoneHint:'Harakat uchun video, morfologiya uchun tiniq kadr.',
-    scopeHint:'37°C yaqin, yupqa native qatlam, 40×.',
-    srcUpload:'📎 Kadr / video', srcPhone:'📱 Telefon video', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · native',
-  },
-  smear: {
-    icon:'🌸', name:'Mazok: sitologiya + flora', color:'var(--smear)',
-    brief:'Ginekologik mazok: epiteliy, flora, leykosit, Trichomonas/Candida.',
-    checks:['Epiteliy','Flora','Leykosit','Qo‘ziqorin/sodda'],
-    uploadMain:'Mazok (Gram/Methylene) rasmini yuklang', uploadHint:'Sitologiya + flora · 40× yoki 100×',
-    overlayUpload:'Mazok rasmini yuklang', overlayPhone:'Mazokni telefonda oling', overlayScope:'Mazok maydonini yoqing',
-    emptyTitle:'Mazok kutilmoqda', emptyHint:'Gram yoki methylene blue. Flora va hujayra.',
-    analyze:'🔬 Mazokni tahlil qil', loading:'Flora o‘qilmoqda...',
-    phoneHint:'Yaxshi yorug‘lik, markaziy maydon, 40–100×.',
-    scopeHint:'Bir nechta maydon: epiteliy, flora, leykosit.',
-    srcUpload:'📎 Mazok rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · mazok',
-  },
-  csf: {
-    icon:'🧠', name:'Likvor (OMS) natijasi', color:'var(--csf)',
-    brief:'Orqa miya suyuqligi: sitologiya, eritrotsit, mikroorganizmlar.',
-    checks:['Hujayra soni','Neytrofil/limfa','Eritrotsit','Mikroflora'],
-    uploadMain:'Likvor sitologiya rasmini yuklang', uploadHint:'Fuchsin/Giemsa · 40×',
-    overlayUpload:'OMS preparatini yuklang', overlayPhone:'Likvor kadri', overlayScope:'Likvor kamerasini yoqing',
-    emptyTitle:'Likvor tahlili kutilmoqda', emptyHint:'Sitoz va differensial. Artefakt qonini ajrating.',
-    analyze:'🔬 Likvorni tahlil qil', loading:'Sitoz hisoblanmoqda...',
-    phoneHint:'Kamera yoki yupqa surtma, 40×.',
-    scopeHint:'Fuch-Rosenthal/surtma. Qon aralashmasini belgilang.',
-    srcUpload:'📎 Likvor rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · OMS',
-  },
-  lymph: {
-    icon:'🟣', name:'Limfa suyuqligi natijasi', color:'var(--lymph)',
-    brief:'Limfa: limfotsit, reaktiv hujayra, yot elementlar.',
-    checks:['Limfotsit','Reaktiv hujayra','Neytrofil','Atipiya'],
-    uploadMain:'Limfa sitologiya rasmini yuklang', uploadHint:'Giemsa/Papanikolau · 40×',
-    overlayUpload:'Limfa preparatini yuklang', overlayPhone:'Limfa kadri', overlayScope:'Limfa maydonini yoqing',
-    emptyTitle:'Limfa tahlili kutilmoqda', emptyHint:'Sitologik surtma. Reaktiv vs atipik.',
-    analyze:'🔬 Limfani tahlil qil', loading:'Hujayralar o‘qilmoqda...',
-    phoneHint:'Yaxshi yorug‘likdagi surtma, 40×.',
-    scopeHint:'Bir nechta maydon: kichik va yirik hujayralar.',
-    srcUpload:'📎 Surtma rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · limfa',
-  },
-  le_cell: {
-    icon:'✴️', name:'LE-hujayra tahlili', color:'var(--le)',
-    brief:'LE-hujayra: neytrofil ichidagi gomogen yadro materiali.',
-    checks:['LE-hujayra','Tart hujayra','Neytrofil','Artefakt'],
-    uploadMain:'LE-hujayra yoqmasi rasmini yuklang', uploadHint:'Maxsus LE preparat · 40–100×',
-    overlayUpload:'LE yoqmasini yuklang', overlayPhone:'LE kadri', overlayScope:'LE maydonini yoqing',
-    emptyTitle:'LE-hujayra kutilmoqda', emptyHint:'Gomogen gematoksilin tana + fagotsitoz.',
-    analyze:'🔬 LE-hujayrani qidir', loading:'LE belgisi izlanmoqda...',
-    phoneHint:'Yirik kattalashtirish, bir nechta maydon.',
-    scopeHint:'LE va Tart hujayrani farqlang. 40–100×.',
-    srcUpload:'📎 LE yoqmasi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · LE',
-  },
-  prostata_sok: {
-    icon:'🟠', name:'Prostata SOK natijasi', color:'var(--prost)',
-    brief:'Prostata sekretsiyasi: leykosit, lesitin, flora, amiloid.',
-    checks:['Leykosit','Lesitin dona','Flora','Amiloid'],
-    uploadMain:'Prostata SOK rasmini yuklang', uploadHint:'Native · 40×',
-    overlayUpload:'SOK preparatini yuklang', overlayPhone:'SOK kadri', overlayScope:'SOK maydonini yoqing',
-    emptyTitle:'Prostata SOK kutilmoqda', emptyHint:'Native sekretsiya. Leykosit / lesitin.',
-    analyze:'🔬 SOK ni tahlil qil', loading:'Sekretsiya o‘qilmoqda...',
-    phoneHint:'Yupqa native qatlam, 40×.',
-    scopeHint:'Lesitin donachalari va leykosit zichligi.',
-    srcUpload:'📎 SOK rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · SOK',
-  },
-  myelogram: {
-    icon:'🦴', name:'Miyelogramma natijasi', color:'var(--myelo)',
-    brief:'Suyak ko‘migi: o‘sma chiziqlari, blast, megakariotsit.',
-    checks:['Blast','Granulotsitar','Eritroid','Megakariotsit'],
-    uploadMain:'Miyelogramma yoqmasi rasmini yuklang', uploadHint:'Giemsa · 100× immersiya',
-    overlayUpload:'Ko‘mik yoqmasini yuklang', overlayPhone:'Miyelogramma kadri', overlayScope:'Ko‘mik maydonini yoqing',
-    emptyTitle:'Miyelogramma kutilmoqda', emptyHint:'Suyak ko‘migi yoqmasi, 100× immersiya.',
-    analyze:'🔬 Miyelogrammani tahlil qil', loading:'Ko‘mik o‘qilmoqda...',
-    phoneHint:'Immersiya kadri, yadro xromatini tiniq bo‘lsin.',
-    scopeHint:'100× immersiya. Blast va megakariotsit maydonlari.',
-    srcUpload:'📎 Ko‘mik yoqmasi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'100× (immersion)', microTitle:'Kattalashtirish · immersiya',
-  },
-  blood_parasites: {
-    icon:'🦟', name:'Qon parazitlari tahlili', color:'var(--parasite)',
-    brief:'Qon paraziti: malyariya, mikrofilariya, Babesia va boshqalar.',
-    checks:['Plasmodium','Mikrofilariya','Babesia','Artefakt'],
-    uploadMain:'Qalin/yupqa qon yoqmasi rasmini yuklang', uploadHint:'Giemsa · 100× immersiya, bir nechta maydon',
-    overlayUpload:'Parazit yoqmasini yuklang', overlayPhone:'Yoqma kadri', overlayScope:'Qalin va yupqa yoqmani yoqing',
-    emptyTitle:'Qon parazitlari kutilmoqda', emptyHint:'Qalin tomchi + yupqa yoqma. 100× immersiya.',
-    analyze:'🔬 Parazitni qidir', loading:'Parazit izlanmoqda...',
-    phoneHint:'Bir nechta maydon. Qalin tomchi ham foydali.',
-    scopeHint:'100× immersiya. Qalin tomchi skan, yupqa tasdiq.',
-    srcUpload:'📎 Yoqma rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'100× (immersion)', microTitle:'Kattalashtirish · immersiya',
-  },
-  afb_microscopy: {
-    icon:'🫁', name:'KOCH / AFB mikroskopiyasi', color:'var(--afb)',
-    brief:'Kislotaga chidamli tayoqchalar: Ziehl–Neelsen / floroxrom.',
-    checks:['AFB tayoqcha','Miqdor 1+–3+','Fon hujayra','Artefakt'],
-    uploadMain:'ZN / floroxrom preparat rasmini yuklang', uploadHint:'Qizil tayoqcha yashil/ko‘k fonda · 100×',
-    overlayUpload:'AFB preparatini yuklang', overlayPhone:'ZN kadri', overlayScope:'ZN/floroxrom maydonini yoqing',
-    emptyTitle:'KOCH / AFB kutilmoqda', emptyHint:'Ziehl–Neelsen yoki floroxrom. 100× immersiya.',
-    analyze:'🔬 AFB ni qidir', loading:'Tayoqchalar izlanmoqda...',
-    phoneHint:'Kontrastli ZN kadr, bir nechta maydon.',
-    scopeHint:'WHO shkalasi uchun 100 maydongacha skan.',
-    srcUpload:'📎 ZN rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'100× (immersion)', microTitle:'Kattalashtirish · ZN',
-  },
-  mycology: {
-    icon:'🍄', name:'Mikologiya tahlili', color:'var(--myco)',
-    brief:'Zamburug‘: gifa, spora, Candida, dermatofit, Malassezia.',
-    checks:['Gifa/spora','Candida','Dermatofit','Artefakt'],
-    uploadMain:'Mikologiya preparati rasmini yuklang', uploadHint:'KOH / Gram / laktofenol · 40×',
-    overlayUpload:'Zamburug‘ preparatini yuklang', overlayPhone:'Gifa kadri', overlayScope:'KOH maydonini yoqing',
-    emptyTitle:'Mikologiya kutilmoqda', emptyHint:'KOH yoki Gram. Gifa va sporani ajrating.',
-    analyze:'🔬 Zamburug‘ni tahlil qil', loading:'Gifa izlanmoqda...',
-    phoneHint:'KOH fonida septali gifa, 40×.',
-    scopeHint:'Paxta tolasidan farqlang. 10× skan, 40× tasdiq.',
-    srcUpload:'📎 KOH / Gram', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · KOH',
-  },
-  dermatology: {
-    icon:'🧴', name:'Dermatologiya natijasi', color:'var(--derm)',
-    brief:'Teri klinik foto yoki dermoskopiya: toshma, xol, yara.',
-    checks:['Element turi','Dermoskop pattern','Pigment','Yallig‘lanish'],
-    uploadMain:'Teri yoki dermoskop fotosini yuklang', uploadHint:'Klinik foto · dermoskop · yaxshi yorug‘lik',
-    overlayUpload:'Teri / dermoskop fotosini yuklang', overlayPhone:'Toshmani telefonda oling', overlayScope:'Dermoskop kamerasini yoqing',
-    emptyTitle:'Dermatologiya kutilmoqda', emptyHint:'Yaqindan, fokuslangan foto. Dermoskop bo‘lsa — yaxshi.',
-    analyze:'🔬 Teri fotosini tahlil qil', loading:'Toshma o‘qilmoqda...',
-    phoneHint:'Yorug‘ xona, masshtab uchun milimetr qog‘oz ixtiyoriy.',
-    scopeHint:'Dermoskop/USB kamera. Immersiya suyuqligi ixtiyoriy.',
-    srcUpload:'📎 Teri fotosi', srcPhone:'📱 Telefon foto', srcScope:'🔍 Dermoskop',
-    ocular:'10×', objective:'10×', microTitle:'Kattalashtirish · dermoskop',
-  },
-  derm_microscopy: {
-    icon:'🕷️', name:'Teri qirindisi mikroskopiyasi', color:'var(--derm-micro)',
-    brief:'KOH, kanal, Demodex, Tzanck, soch/tirnoq qirindisi.',
-    checks:['Gifa (KOH)','Kanal','Demodex','Tzanck'],
-    uploadMain:'Teri qirindisi mikroskop rasmini yuklang', uploadHint:'KOH / yog‘ / Tzanck · 10× va 40×',
-    overlayUpload:'Qirindi preparatini yuklang', overlayPhone:'Qirindi kadri', overlayScope:'KOH/kanal maydonini yoqing',
-    emptyTitle:'Teri qirindisi kutilmoqda', emptyHint:'KOH, kanal yoki Tzanck. 10× skan, 40× tasdiq.',
-    analyze:'🔬 Qirindini tahlil qil', loading:'Kanal / gifa izlanmoqda...',
-    phoneHint:'KOH pufakchalarini gifa bilan aralashtirmang.',
-    scopeHint:'Kanal uchini qirindi chetida qidiring.',
-    srcUpload:'📎 Qirindi rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'10×', microTitle:'Kattalashtirish · qirindi',
-  },
-  effusion_cytology: {
-    icon:'💧', name:'Effuziya sitologiyasi', color:'var(--effusion)',
-    brief:'Pleura/periton suyuqligi: mesotelial, yallig‘lanish, atipiya.',
-    checks:['Mesotelial','Yallig‘lanish','Atipiya','Ikkinchi populyatsiya'],
-    uploadMain:'Effuziya sitologiya rasmini yuklang', uploadHint:'Pap / Giemsa · 40×',
-    overlayUpload:'Effuziya surtmasini yuklang', overlayPhone:'Surtma kadri', overlayScope:'Sitologiya maydonini yoqing',
-    emptyTitle:'Effuziya sitologiyasi kutilmoqda', emptyHint:'Pap yoki Giemsa. Reaktiv vs yomon hujayra.',
-    analyze:'🔬 Effuziyani tahlil qil', loading:'Hujayra guruhlari o‘qilmoqda...',
-    phoneHint:'Yaxshi yoyilgan surtma, 40×.',
-    scopeHint:'Guruhlar va yakka hujayralar. Cell-block eslatmasi.',
-    srcUpload:'📎 Surtma rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
-    ocular:'10×', objective:'40×', microTitle:'Kattalashtirish · sito',
-  },
   histology: {
     icon:'🧬', name:'Gistologiya natijasi', color:'var(--histo)',
-    brief:'To‘qima kesmasi: H&E arxitektura, yallig‘lanish, atipiya.',
-    checks:['Arxitektura','Yallig‘lanish','Nekroz/fibroz','Atipiya'],
+    brief:'H&E to‘qima kesmasi: professor darajasidagi aniq tashxis.',
+    checks:['To‘qima tipi','Organ qulfi','Pattern','ANIQ TASHXIS'],
     uploadMain:'H&E (yoki maxsus bo‘yoq) kesma rasmini yuklang', uploadHint:'Avval 4–10× landshaft, keyin 40× hujayra',
     overlayUpload:'Gistologik kesmani yuklang', overlayPhone:'Kesma kadri', overlayScope:'Gistostol kamerasini yoqing',
-    emptyTitle:'Gistologiya kutilmoqda', emptyHint:'H&E kesma. 10× arxitektura, 40× hujayra.',
-    analyze:'🔬 Kesmani tahlil qil', loading:'To‘qima o‘qilmoqda...',
+    emptyTitle:'Gistologiya kutilmoqda', emptyHint:'H&E kesma. 10× arxitektura, 40× yadro. Boshqa lab turlari o‘chirilgan.',
+    analyze:'🔬 Kesmani tahlil qil', loading:'Gistopatolog o‘qimoqda...',
     phoneHint:'Butun kesma landshafti + yaqin hujayra kadri.',
     scopeHint:'4–10× tuzilish, 40× yadro. Immersiya odatda kerak emas.',
     srcUpload:'📎 Kesma rasmi', srcPhone:'📱 Telefon kadr', srcScope:'🔬 Mikroskop',
@@ -246,39 +38,20 @@ const LAB_META = {
 };
 
 function labMeta(lab) {
-  return LAB_META[lab] || LAB_META.hematology;
+  return LAB_META[lab] || LAB_META.histology;
 }
 
 const LAB_SPEC = {
-  hematology:       { dept:'Gematologiya',     stain:'Giemsa / Romanovskiy', code:'HEMA', specimen:'Qon yoqmasi',           protocol:'Giemsa 15–20 daq',     fields:'10–20 maydon',  illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
-  urine:            { dept:'Siydik tahlili',   stain:'Native cho‘kma',       code:'URIN', specimen:'Siydik cho‘kmasi',      protocol:'Cho‘kma, native',      fields:'10 maydon',     illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
-  coprology:        { dept:'Koprologiya',      stain:'Native / Lyugol',      code:'COPR', specimen:'Najas preparati',       protocol:'Native / Lyugol',      fields:'10× skan',      illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:true },
-  spermogram:       { dept:'Spermogramma',     stain:'Native',               code:'SPRM', specimen:'Native preparat',       protocol:'Native 37°C',          fields:'Makler / 40×',  illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
-  smear:            { dept:'Sitologiya',       stain:'Gram / Methylene',     code:'SMEA', specimen:'Mazok',                 protocol:'Gram / methylene',     fields:'10 maydon',     illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
-  csf:              { dept:'Likvor (OMS)',     stain:'Giemsa / Fuchsin',     code:'CSF',  specimen:'OMS surtmasi',          protocol:'Sitoz hisobi',         fields:'Kamera / 40×',  illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
-  lymph:            { dept:'Limfa',            stain:'Giemsa / Pap',         code:'LYMP', specimen:'Limfa surtmasi',        protocol:'Giemsa / Pap',         fields:'10 maydon',     illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
-  le_cell:          { dept:'Immunologiya',     stain:'LE-preparat',          code:'LE',   specimen:'LE yoqmasi',            protocol:'LE maxsus',            fields:'50–100 maydon', illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
-  prostata_sok:     { dept:'Prostata SOK',     stain:'Native',               code:'SOK',  specimen:'Prostata sekretsiyasi', protocol:'Native 40×',           fields:'10 maydon',     illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
-  myelogram:        { dept:'Miyelogramma',     stain:'Giemsa',               code:'MYEL', specimen:'Ko‘mik yoqmasi',        protocol:'Giemsa immersiya',     fields:'500 hujayra',   illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
-  blood_parasites:  { dept:'Parazitologiya',   stain:'Giemsa',               code:'PARA', specimen:'Qalin / yupqa yoqma',   protocol:'Qalin+yupqa Giemsa',   fields:'100 maydon',    illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:true },
-  afb_microscopy:   { dept:'Mikobakteriya',    stain:'Ziehl–Neelsen',        code:'AFB',  specimen:'ZN preparati',          protocol:'ZN / floroxrom',       fields:'100 maydon',    illum:'Yorug‘ maydon', bsl:'BSL-3', hazard:true },
-  mycology:         { dept:'Mikologiya',       stain:'KOH / laktofenol',     code:'MYCO', specimen:'Zamburug‘ preparati',   protocol:'KOH 10–20 daq',        fields:'10×/40×',       illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:true },
-  dermatology:      { dept:'Dermatologiya',    stain:'Klinik / dermoskop',   code:'DERM', specimen:'Teri fotosi',           protocol:'Klinik foto',          fields:'1–3 kadr',      illum:'Dermoskop',     bsl:'BSL-1', hazard:false },
-  derm_microscopy:  { dept:'Teri qirindisi',   stain:'KOH / Tzanck',         code:'KOH',  specimen:'Qirindi preparati',     protocol:'KOH / Tzanck',         fields:'10× skan',      illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
-  effusion_cytology:{ dept:'Effuziya sito.',   stain:'Pap / Giemsa',         code:'EFF',  specimen:'Effuziya surtmasi',     protocol:'Pap / Giemsa',         fields:'10 maydon',     illum:'Yorug‘ maydon', bsl:'BSL-2', hazard:false },
   histology:        { dept:'Gistologiya',      stain:'H&E',                  code:'HIST', specimen:'To‘qima kesmasi',       protocol:'H&E kesma',            fields:'4–10× → 40×',   illum:'Yorug‘ maydon', bsl:'BSL-1', hazard:false },
 };
 
 function labSpec(lab) {
-  return LAB_SPEC[lab] || LAB_SPEC.hematology;
+  return LAB_SPEC[lab] || LAB_SPEC.histology;
 }
 
 const DAFTAR_LS = 'medlab_daftar_v2';
 const LAB_ID_CODES = {
-  hematology: 'HEMA', urine: 'URIN', coprology: 'COPR', spermogram: 'SPRM', smear: 'SMEA',
-  csf: 'CSF', lymph: 'LYMP', le_cell: 'LE', prostata_sok: 'SOK', myelogram: 'MYEL',
-  blood_parasites: 'PARA', afb_microscopy: 'AFB', mycology: 'MYCO', dermatology: 'DERM',
-  derm_microscopy: 'KOH', effusion_cytology: 'EFF', histology: 'HIST',
+  histology: 'HIST',
 };
 
 let _sampleSeq = 0;
@@ -382,7 +155,7 @@ function allocateSampleSeq() {
 
 function buildRegistrationId(lab, seq) {
   const d = daftarGet();
-  const code = LAB_ID_CODES[lab] || labSpec(lab).code || 'HEMA';
+  const code = LAB_ID_CODES[lab] || labSpec(lab).code || 'HIST';
   const n = String(seq || 1).padStart(4, '0');
   return `${d.region}${d.locality}${d.clinic}${d.type}${code}${n}`;
 }
@@ -428,8 +201,20 @@ function emptyResultHtml() {
     </div>`;
 }
 
+function lockLabSelect() {
+  const sel = document.getElementById('labSelect');
+  if (!sel) return;
+  if (sel.tagName === 'SELECT') {
+    sel.innerHTML = '<option value="histology" selected>Gistologiya</option>';
+    sel.value = 'histology';
+    sel.disabled = true;
+    sel.onchange = null;
+  }
+}
+
 function selectLab(lab) {
-  if (!LAB_META[lab]) lab = 'hematology';
+  lockLabSelect();
+  lab = 'histology';
   currentLab = lab;
   const sel = document.getElementById('labSelect');
   if (sel && sel.value !== lab) sel.value = lab;
@@ -2967,11 +2752,12 @@ async function refreshUserPill() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  lockLabSelect();
   bindUploadFileActions();
   refreshUserPill();
   daftarLoadSettings();
   refreshSampleId();
-  selectLab('hematology');
+  selectLab('histology');
   onMicroChange();
   setSource('upload');
   updateAnalyzeBtn();

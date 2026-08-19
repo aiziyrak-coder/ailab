@@ -13,6 +13,7 @@ snapshots/
 backend/snapshots/
 backend/db.sqlite3
 backend/staticfiles/
+backend/data/histology_kb/
 .DS_Store
 *.mp4
 *.avi

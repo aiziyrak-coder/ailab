@@ -11,6 +11,8 @@ opencv-python-headless>=4.9.0,<5
 numpy>=1.26.0,<3
 Pillow>=10.0.0,<12
 openai>=1.40.0,<2
+pypdf>=5.0.0,<6
+pymupdf>=1.24.0,<2
 
 # Ishlab chiqarish
 gunicorn>=22.0.0,<24; sys_platform != 'win32'

@@ -38,7 +38,7 @@ class AuthRequiredTests(TestCase):
     def test_analyze_requires_login(self):
         r = self.client.post(
             "/api/analyze",
-            data=json.dumps({"lab_type": "hematology", "source": "upload"}),
+            data=json.dumps({"lab_type": "histology", "source": "upload"}),
             content_type="application/json",
         )
         self.assertEqual(r.status_code, 403)
@@ -119,7 +119,7 @@ class AnalyzeEdgeCaseTests(TestCase):
         # Bo‘sh analyze — 400 (fayl yo‘q), 503 (ZiyrakAi yo‘q) yoki boshqa; 500 bo‘lmasligi kerak oddiy holatda
         r = client.post(
             "/api/analyze",
-            data=json.dumps({"lab_type": "hematology", "source": "upload"}),
+            data=json.dumps({"lab_type": "histology", "source": "upload"}),
             content_type="application/json",
             HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
         )
@@ -185,14 +185,14 @@ class AnalysisHistoryTests(TestCase):
             eng._completed_jobs.clear()
 
     def test_ids_increment_and_format(self):
-        a = AnalysisRecord.create_pending(self.user, "hematology", "upload")
+        a = AnalysisRecord.create_pending(self.user, "histology", "upload")
         b = AnalysisRecord.create_pending(self.user, "urine", "camera")
         self.assertTrue(a.public_id.startswith("ML-"))
         self.assertNotEqual(a.public_id, b.public_id)
         self.assertRegex(a.public_id, r"^ML-\d{6}-\d{4}$")
 
     def test_search_by_id_and_isolation(self):
-        rec = AnalysisRecord.create_pending(self.user, "hematology", "upload", "job1")
+        rec = AnalysisRecord.create_pending(self.user, "histology", "upload", "job1")
         rec.text = "| WBC | 12 |"
         rec.status = "tayyor"
         rec.save()
@@ -222,14 +222,14 @@ class AnalysisHistoryTests(TestCase):
         self.assertEqual(empty.json().get("count"), 0)
 
     def test_like_wildcards_do_not_match_all(self):
-        AnalysisRecord.create_pending(self.user, "hematology", "upload")
+        AnalysisRecord.create_pending(self.user, "histology", "upload")
         r = self.client.get("/api/analyses", {"q": "%"})
         self.assertEqual(r.json().get("count"), 0)
         r2 = self.client.get("/api/analyses", {"q": "_"})
         self.assertEqual(r2.json().get("count"), 0)
 
     def test_detail_requires_canonical_id(self):
-        rec = AnalysisRecord.create_pending(self.user, "hematology", "upload")
+        rec = AnalysisRecord.create_pending(self.user, "histology", "upload")
         r = self.client.get("/api/analyses/ML")
         self.assertEqual(r.status_code, 404)
         ok = self.client.get(f"/api/analyses/{rec.public_id.replace('-', '')}")
@@ -237,7 +237,7 @@ class AnalysisHistoryTests(TestCase):
         self.assertEqual(ok.json()["analysis"]["public_id"], rec.public_id)
 
     def test_owner_can_delete_analysis(self):
-        rec = AnalysisRecord.create_pending(self.user, "hematology", "upload")
+        rec = AnalysisRecord.create_pending(self.user, "histology", "upload")
         pid = rec.public_id
         r = self.client.delete(f"/api/analyses/{pid}", secure=True)
         self.assertEqual(r.status_code, 200)
@@ -247,7 +247,7 @@ class AnalysisHistoryTests(TestCase):
     def test_list_shows_patient_and_sample_id(self):
         AnalysisRecord.create_pending(
             self.user,
-            "hematology",
+            "histology",
             "upload",
             patient_name="Aliyev Vali",
             sample_id="40FSH7OPHEMA0001",
@@ -261,7 +261,7 @@ class AnalysisHistoryTests(TestCase):
     def test_search_by_sample_id_and_patient_name(self):
         AnalysisRecord.create_pending(
             self.user,
-            "hematology",
+            "histology",
             "upload",
             patient_name="Karimova Nilufar",
             sample_id="40FSH7OPHEMA0002",
@@ -272,7 +272,7 @@ class AnalysisHistoryTests(TestCase):
         self.assertEqual(by_name.json().get("count"), 1)
 
     def test_other_user_cannot_delete_analysis(self):
-        rec = AnalysisRecord.create_pending(self.user, "hematology", "upload")
+        rec = AnalysisRecord.create_pending(self.user, "histology", "upload")
         pid = rec.public_id
         self.client.logout()
         self.client.login(username="otheru", password="Pw2026!MedLabTest")
@@ -281,10 +281,10 @@ class AnalysisHistoryTests(TestCase):
         self.assertTrue(AnalysisRecord.objects.filter(public_id=pid).exists())
 
     def test_invalid_lab_type_filter_is_empty(self):
-        AnalysisRecord.create_pending(self.user, "hematology", "upload")
+        AnalysisRecord.create_pending(self.user, "histology", "upload")
         r = self.client.get("/api/analyses", {"lab_type": "not_a_real_lab"})
         self.assertEqual(r.json().get("count"), 0)
-        r2 = self.client.get("/api/analyses", {"lab_type": "hematology"})
+        r2 = self.client.get("/api/analyses", {"lab_type": "histology"})
         self.assertEqual(r2.json().get("count"), 1)
 
     def test_analysis_result_scoped_to_owner(self):
@@ -325,7 +325,7 @@ class AnalysisHistoryTests(TestCase):
         self.assertEqual(snap.get("text"), "FIRST_REPORT")
 
     def test_analysis_result_reads_db_by_job_id(self):
-        rec = AnalysisRecord.create_pending(self.user, "hematology", "upload", job_id="job-db-1")
+        rec = AnalysisRecord.create_pending(self.user, "histology", "upload", job_id="job-db-1")
         rec.text = "FROM_DB"
         rec.status = "tayyor"
         rec.save()

@@ -460,12 +460,12 @@ class AnalyzeView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             vd = ser.validated_data
-            lab_type = vd.get("lab_type", "hematology")
+            lab_type = vd.get("lab_type", "histology")
             raw_prompt = vd.get("prompt")
             source = vd.get("source", "upload")
             micro_d = eng.microscope_dict_from_input(json_body=raw)
         else:
-            lab_type = request.POST.get("lab_type", "hematology")
+            lab_type = request.POST.get("lab_type", "histology")
             raw_prompt = request.POST.get("prompt", None)
             source = request.POST.get("source", "upload")
             micro_d = eng.microscope_dict_from_input(form_get=request.POST.get)

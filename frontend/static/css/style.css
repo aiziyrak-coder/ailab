@@ -377,6 +377,15 @@ body::before {
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
 }
 
+.lab-select:disabled {
+  cursor: default;
+  opacity: 1;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.98);
+  appearance: none;
+  pointer-events: none;
+}
+
 .lab-brief {
   font-size: 0.68rem;
   color: var(--text-muted);
