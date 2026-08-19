@@ -63,7 +63,7 @@ def _load_backend_dotenv():
 _load_backend_dotenv()
 
 # ─── Cheklovlar (DoS va prompt-injection kamaytirish) ─────────────────────────
-MAX_UPLOAD_FILES       = 24
+MAX_UPLOAD_FILES       = 48
 MAX_FILE_READ_BYTES    = 200 * 1024 * 1024  # bitta so'rov yig'indisi Flask limit bilan mos
 MAX_VIDEO_BYTES        = 180 * 1024 * 1024  # bitta video fayl
 MAX_CUSTOM_PROMPT_LEN  = 6000
@@ -72,9 +72,9 @@ MAX_MICRO_FIELD_LEN    = 500
 
 def _max_vision_images():
     try:
-        v = int(os.environ.get("OPENAI_MAX_VISION_IMAGES", "12"))
+        v = int(os.environ.get("OPENAI_MAX_VISION_IMAGES", "20"))
     except ValueError:
-        v = 12
+        v = 20
     return max(1, min(v, MAX_UPLOAD_FILES))
 
 camera_op_lock = threading.Lock()

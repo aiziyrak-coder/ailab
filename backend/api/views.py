@@ -557,18 +557,20 @@ class AnalyzeView(APIView):
                 )
 
             files = [f for f in files if f and getattr(f, "name", "")]
+            extra_files = 0
             if len(files) > eng.MAX_UPLOAD_FILES:
-                return Response(
-                    {
-                        "success": False,
-                        "message": f"Bir vaqtning o'zida maksimum {eng.MAX_UPLOAD_FILES} ta fayl yuklash mumkin.",
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                extra_files = len(files) - eng.MAX_UPLOAD_FILES
+                files = files[: eng.MAX_UPLOAD_FILES]
+                upload_notes_pre = [
+                    f"Birinchi {eng.MAX_UPLOAD_FILES} ta fayl olindi "
+                    f"({extra_files} tasi cheklov tufayli tashlandi)."
+                ]
+            else:
+                upload_notes_pre = []
 
             pil_images = []
             video_files = []
-            upload_notes = []
+            upload_notes = list(upload_notes_pre)
 
             for f in files:
                 fname = (f.name or "fayl").strip()

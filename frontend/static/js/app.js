@@ -18,7 +18,8 @@ let _analyzeBusy = false;
 let _scanGen = 0;
 let _previewObjectUrl = '';
 let _previewIndex = 0;
-let _thumbUrls = [];
+let _thumbUrlByKey = {};
+const MAX_CLIENT_UPLOAD = 48;
 
 const LAB_META = {
   hematology: {
@@ -1056,11 +1057,15 @@ function isVideoFile(file) {
 
 function loadFiles(files) {
   let added = 0;
+  let skippedLimit = 0;
   for (const f of files) {
-    if (!uploadedFiles.find(x => x.name === f.name && x.size === f.size)) {
-      uploadedFiles.push(f);
-      added++;
+    if (uploadedFiles.find(x => x.name === f.name && x.size === f.size)) continue;
+    if (uploadedFiles.length >= MAX_CLIENT_UPLOAD) {
+      skippedLimit++;
+      continue;
     }
+    uploadedFiles.push(f);
+    added++;
   }
   renderFileList();
   syncUploadPane();
@@ -1069,8 +1074,13 @@ function loadFiles(files) {
   renderMediaThumbs();
   if (uploadedFiles.length) showMainPreview(_previewIndex);
   setSource('upload');
-  if (added) toast(`${added} ta fayl qo‘shildi`, 'green');
-  else toast('Bu fayllar allaqachon qo‘shilgan', 'gray');
+  if (skippedLimit) {
+    toast(`Maksimum ${MAX_CLIENT_UPLOAD} ta fayl. ${skippedLimit} tasi qo‘shilmadi.`, 'red');
+  } else if (added) {
+    toast(`${added} ta fayl qo‘shildi`, 'green');
+  } else {
+    toast('Bu fayllar allaqachon qo‘shilgan', 'gray');
+  }
 }
 
 function syncUploadPane() {
@@ -1154,6 +1164,25 @@ function removeFile(idx) {
   }
 }
 
+function _fileKey(f) {
+  return `${f.name}|${f.size}|${f.lastModified || 0}`;
+}
+
+function _blobUrlForFile(f) {
+  const k = _fileKey(f);
+  if (!_thumbUrlByKey[k]) _thumbUrlByKey[k] = URL.createObjectURL(f);
+  return _thumbUrlByKey[k];
+}
+
+function _revokeUnusedBlobUrls() {
+  const keep = new Set(uploadedFiles.map(_fileKey));
+  Object.keys(_thumbUrlByKey).forEach(k => {
+    if (keep.has(k)) return;
+    try { URL.revokeObjectURL(_thumbUrlByKey[k]); } catch (_) {}
+    delete _thumbUrlByKey[k];
+  });
+}
+
 function _revokePreviewUrl() {
   if (_previewObjectUrl) {
     try { URL.revokeObjectURL(_previewObjectUrl); } catch (_) {}
@@ -1162,15 +1191,14 @@ function _revokePreviewUrl() {
 }
 
 function _revokeThumbUrls() {
-  _thumbUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (_) {} });
-  _thumbUrls = [];
+  _revokeUnusedBlobUrls();
 }
 
 function renderMediaThumbs() {
   const strip = document.getElementById('mediaThumbs');
   if (!strip) return;
-  _revokeThumbUrls();
   strip.innerHTML = '';
+  _revokeUnusedBlobUrls();
   const show = uploadedFiles.length > 0 && currentSource === 'upload' && !cameraRunning;
   strip.classList.toggle('hidden', !show);
   if (!show) return;
@@ -1179,8 +1207,7 @@ function renderMediaThumbs() {
     btn.type = 'button';
     btn.className = 'media-thumb' + (i === _previewIndex ? ' on' : '');
     btn.title = f.name;
-    const url = URL.createObjectURL(f);
-    _thumbUrls.push(url);
+    const url = _blobUrlForFile(f);
     if (isVideoFile(f)) {
       const v = document.createElement('video');
       v.src = url;
@@ -1211,9 +1238,7 @@ function showMainPreview(fileOrIndex) {
   _previewIndex = idx;
   const file = uploadedFiles[idx];
   if (!file) return;
-  _revokePreviewUrl();
-  const url = URL.createObjectURL(file);
-  _previewObjectUrl = url;
+  const url = _blobUrlForFile(file);
   const isVid = isVideoFile(file);
   content.innerHTML = '';
   if (isVid) {
