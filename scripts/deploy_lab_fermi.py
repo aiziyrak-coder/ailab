@@ -13,8 +13,8 @@ except ImportError:
     print("pip install paramiko", file=sys.stderr)
     sys.exit(1)
 
-HOST = os.environ.get("AILAB_SSH_HOST", "87.192.230.208").strip()
-PORT = int(os.environ.get("AILAB_SSH_PORT", "2222"))
+HOST = os.environ.get("AILAB_SSH_HOST", "192.168.0.101").strip()
+PORT = int(os.environ.get("AILAB_SSH_PORT", "22"))
 USER = os.environ.get("AILAB_SSH_USER", "admin_root").strip()
 PASSWORD = os.environ.get("AILAB_SSH_PASSWORD", "").strip()
 REPO = os.environ.get("AILAB_SSH_REPO", "https://github.com/aiziyrak-coder/ailab.git").strip()
@@ -197,7 +197,7 @@ echo OK_HTTP $(git -C "$APP" rev-parse --short HEAD)
     # redact openai key if it leaked
     if openai_key and openai_key in text:
         text = text.replace(openai_key, "***")
-    print(text)
+    print(text.encode("utf-8", "replace").decode("utf-8", "replace"))
     if code != 0:
         print("deploy failed", code, file=sys.stderr)
         client.close()
@@ -207,15 +207,14 @@ echo OK_HTTP $(git -C "$APP" rev-parse --short HEAD)
 set -euo pipefail
 EMAIL=$(grep -rh '^email' /etc/letsencrypt/renewal/*.conf 2>/dev/null | head -1 | cut -d= -f2 | tr -d ' ' || true)
 if [ -z "$EMAIL" ]; then EMAIL="admin@fermi.uz"; fi
-if [ -d /etc/letsencrypt/live/lab.fermi.uz ]; then
-  echo CERT_EXISTS
-else
+if [ ! -d /etc/letsencrypt/live/lab.fermi.uz ]; then
   certbot --nginx -d lab.fermi.uz --non-interactive --agree-tos --email "$EMAIL" --redirect --cert-name lab.fermi.uz
 fi
+# Deploy HTTP-only shablon SSL ni buzmasin — nginx-ailab.conf allaqachon 443 blokini o'z ichiga oladi
 nginx -t
 systemctl reload nginx
 echo OK_HTTPS
-curl -fsS https://lab.fermi.uz/api/health || curl -kfsS https://127.0.0.1/api/health -H 'Host: lab.fermi.uz'
+curl -fsS --resolve lab.fermi.uz:443:127.0.0.1 https://lab.fermi.uz/api/health || curl -kfsS https://127.0.0.1/api/health -H 'Host: lab.fermi.uz'
 echo
 """
     print("TLS (faqat lab.fermi.uz)...")
