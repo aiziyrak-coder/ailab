@@ -25,7 +25,7 @@ const LAB_META = {
   histology: {
     icon:'🧬', name:'Gistologiya natijasi', color:'var(--histo)',
     brief:'H&E to‘qima kesmasi: professor darajasidagi aniq tashxis.',
-    checks:['To‘qima tipi','Organ qulfi','Pattern','ANIQ TASHXIS'],
+    checks:['Organ qulfi','Pattern','TASHXIS','Nega shu tashxis','Fakt'],
     uploadMain:'H&E (yoki maxsus bo‘yoq) kesma rasmini yuklang', uploadHint:'Avval 4–10× landshaft, keyin 40× hujayra',
     overlayUpload:'Gistologik kesmani yuklang', overlayPhone:'Kesma kadri', overlayScope:'Gistostol kamerasini yoqing',
     emptyTitle:'Gistologiya kutilmoqda', emptyHint:'H&E kesma. 10× arxitektura, 40× yadro. Boshqa lab turlari o‘chirilgan.',

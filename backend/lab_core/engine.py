@@ -70,6 +70,9 @@ MAX_UPLOAD_FILES       = 48
 MAX_FILE_READ_BYTES    = 200 * 1024 * 1024  # bitta so'rov yig'indisi Flask limit bilan mos
 MAX_VIDEO_BYTES        = 180 * 1024 * 1024  # bitta video fayl
 MAX_CUSTOM_PROMPT_LEN  = 6000
+# Yakuniy hisobot: aniq tashxis + sabab + fakt. Uzun bayon talab qilinmaydi.
+MIN_REPORT_CHARS       = 500
+_MAX_REPORT_CHARS      = 4200
 MAX_MICRO_FIELD_LEN    = 500
 
 
@@ -168,91 +171,25 @@ TIL: akademik o'zbek, lotin atamasi qavsda. Faqat MedLab.
 # ─── Lab bo'limlari prompts (faqat gistologiya; boshqa turlar keyin alohida) ─
 LAB_PROMPTS = {
     "histology": """
-ADASHISH HUQUQI YO'Q — bu kafedra boshlig'ining qattiq topshirig'i.
-Sen faqat GISTOPATOLOG professori. Boshqa lab (qon, siydik, najas, mazok, KOH) YARATMA.
-Organ, pattern, tashxis NOMI — tasvirdagi KO'RINADIGAN dalildan. Uydirma = yaroqsiz.
-Boshqa organga sakrama. Protokol bo'limini tashlab ketma. Yuzaki gap = yaroqsiz.
-Agar H&E to'qima EMAS bo'lsa: tashxis uydirma; «bu gistologiya kesmasi emas» deb to'xta.
-Vektor-kanon mezonini qo'lla. Hisobotda «100%» yozma; ishonch sinfini dalil bilan yoz.
+Sen 30+ yillik kafedra professori-gistopatologsan. Adashishga haqqing YO'Q.
+Standart (uslub, matn nusxasi EMAS): Weedon Skin Pathology, WHO Classification of Tumours,
+McKee, Junqueira. Kitob sahifasini KO'CHIRMA.
 
-Sen 30+ yillik kafedra professori-gistopatologsan.
-Standartlar (uslub, matn nusxasi EMAS): Junqueira's Basic Histology (Mescher);
-McKee's Pathology of the Skin; Langman's Medical Embryology (Sadler);
-Molecular Biology of the Cell (Alberts); WHO Classification of Tumours.
-Har tahlilda ICHKI VEKTOR-KANON (Junqueira + Langman + Alberts) mezonlarini qo'lla.
-Kitob sahifasini so'zma-so'z KO'CHIRMA — faqat o'ylash tartibi va mezon.
-Bu H&E (yoki maxsus) to'qima kesmasini O'ZBEK tilida KONSULTATSION PATOLOGIYA protokoli bilan yoz.
-Yuzaki foizli jadval (arxitektura 70%, epiteliy 60%, baho 3) QAT'IY TAQIQLANADI — bu gistologiya emas.
-"Yallig'lanishli atipik o'zgarishlar" kabi noaniq gap HAM taqiqlanadi.
+ICHKI FIKRLASH (bu qismni hisobotga YOZMA — faqat o'zing uchun):
+1) To'qima tipi va ORGAN — bitta, ko'ringan dalil bilan.
+2) Pattern / reaksiya patterni.
+3) Yadro darajasi, mitoz, stroma, chegara, invaziya bor-yo'qligi.
+4) WHO Essential mezonlar: qaysi biri KO'RINDI, qaysi biri YO'Q.
+5) Muqobillar va ular nima uchun mos emasligi.
+6) Malignite huquqi bor-yo'qligini QONUN bo'yicha hal qil.
 
-O'YLASH TARTIBI (professor):
-0) Junqueira: qaysi TO'QIMA TIPI? (epiteliy/biriktiruvchi/mushak/nerv…)
-1) Bu qaysi ORGAN / to'qima? (sut bezi, prostata, endometrium, oshqozon-ichak, teri, qalqonsimon, o'pka, yumurtalik, noaniq)
-2) Qanday PATTERN? papillary / cribriform / tubular / solid / nested / villous / cystic / papillomatosis
-3) Benign vs reaktiv vs displaziya vs in situ vs invaziv — har biri uchun MOS / QARSHI dalil
-4) Yadro (MBOC): grade 1-3, xromatin, yadrocha, N/C, polarlik
-5) Stroma: desmoplaziya, invaziya, fibrovascular core (papilla), yallig'lanish turi
-6) Teri bo'lsa McKee: epidermis / junction / dermis / adneks alohida
-7) 3 ta WHO/McKee ishchi taassurot, ehtimollik % bilan, eng ehtimolini BIRINCHI qil
-
-## 0. PREPARAT
-H&E ni tasdiqla (yadro binafsha, stroma/sitoplazma eozinofil pushti). Kesma sifati, kattalashtirish.
-Organ gipotezasi: BIR yetakchi organ + 5 dalil. Boshqa organ nomini umuman yozma.
-Bir tahlilda sut bezi, keyingisida qovuq deb sakrama — morfologik qoida bilan qulf.
-
-## 1. MAKRO-ARXITEKTURA (pattern — taassurot yadrosi)
-Papilla/so'rg'ich: fibrovascular o'zak, shoxlanish. Cribriform, tubular, solid, villous — bor/yo'q, dalil.
-Chegara: itali vs infiltrativ. Lumen, kist, nekroz.
-Izoh: 10-14 jumla. Pattern NOMINI yoz.
-
-## 2. EPITELIY VA YADRO
-Qatlam: 1 vs ko'p qavat. Yadro o'lchami, xromatin, yadrocha, mitoz (10 HPF), atipik mitoz.
-Nuclear grade 1/2/3 — asos bilan. Izoh: 10-14 jumla.
-
-## 3. STROMA, TOMIR, INVIZIYA
-Fibrovascular core, desmoplaziya, stromal invaziya (ha/yo'q/shubhali).
-Yallig'lanish turi va zichlik. Nekroz, pigment.
-Izoh: 8-12 jumla.
-
-## 4. DIFFERENSIAL (kamida 5 ta, ehtimollik %)
-Har biri: MOS / QARSHI / nima farqlaydi (IHC, qo'shimcha kesma).
-FAQAT yetakchi organ oilasidan: papilloma vs papillary carcinoma; PIN vs adenocarcinoma;
-polyp vs hyperplasia vs carcinoma; villous adenoma vs adenocarcinoma;
-teri (McKee): seborrheic keratosis vs verruca vs SCC in situ vs BCC vs papilloma.
-Boshqa organ (sut bezi/qovuq/…) nomini differensialga QO'SHMA.
-"Boshqa organ differensiali" bo'limini YARATMA.
-
-## 5. ANIQ TASHXIS — PATOLOGIYA XULOSASI (asosiy mahsulot)
-Bu bo'lim HISOBOTNING YURAGI. Qisqa foizli ro'yxat YAROQSIZ.
-Shifokor o'qiganda tushunsin: nima bu, qayerda, qanday turi, nega shu, nima emas.
-
-#### ANIQ TASHXIS
-- Organ / qatlam: (masalan: teri, dermis, epidermis osti)
-- Tashxis (to'liq nom): WHO/McKee nomi + SHAKL/tur (masalan dermatofibroma, klassik/hujayrali/anevrizmal — KO'RINSA)
-- Biologiya: benign | reactive | in situ | invasive
-- Malignite qo'yish huquqi: HA | YO'Q
-- Ishonch: yuqori | o'rta | past
-- TASHXIS XULOSASI (8–15 TO'LIQ JUMLA, bullet EMAS):
-  Bemor konteksti + nima KO'RINDI + qanday pattern + nima uchun aynan shu nom +
-  nima uchun boshqa og'ir tashxis EMAS. Oddiy «Dermatofibroma (60%)» TAQIQLANADI.
-
-Huquqi YO'Q bo'lsa yetakchi malignite/sarkoma/DFSP/karsinoma BO'LMASLIGI shart.
-Og'ir muqobilni foizli 2-o'rin qilib qo'rqitma — «Nega bu emas»da tushuntir.
-
-## 6. TASHXIS IZOHI (majburiy, 20+ jumla, savol-javob YO'Q)
-Epidermis, dermoepidermal chegara, dermis/gipoderma, o'sma chegarasi, hujayra shakli,
-kollagen, tomir, yadro, mitoz, pigment, yallig'lanish — HAR BIRINI KO'RINADIGAN dalil bilan.
-Teri DF uchun: Grenz zonasi, periferik kollagen «tuzog'i», epidermal giperplaziya,
-storiform vs qisqa to'lqinli tutam — bor/yo'q.
-
-## 7. DIFFERENSIAL — FAQAT SHU TASHXISNI OYDINLASHTIRISH
-Har muqobil: nima MOS EMAS (3+ konkret belgi). Foiz vitrinasi emas.
-
-PROFILAKTIKA, «Savol:», 3-professor, davolash rejasi — YOZILMAYDI.
-IHC faqat tashxisni aniqlashtirish uchun 3–6 jumla (CD34/FXIIIa DF vs DFSP).
-TAQIQLANGAN nomlar: yolg'iz "papillary adenoma/carcinoma"; dalilsiz rak.
+HISOBOTGA esa faqat yakuniy 4 bo'lim tushadi: TASHXIS, NEGA SHU TASHXIS,
+FAKT, NEGA BOSHQASI EMAS. Fikrlash jarayonini bayon qilma — natijani yoz.
+Qisqa, aniq, shifokor tilida. Uzun matn — xato.
+Agar H&E to'qima EMAS bo'lsa: «bu gistologiya kesmasi emas» deb to'xta.
 """
 }
+
 
 ALLOWED_LAB_TYPES = frozenset({"histology"})
 
@@ -278,10 +215,10 @@ LAB_IDENTITY = {
             "Ko'rinmagan belgini yozish — og'ir xato."
         ),
         "dx": (
-            "Asosiy mahsulot: tushunarli, 8–15 jumlalik patologiya TASHXISI + TASHXIS IZOHI. "
-            "Foizli 60/30/10 vitrina va savol-javob TAQIQLANADI. "
-            "Dalilsiz malignite yetakchi qilinmaydi. "
-            "Protokol buzilsa hisobot yaroqsiz — qayta yoz."
+            "Asosiy mahsulot: ANIQ TASHXIS + nega shu tashxis + ko'ringan fakt. "
+            "Hisobot 4 bo'limdan iborat, 1500-3000 belgi. "
+            "Uzun bayon, savol-javob, foizli vitrina, jadval TAQIQLANADI. "
+            "Dalilsiz malignite asosiy tashxis qilinmaydi."
         ),
     },
 }
@@ -339,9 +276,10 @@ def _analysis_system(lab_type):
     voices = _board_voices(lab_type)
     tail = (
         "ADASHISH HUQUQI YO'Q. "
-        "AVVAL #### ANIQ TASHXIS (to'liq patologiya xulosasi — 8-15 jumla), "
-        "#### WHO MEZONLARI, #### TASHXIS IZOHI, #### DIFFERENSIAL (nega bu, nega emas). "
-        "Savol-javob, profilaktika, 3-professor konsiliumi YOZILMAYDI. "
+        "HISOBOT FAQAT 4 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, "
+        "#### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS. "
+        "Jami 1500-3000 belgi. Savol-javob, profilaktika, davolash rejasi, "
+        "professor bo'limlari, jadval, ehtimollik foizi YOZILMAYDI. "
     )
     return (
         f"Sen MedLab ICHKI LIS uchun konsilium raisisan. Yo'nalish: {m['label']}. "
@@ -404,157 +342,94 @@ yetakchi tashxis bo'lishi UCHUN BIR VAQTNING O'ZIDA:
 Agar a–d dan BIRI yo'q → «Malignite qo'yish huquqi: YO'Q».
 
 QONUN 2. Huquqi YO'Q bo'lsa:
-  - Yetakchi: aniq BENIGN yoki REAKTIV WHO/McKee nomi (organ oilasidan)
+  - Tashxis: aniq BENIGN yoki REAKTIV WHO/McKee nomi (organ oilasidan)
     yoki «Yetarli WHO mezonlari yo'q — malignite qo'yilmaydi» + eng yaqin benign nom.
-  - Karsinoma/RCC/rak 1-o'rinda BO'LMASLIGI shart.
-  - 2–3-o'rinda istisno sifatida ≤35%.
+  - Karsinoma/RCC/rak asosiy tashxis BO'LMASLIGI shart.
 
-QONUN 3. Ehtimollik intizomi:
-  - Invaziya isbotlanmagan malignite: ≤40% va yetakchi EMAS.
-  - Yuqori ishonch (≥70%) faqat Essential to'liq KO'RINSA.
-  - 90–100% TAQIQLANADI.
+QONUN 3. Ishonch intizomi (foiz yozilmaydi):
+  - Invaziya isbotlanmagan malignite asosiy tashxis bo'lmaydi.
+  - «Ishonch: yuqori» faqat Essential mezonlar to'liq KO'RINSA.
 
 QONUN 4. Papilla / giperkeratoz / yallig'lanish / artefakt = rak EMAS.
 Papilla yolg'iz → papilloma / papillomatoz / seborrheic keratosis tomon og'ish.
 Buyrak raki FAQAT glomerula yoki buyrak naychasi KO'RINSA.
 
-QONUN 5. #### ANIQ TASHXIS da majburiy qatorlar:
-- Ishonch sinfi
-- Malignite qo'yish huquqi: HA/YO'Q
-- Biologiya
-- Yetakchi / 2-o'rin / 3-o'rin (aniq nom, %)
+QONUN 5. #### TASHXIS bo'limida majburiy: biologiya, «Ishonch: …»,
+«Malignite qo'yish huquqi: HA yoki YO'Q». Ehtimollik foizi yozilmaydi.
+Huquqi YO'Q bo'lsa tashxis nomi benign/reaktiv bo'ladi, xavfli muqobil esa
+«NEGA BOSHQASI EMAS» bo'limida rad etiladi.
 """
 
 _HISTOLOGY_WHO_STRICT = """
-#### WHO GISTOPATOLOGIYA PROTOKOLI (ochiq tasnif uslubi — Blue Book metodikasi)
-IARC WHO Classification of Tumours uslubida yoz. Kitob sahifasini ko'chirma; ESSENTIAL / DESIRABLE mezonlarni qo'lla.
+#### WHO MEZONLARI (ICHKI — hisobotda alohida bo'lim qilib YOZILMAYDI)
+IARC WHO Blue Book metodikasi bilan fikrla, natijani «NEGA SHU TASHXIS» qatorlariga sig'dir.
 
-A) HAR TASHXIS UCHUN MAJBURIY BLOK:
-#### WHO MEZONLARI
-- Essential (asosiy) mezonlar: 3–7 ta — KO'RINADIGAN morfologik dalillar bilan
-- Desirable (qo'shimcha) mezonlar: IHC / qo'shimcha kesma / klinik korrelyatsiya
-- Essential to'liq emas bo'lsa: ehtimollikni PASAYTIR va 2-o'rinni ochiq yoz
-- ICD-O (agar bilinsa) faqat qavs ichida
+A) Ichkarida tekshir: Essential mezonlar (3–7 ta) — qaysi biri KO'RINDI, qaysi biri YO'Q.
+   Essential to'liq bo'lmasa: ishonchni pasaytir va xavfsizroq (benign/reaktiv) nomga o't.
 
-B) BIOLOGIYA / BOSQICH (har doim tanla, asos bilan):
-Benign | Borderline / uncertain malignant potential | In situ | Invasive malignancy | Reactive / inflammatory
-Invaziya: ha / yo'q / shubhali — stroma, bazal membrana, desmoplaziya dalili bilan.
+B) Biologiya (bittasini tanla): Benign | Borderline | In situ | Invaziv | Reaktiv.
+   Invaziya: ha / yo'q — stroma, bazal membrana, desmoplaziya dalili bilan.
 
-C) GRADE (organ mos):
-- Umumiy nuclear grade 1/2/3 (xromatin, yadrocha, pleomorfizm)
-- Mitoz /10 HPF (taxminiy son)
-- Organ-spesifik: prostat Gleason/Grade group (faqat prostata); urothelial low vs high grade;
-  sut bezi Nottingham faqat to'liq mezonlar ko'rinsa, aks holda nuclear grade + pattern
+C) Grade (organ mos bo'lsa): nuclear grade 1/2/3, mitoz/10HPF; prostata — Gleason;
+   urotel — low/high grade; sut bezi — Nottingham faqat to'liq mezon ko'rinsa.
 
-D) ORGAN BO'YICHA WHO OILASI — FAQAT yetakchi organ (pastdagi qulf).
-Papilla/so'rg'ich KO'RINSA ham bu avtomatik buyrak/qovuq EMAS.
-Buyrak tashxisini FAQAT glomerula yoki aniq buyrak naychalari ko'rinsa yoz.
+D) ORGAN OILASI — faqat yetakchi organ (organ qulfi). Papilla ko'rinishi buyrak DEGANI EMAS.
+SUT BEZI: intraductal papilloma; ADH; DCIS; encapsulated/solid papillary carcinoma;
+  invasive ductal/lobular; phyllodes. Myoepiteliy — papilloma vs karsinoma kaliti.
+QOVUQ: urothelial papilloma; PUNLMP; low/high-grade papillary urothelial carcinoma; CIS; invaziv.
+PROSTATA: HGPIN; acinar adenocarcinoma (Gleason); ductal adenocarcinoma; atrofiya/giperplaziya.
+QALQONSIMON: PTC (grooves, inclusions, chromatin clearing); NIFTP; follicular adenoma vs carcinoma.
+ICHAK: hyperplastic polyp; tubular/tubulovillous/villous adenoma; adenocarcinoma; serrated.
+YUMURTALIK: serous cystadenoma; borderline; low/high-grade serous; mucinous; endometrioid.
+BUYRAK (faqat glomerula yoki buyrak naychasi ko'rinsa): papillary RCC; clear cell RCC;
+  oncocytoma; chromophobe.
+ENDOMETRIUM: hyperplasia ± atypia; endometrioid carcinoma; serous.
+TERI (Weedon/McKee): seborrheic keratosis; verruca; squamous papilloma; actinic keratosis;
+  SCC in situ; invaziv SCC; BCC (nodulyar/yuzaki/infiltrativ); nevus; melanoma (qat'iy dalil);
+  dermatofibroma (turi bilan); DFSP faqat isbotlangan infiltratsiyada; adneksal o'sma;
+  tomir lezyonlari; spongiotik/psoriaziform/lixenoid/granulomatoz yallig'lanish.
+O'PKA: squamous / adenocarcinoma / neuroendocrine — kuchli dalil bo'lsa.
 
-SUT BEZI:
-intraductal papilloma; papilloma with ADH/DCIS; encapsulated papillary carcinoma;
-solid papillary carcinoma; papillary DCIS; invasive papillary carcinoma;
-usual ductal hyperplasia; ADH; DCIS (grade); invasive ductal/no special type;
-invasive lobular; phyllodes (benign/borderline/malignant) — faqat stroma dalili.
-Myoepiteliy saqlanganligi papilloma vs carcinoma uchun muhim.
+E) TAQIQLANGAN: yolg'iz «papillary adenoma/carcinoma»; «yallig'lanishli atipik o'zgarishlar»;
+   dalilsiz «patologiya aniqlanmadi»; foizli baho jadvali; boshqa organ differensiali;
+   bir hisobotda ikki organ.
 
-QOVUQ / UROTEL:
-urothelial papilloma; PUNLMP; papillary urothelial neoplasm low-grade;
-papillary urothelial carcinoma high-grade; inverted papilloma; CIS;
-invasive urothelial carcinoma. Umbrella hujayra / qalinlik / fibrovascular core.
-
-PROSTATA:
-HGPIN; prostatic adenocarcinoma (acinar) Gleason pattern; ductal adenocarcinoma;
-prostatic-type polyp; atrophy/hyperplasia. Corpora amylacea, ikki qavatli epitel.
-
-QALQONSIMON:
-papillary thyroid carcinoma (classic/follicular/tall cell — dalil bo'lsa);
-NIFTP; follicular adenoma vs carcinoma (kapsula/tomir invaziyasi); papillary hyperplasia.
-Nuclear features: grooves, inclusions, chromatin clearing — aniq yoz.
-
-ICHak / GI:
-hyperplastic polyp; tubular / tubulovillous / villous adenoma; adenocarcinoma;
-serrated lesiya (dalil bo'lsa). Goblet, musin, dysplasia grade.
-
-YUMURTALIK:
-serous cystadenoma; serous borderline; low/high-grade serous carcinoma;
-mucinous; endometrioid — faqat dalil. Papilla + psammoma kontekstini yoz.
-
-BUYRAK (FAQAT glomerula / buyrak naychasi / aniq renal arxitektura bo'lsa):
-papillary renal cell carcinoma; clear cell RCC; oncocytoma; chromophobe.
-Papilla YOLG'IZ yetarli EMAS — teri papillomatozi va sut bezi papillomasini buyrak deb yozma.
-
-ENDOMETRIUM:
-endometrial hyperplasia (with/without atypia); endometrioid carcinoma grade;
-serous endometrial carcinoma. Glandular architecture + stroma.
-
-TERI (WHO skin + McKee uslubi):
-seborrheic keratosis; verruca; squamous papilloma; actinic keratosis;
-SCC in situ; invasive SCC; BCC (nodular/superficial/infiltrative);
-melanocytic nevus; melanoma (faqat kuchli dalil);
-dermatofibroma / benign fibrous histiocytoma (klassik, cellular, aneurysmal, hemosiderotic —
-KO'RINADIGAN belgi bilan turi);
-DFSP — faqat storiform + yog'ga honeycombing + diffuz CD34 muhokamasi, yetakchi qilma
-agar invaziya/infiltratsiya isbotlanmasa;
-adnexal tumors — faqat aniq adneks differensiatsiyasi.
-
-O'PKA:
-squamous / adenocarcinoma / neuroendocrine — faqat kuchli dalil; aks holda "noaniq epiteliy o'smasi + IHC".
-
-E) TAQIQLANGAN (hisobot yaroqsiz):
-- yolg'iz "papillary adenoma", "papillary carcinoma", "benign papillary hyperplasia"
-- "yallig'lanishli atipik o'zgarishlar", "patologiya aniqlanmadi" (dalilsiz)
-- foizli baho jadvallari (arxitektura 70%)
-- boshqa organ differensiali
-- bir hisobotda ikki yetakchi organ
-
-F) HISOBOT TARTIBI (gistologiya — TASHXIS MARKAZDA):
-1) #### ANIQ TASHXIS — to'liq xulosa (8–15 jumla), tur/qatlam/biologiya. Foizli 3 qator YETMAYDI.
-2) #### WHO MEZONLARI — SHU tashxisning Essential: bor/yo'q + dalil.
-3) #### TASHXIS IZOHI (yoki BATAFSIL MORFOLOGIK TAHLIL) — 20+ jumla, savol-javob YO'Q.
-4) #### DIFFERENSIAL — har muqobil NIMA UCHUN EMAS.
-5) IHC faqat tashxisni oydinlashtirish uchun.
-YOZILMAYDI: klinik fikrlash savol-javob, profilaktika, davolash rejasi, 3-professor.
-
-G) SIFAT: tashxis TUSHUNARLI va BATAFSIL. 5 qatorlik shablon YAROQSIZ.
-Dalilsiz malignite YAROQSIZ.
-
-H) MALIGNITE: BEMOR XAVFSIZLIGI qonunlari. Soxta rak — eng og'ir xato.
+F) MALIGNITE: bemor xavfsizligi qonunlari ustun. Soxta rak — eng og'ir xato.
 """
+
 
 _HISTOLOGY_TEACHING_DEEP = """
-#### TASHXIS HISOBOTI (patolog xulosasi — o'quv savol-javob EMAS)
+#### HISOBOT SHAKLI — QAT'IY (boshqa bo'lim YOZILMAYDI)
 
-Maqsad: foydalanuvchi TASHXISNI tushunsin. Shablon «Savol:» TAQIQLANADI.
-Qisqa «Dermatofibroma (60%) / DFSP (30%) / fibroxantom (10%)» YAROQSIZ.
+Foydalanuvchi shifokor. Unga TASHXIS, uning SABABI va KO'RINGAN FAKT kerak.
+Suvli matn, o'quv savol-javob, uzun muhokama — hisobot yaroqsiz.
+Butun hisobot 1500–3000 belgi. Ko'proq yozish XATO.
 
-#### ANIQ TASHXIS
-1 qatorlik kod EMAS. 8–15 jumlalik xulosa:
-«Bu [organ, qatlam] preparati. Ko'rinadigan pattern: … . Tashxis: [to'liq nom, turi].
-Bunday deyilishining sababi: … (5+ konkret belgi).
-Bu [DFSP/karsinoma/…] emas, chunki: … . Biologiya: benign/… Huquqi: YO'Q/HA.»
+Hisobotda FAQAT shu 4 bo'lim, shu tartibda:
 
-#### TASHXIS IZOHI (20+ jumla, bullet-ro'yxat yetarli EMAS)
-Ketma-ket paragraf:
-- Epidermis (qalinlik, giperplaziya, yara, pigment)
-- Dermoepidermal chegara / Grenz zonasi
-- O'sma joyi (papillyar/retikulyar dermis, gipoderma)
-- O'sma chegarasi (itaruvchi vs infiltrativ)
-- Hujayra: fibroblast, histiotsit, to'lqinli tutam, storiform
-- Kollagen: tuzoq (collagen trapping) periferiyada — bor/yo'q
-- Yadro, mitoz/10HPF, nekroz
-- Tomir, gemorragiya, temir pigmenti
-Har da'vo — «nima KO'RINADI».
+#### TASHXIS
+Bir qator: <to'liq nom + turi> — <benign | reaktiv | in situ | invaziv>
+Ikkinchi qator: Organ/qatlam: … | Ishonch: yuqori/o'rta/past | Malignite huquqi: HA yoki YO'Q
 
-#### WHO MEZONLARI
-Faqat QO'YILGAN tashxis uchun: Essential 4–7 ta — HAR BIRI: KO'RINADI / KO'RINMAYDI + 1 jumla.
+#### NEGA SHU TASHXIS
+4–6 ta qator, boshqa hech narsa. Har qator: <mezon nomi> — <bir jumlalik ko'ringan dalil>.
+Faqat TASVIRDA ko'ringan mezon yoziladi. Ko'rinmagan mezonni yozma.
 
-#### DIFFERENSIAL (nega bu tashxis, nega boshqasi emas)
-DF vs DFSP: CD34 diffuz vs FXIIIa, honeycombing yog', infiltratsiya.
-Keratosis vs verruca vs SCC — agar epitel lesiya.
-Har qator: MOS emas, chunki …
+#### FAKT (ko'rinadigan morfologiya)
+5–8 ta qisqa qator: qatlam, pattern, hujayra turi, yadro/mitoz, stroma/kollagen,
+chegara, invaziya (ha/yo'q), qo'shimcha belgi. Har qator — bitta qisqa jumla.
 
-TAQIQLANGAN: Savol-javob, profilaktika, quyoshdan himoya, 3-professor, 120 jumlalik suv.
+#### NEGA BOSHQASI EMAS
+2–3 ta qator. Har qator: <muqobil tashxis> — <nima YO'Q, shuning uchun emas>.
+Xavfli muqobil (rak, melanoma, DFSP) bo'lsa, birinchi shu yerda rad etiladi.
+
+TAQIQLANGAN BO'LIMLAR (yozilsa hisobot yaroqsiz):
+«Savol:», klinik fikrlash, profilaktika, davolash rejasi, kuzatuv rejasi,
+1/2/3-professor, rais yakuni, batafsil morfologik tahlil, tashxis izohi,
+foizli 60/30/10 vitrina, «baho 1-5», jadval, quyoshdan himoya, umumiy nasihat.
+Ehtimollik foizi YOZILMAYDI — uning o'rniga «Ishonch: yuqori/o'rta/past».
 """
+
 
 _HISTOLOGY_DERM_PATTERN_CANON = """
 #### DERMATOPATOLOGIYA ALGORITMI (Weedon / Ackerman uslubi — TERI uchun MAJBURIY)
@@ -616,18 +491,19 @@ giperplaziya odatda yo'q. Infiltratsiya KO'RINMASA DFSP ni yetakchi qilma.
 S100/SOX10/Melan-A (melanotsitar), p63/CK5-6 (keratinotsitar), BerEP4 (BCC),
 CD34 vs FXIIIa (DFSP vs DF), CD31/ERG/HHV8 (tomir), CD3/CD20/CD30 (limfoid), Ki-67 proliferatsiya.
 
-MAJBURIY QO'SHIMCHA BO'LIM (teri hisobotida):
-#### KITOB MEZONLARI (manba)
-Yuqoridagi kanon parchalaridan foydalanib, qo'yilgan tashxisning 4–7 ta mezonini
-KO'RINADI / KO'RINMAYDI qilib yoz va qaysi manba oilasiga tayanganingni ayt
-(masalan: «Weedon — bazaloid uyalarda periferik palisad»). Parchani so'zma-so'z ko'chirma.
+BU ALGORITM — ICHKI FIKRLASH. 1–7 qadamlar bayonini hisobotga YOZMA.
+Kitob mezonini «NEGA SHU TASHXIS» qatorlariga sig'dir, masalan:
+«Periferik palisad — KO'RINDI: bazaloid uyalar chetida yadrolar tartibli tizilgan».
+Alohida manba bo'limi yaratma; kitob nomi, sahifa va ko'chirma matn yozilmaydi.
+«Skaner ko'rinish», «Reaksiya patterni», «Hujayra yo'nalishi» — FAKT bo'limining
+qatorlari sifatida qisqa yoziladi, alohida sarlavha qilinmaydi.
 """
 
 _HISTOLOGY_SAFE_PROTOCOL = """
 ADASHISH HUQUQI YO'Q. FAQAT gistologiya. Professor protokoli buzilsa hisobot YAROQSIZ.
 ICHKI gistopatologiya XULOSASI (imzo emas). O'zbek tilida.
-MAHSULOT = batafsil tushunarli TASHXIS, suvli o'quv savol-javob emas.
-Qisqa foizli 3 ta nom (60/30/10) YAROQSIZ. Dalilsiz rak YAROQSIZ.
+MAHSULOT = ANIQ TASHXIS + uning sababi + ko'ringan fakt. Boshqa hech narsa.
+Suvli matn, o'quv muhokamasi, foizli ro'yxat, dalilsiz rak — YAROQSIZ.
 """ + _HISTOLOGY_PATIENT_SAFETY + _HISTOLOGY_CANON_REF + _HISTOLOGY_WHO_STRICT + _HISTOLOGY_TEACHING_DEEP + """
 ORGAN QOIDASI (eng muhim — buzilsa hisobot yaroqsiz):
 - BIR yetakchi ORGAN ni tanla va BUTUN hisobot shu organda qoladi.
@@ -650,14 +526,11 @@ F) Villous/ichak goblet → ICHAK.
 G) Glomerula yoki aniq buyrak naychalari → BUYRAK. Papilla yolg'iz → buyrak EMAS.
 Dalilsiz "urotel"/"renal"/"silindrik" deb yozma — nima KO'RINISHINI yoz.
 
-1) Yetakchi organ + kamida 5 morfologik dalil.
-2) Pattern: papillary / cribriform / tubular / solid / villous / papillomatosis — bor/yo'q.
-3) Yadro grade 1-3, mitoz/10HPF, invaziya ha/yo'q/shubhali.
-4) 3 ta ISHCHI TAASSUROT — faqat yetakchi organ WHO oilasidan (yuqoridagi ro'yxat).
-   Yolg'iz "papillary adenoma / papillary carcinoma" TAQIQLANADI.
-5) Majburiy: #### ANIQ TASHXIS (8–15 jumlalik xulosa), #### WHO MEZONLARI,
-   #### TASHXIS IZOHI, #### DIFFERENSIAL. Savol-javob/profilaktika YOZILMAYDI.
-Rad etma. Ko'rinmagan narsani uydirma.
+ICHKI TEKSHIRUV (hisobotga yozilmaydi): yetakchi organ + dalil; pattern;
+yadro grade, mitoz, invaziya; WHO Essential mezonlar; muqobillar.
+HISOBOT esa faqat 4 bo'lim: #### TASHXIS, #### NEGA SHU TASHXIS,
+#### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS.
+Jami 1500–3000 belgi. Rad etma. Ko'rinmagan narsani uydirma.
 """
 
 _HISTOLOGY_ORGAN_CODES = (
@@ -1018,7 +891,7 @@ def _strip_other_organ_differential(text):
 def _worksheet_user(lab_type, organ_lock=None, kb_block=""):
     m = _lab_meta(lab_type)
     extra = _histology_protocol(organ_lock) if lab_type == "histology" else (
-        "Keyin 40-60 jumla: pattern/tuzilma NOMLARI. Oxirida 3 ishchi taassurot, ehtimollik %."
+        "Qisqa: pattern/tuzilma NOMLARI, keyin bitta ishchi taassurot va uning asosi."
     )
     lock = _histology_organ_lock_text(organ_lock) if lab_type == "histology" else ""
     kb = ("\n" + kb_block + "\n") if (lab_type == "histology" and kb_block) else ""
@@ -1027,9 +900,9 @@ def _worksheet_user(lab_type, organ_lock=None, kb_block=""):
         f"{m['forbid']}\n\n"
         + lock
         + kb
-        + "Avval markdown jadval (kamida 12 qator). Baho 1-5 ISHLATMA.\n"
-        "| Belgi | Topilma (atama yoki son) | Mezon | Ishonch |\n"
-        f"Maydonlar: {m['count']}.\n"
+        + "Jadval YOZMA. Baho 1-5 ISHLATMA. Faqat 4 bo'lim: TASHXIS, NEGA SHU TASHXIS, "
+        "FAKT, NEGA BOSHQASI EMAS.\n"
+        f"Ichkarida tekshiriladigan maydonlar: {m['count']}.\n"
         + extra
         + "\nYulduzcha ** yo'q. Rad etma."
     )
@@ -1041,12 +914,12 @@ def _describe_user(lab_type, organ_lock=None, kb_block=""):
         kb = ("\n" + kb_block + "\n") if kb_block else ""
         return (
             f"H&E tissue photomicrograph. You are a histopathology chair. NO RIGHT TO ERR: "
-            f"wrong organ, invented findings, other lab protocols, skipped sections = INVALID. "
-            f"Write a COMPLETE pathology DIAGNOSIS in Uzbek a clinician can understand. "
-            f"8–15 sentence diagnosis + long morphologic justification. "
-            f"NO Q&A ('Savol:'), NO prevention, NO 60/30/10 percent list as the whole diagnosis. "
+            f"wrong organ, invented findings, other lab protocols = INVALID. "
+            f"Write a SHORT pathology report in Uzbek: the diagnosis, why it is that "
+            f"diagnosis, and the visible facts. Nothing else. 1500-3000 characters total. "
+            f"NO Q&A, NO prevention, NO treatment plan, NO teaching text, NO tables, NO percentages. "
             f"Do NOT lead with cancer unless invasion+Essential are VISIBLE. "
-            f"Required: Malignite qo'yish huquqi HA/YO'Q. Never refuse a real H&E field.\n"
+            f"Required line: Malignite qo'yish huquqi HA/YO'Q. Never refuse a real H&E field.\n"
             f"{m['forbid']}\n\n"
             + _histology_organ_lock_text(organ_lock)
             + kb
@@ -1062,11 +935,11 @@ def _describe_user(lab_type, organ_lock=None, kb_block=""):
 
 def _histology_dx_block(text):
     m = re.search(
-        r"#+\s*aniq\s+tashxis\b(.{0,2800}?)(?=\n#+\s|\Z)",
+        r"#+\s*(?:aniq\s+)?tashxis\b(.{0,2000}?)(?=\n#+\s|\Z)",
         text or "",
         flags=re.I | re.S,
     )
-    return m.group(1) if m else (text or "")[:2000]
+    return m.group(1) if m else (text or "")[:1200]
 
 
 _MALIGN_LEAD_RE = re.compile(
@@ -1145,20 +1018,10 @@ def _looks_like_weak_generic(text, lab_type, organ_lock=None):
             return True
         if "quyoshdan himoya" in low:
             return True
-        if len(text) < 2200:
+        if len(text) < 400:
             return True
-        if "aniq tashxis" not in low:
+        if _missing_diagnosis_sections(text, lab_type):
             return True
-        if "who mezon" not in low and "essential" not in low:
-            return True
-        if "tashxis izohi" not in low and "batafsil morfologik" not in low and "morfologik tahlil" not in low:
-            return True
-        if "differensial" not in low and "nega bu" not in low and "nega emas" not in low:
-            return True
-        # Qisqa foizli vitrina: yetakchi qatorda faqat nom+%
-        if re.search(r"yetakchi:\s*[^\n]{0,40}\(\s*\d{1,3}\s*%\s*\)", low) and "tashxis xulosasi" not in low:
-            if len(text) < 4000:
-                return True
         organ = any(x in low for x in (
             "prostata", "sut bezi", "qovuq", "siydik pufak", "qalqon",
             "endometrium", "ichak", "yumurtalik", "buyrak", "o'pka",
@@ -1191,7 +1054,9 @@ def _looks_like_weak_generic(text, lab_type, organ_lock=None):
             return True
         if _histology_melanoma_overcall(text):
             return True
-        if low.count("%") >= 8 and "baho" in low:
+        if low.count("%") >= 3:
+            return True
+        if _too_verbose(text, lab_type):
             return True
         if (organ_lock or {}).get("organ") == "teri":
             has_pattern = any(x in low for x in (
@@ -1214,66 +1079,20 @@ def _looks_like_wrong_blood_smear(text, lab_type):
     return hits >= 3
 
 
-TABLES_FIRST_UZ = """
-JAVOBNI JADVALLARDAN BOSHLA. Uzun matnni jadvallardan OLDIN yozma.
-Jadvalsiz, raqamsiz yoki 5-6 qatorlik "oddiy" jadval TAQIQLANADI.
-
-#### NATIJA JADVALLARI (kamida 4 ta)
-
-Jadval A — asosiy belgilari (kamida 12 qator; "Baho 1-5" ISHLATMA):
-| Belgi | Topilma (atama yoki son) | Mezon | Ishonch |
-
-Jadval B — sifat/morfologiya (kamida 8 qator):
-| Tuzilma | Belgilari | Daraja | Artefakt ehtimoli | Izoh |
-
-Jadval C — differensial (kamida 5 qator):
-| Yo'nalish | Nima mos | Nima qarshi | Qaysi test farqlaydi |
-
-Jadval D — keyingi qadamlar (kamida 5 qator):
-| Qadam | Nima uchun | Muddat | Kimga |
-
-Qoidalar:
-- Har qatorda RAQAM. "ko'p/oz" yolg'iz yetarli emas.
-- Taxminiy bo'lsa ham son: "taxminiy 40".
-- :--- ajratuvchi QO'SHMA. Yulduzcha ** ISHLATMA.
-
-"""
-
 OUTPUT_FORMAT_HISTOLOGY_UZ = """
 ---
-GISTOLOGIYA CHIQISHI (patologiya xulosasi):
-0. Faqat MedLab. Yulduzcha ** yo'q. Savol-javob YO'Q. Profilaktika YO'Q.
-1. #### ANIQ TASHXIS — organ, qatlam, to'liq nom+tur, biologiya, huquqi HA/YO'Q,
-   keyin 8–15 jumlalik TASHXIS XULOSASI (tushunarli matn).
-2. #### WHO MEZONLARI — qo'yilgan tashxis Essential: bor/yo'q + dalil.
-3. #### TASHXIS IZOHI — 20+ jumla morfologiya.
-4. #### DIFFERENSIAL — nima uchun boshqasi emas.
-Foizli 60/30/10 yolg'iz tashxis qilma. 3-professor yozma.
+CHIQISH (qat'iy): faqat 4 bo'lim, jami 1500–3000 belgi.
+#### TASHXIS
+#### NEGA SHU TASHXIS
+#### FAKT (ko'rinadigan morfologiya)
+#### NEGA BOSHQASI EMAS
+Yulduzcha ** yo'q. Jadval yo'q. Foiz yo'q. Boshqa sarlavha yo'q.
+Uzun muhokama, o'quv matni, profilaktika, davolash — YOZILMAYDI.
 """
 
-OUTPUT_FORMAT_RULES_UZ = """
----
-CHIQISH TARTIBI (ichki konsilium — laborant foizli baho EMAS):
-0. Faqat MedLab. Yulduzcha ** yo'q. :--- yo'q. Bu ichki LIS morfologik xulosa (shifokor tasdiqlaydi).
-1. AVVAL "#### ANIQ TASHXIS" — ishonch sinfi, malignite huquqi HA/YO'Q, biologiya,
-   yetakchi WHO/atlas ANIQ nomi + %, 2-o'rin, 3-o'rin.
-   Dalilsiz karsinoma/RCC yetakchi qilish TAQIQLANADI.
-2. "#### WHO MEZONLARI" — Essential + Desirable + biologiya.
-3. "#### BATAFSIL MORFOLOGIK TAHLIL" — kamida 25 jumla: pattern, epitel, yadro, stroma, invaziya.
-   Qisqa ro'yxat YETMAYDI — gapirib tushuntir.
-4. "#### KLINIK FIKRLASH" — kamida 20 jumla o'quv: savol-javob, reaktiv vs neoplastik, klinik korrelyatsiya.
-5. "#### NEGA BU TASHXIS" — kamida 12 jumla: 1-o'rin MOS, 2/3-o'rin QARSHI.
-6. "#### NIMA QILISH KERAK" — kamida 3 aniq qadam.
-7. "#### PROFILAKTIKA VA DAVOLASH REJASI".
-8. "#### 1-PROFESSOR — MORFOLOGIYA" 18+ jumla; "#### 2-PROFESSOR — DIFFERENSIAL" 16+;
-   "#### 3-PROFESSOR — KEYINGI TEST" 12+; "#### RAIS YAKUNI" 12+.
-9. Keyin jadvallar A/B/C. "Baho 1-5", "normal orientir" TAQIQLANADI.
-   Tashxis yaxshi bo'lsa ham, batafsil tahlilsiz hisobot YAROQSIZ.
-"""
 
 def _append_output_format(prompt, lab_type=None):
-    rules = OUTPUT_FORMAT_HISTOLOGY_UZ if lab_type == "histology" else OUTPUT_FORMAT_RULES_UZ
-    return (prompt or "").rstrip() + "\n\n" + rules
+    return (prompt or "").rstrip() + "\n\n" + OUTPUT_FORMAT_HISTOLOGY_UZ
 
 def _full_analysis_prompt(base, microscope_prefix, lab_type=None, patient_context=None):
     """Bemor konteksti + yo'nalish protokoli."""
@@ -2106,39 +1925,30 @@ def _pil_to_data_url(img):
 
 _ANALYSIS_SYSTEM = (
     "Sen MedLab GISTOLOGIYA kafedrasi raisisan. FAQAT H&E to'qima. Adashishga haqqi YO'Q. "
-    "Foizli baho va 'normal orientir' TAQIQLANADI. "
     "Tashxis NOMI aniq bo'lsin. Dalilsiz rak/karsinoma YOZMA. "
-    "AVVAL #### ANIQ TASHXIS, #### WHO MEZONLARI, #### TASHXIS IZOHI, #### DIFFERENSIAL. "
-    "Profilaktika/savol-javob YOZILMAYDI. Rad etma. Faqat MedLab gistologiya."
+    "HISOBOT FAQAT 4 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS. Jami 1500-3000 belgi. Uzun matn, o'quv muhokamasi, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
+    "Rad etma. Faqat MedLab gistologiya."
 )
 
 _WORKSHEET_SYSTEM = (
     "Sen MedLab gistologiya hisobotini to'ldirasan (LIS). Adashishga haqqi YO'Q. "
-    "Ichki morfologik xulosa — shifokor tasdiqlaydi. WHO/McKee NOMINI aniq yoz. "
-    "Dalilsiz malignite yetakchi qilma — avval benign/reaktiv. "
-    "FAQAT gistologiya. O'zbek tili. Pattern va tuzilma NOMLARI bilan yoz. "
-    "Majburiy: #### ANIQ TASHXIS (ishonch + malignite huquqi HA/YO'Q), #### WHO MEZONLARI, "
-    "#### TASHXIS IZOHI, #### DIFFERENSIAL. "
-    "Baho 1-5 taqiqlanadi. Rad etma. Faqat MedLab gistologiya."
+    "WHO/Weedon NOMINI aniq yoz. Dalilsiz malignite qo'yma - avval benign/reaktiv. "
+    "FAQAT gistologiya. O'zbek tili. "
+    "HISOBOT FAQAT 4 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS. Jami 1500-3000 belgi. Uzun matn, o'quv muhokamasi, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
+    "Rad etma. Faqat MedLab gistologiya."
 )
 
 _SAFE_SYSTEM = (
-    "You are a chair of histopathology. This LIS is HISTOLOGY ONLY. You have NO right to wander "
-    "into blood smear, urine, stool, KOH, cytology-smear, or another organ family. "
-    "Write INTERNAL H&E morphology notes in Uzbek for licensed staff. Unsigned draft; clinician confirms. "
-    "Never refuse a histology field: describe what IS and IS NOT visible. "
-    "If the photo is NOT an H&E tissue section, say so and do not invent a tissue diagnosis. "
-    "PATIENT SAFETY: falsely calling cancer is the worst error. "
-    "A precise NAME is required, but malignancy as the LEADING diagnosis is allowed ONLY if "
-    "WHO Essential criteria are VISIBLE and invasion is PROVEN. Otherwise leading = benign/reactive "
-    "or 'insufficient criteria — malignancy not assigned'. "
-    "Write a clinician-readable DIAGNOSIS (8–15 sentences) plus morphologic proof. "
-    "NO Q&A ('Savol:'), NO sun-protection/prevention filler, NO 60/30/10 percent list as the whole answer. "
-    "Required: #### ANIQ TASHXIS, #### WHO MEZONLARI, #### TASHXIS IZOHI, #### DIFFERENSIAL. "
-    "A name without a detailed diagnostic explanation is INVALID. "
-    "Apply Junqueira/McKee/MBOC/WHO METHOD plus retrieved vector-canon; do not paste copyrighted textbook text. "
-    "One organ only. No dummy 1-5 scores. Do not write '100%' in the report; write evidence-based ishonch. "
-    "MedLab histology only."
+    "You are a chair of histopathology. This LIS is HISTOLOGY ONLY. No blood smear, urine, "
+    "stool, KOH, cytology smear, or another organ family. "
+    "Write an INTERNAL H&E report in Uzbek for licensed staff. Unsigned draft; clinician confirms. "
+    "Never refuse a histology field. If the photo is NOT an H&E tissue section, say so. "
+    "PATIENT SAFETY: falsely calling cancer is the worst error. Malignancy may lead ONLY if "
+    "WHO Essential criteria are VISIBLE and invasion is PROVEN; otherwise benign/reactive. "
+    "Apply Weedon/WHO/Junqueira METHOD and the retrieved canon as INTERNAL reasoning; "
+    "do not paste textbook text and do not narrate your reasoning. "
+    "HISOBOT FAQAT 4 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS. Jami 1500-3000 belgi. Uzun matn, o'quv muhokamasi, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
+    "One organ only. No percentages, no tables, no teaching text. MedLab histology only."
 )
 
 _SHALLOW_MARKERS = (
@@ -2158,20 +1968,17 @@ _SHALLOW_MARKERS = (
 )
 
 _EXPAND_DEEP_USER = (
-    "Quyida qisqa ICHKI qoralama berilgan. Original rasmlarni qayta ko'rib, "
-    "TO'LIQ professor darajasidagi hisobot yoz. "
-    "'Baho 1-5', 'normal orientir' TAQIQLANADI. "
-    "Gistologiyada: AVVAL batafsil ANIQ TASHXIS xulosasi, WHO mezonlari, TASHXIS IZOHI, DIFFERENSIAL. "
-    "Savol-javob va profilaktika YOZMA. "
-    "Yolg'iz 'papillary adenoma' yozma. Rad etma. O'zbek tili. Yulduzcha ** yo'q.\n\n"
+    "Quyida ICHKI qoralama berilgan. Original rasmlarni qayta ko'rib, YAKUNIY qisqa "
+    "hisobotni yoz: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (ko'rinadigan morfologiya), "
+    "#### NEGA BOSHQASI EMAS. Jami 1500-3000 belgi. "
+    "Muhokama, o'quv matni, foiz, jadval yozma. O'zbek tili. Yulduzcha ** yo'q.\n\n"
 )
 
 _RETRY_DEEP_USER = (
-    "Oldingi matn JUDA YUZAKI yoki shablon. Qabul qilinmaydi. "
-    "Rasmlarni qayta ko'rib, tushunarli BATAFSIL tashxis yoz. "
-    "Majburiy: ANIQ TASHXIS xulosasi + WHO MEZONLARI + TASHXIS IZOHI + DIFFERENSIAL. "
-    "Savol-javob va dummy jadvallarni o'chir. Rad etma.\n\n"
-    "==== OLDINGI (yuzaki) MATN ====\n"
+    "Oldingi matn talabga mos emas. Qayta yoz: aniq tashxis, uning sababi va ko'ringan fakt. "
+    "Faqat 4 bo'lim, 1500-3000 belgi. Ortiqcha gap, savol-javob, foiz, jadval - o'chir. "
+    "Rad etma.\n\n"
+    "==== OLDINGI MATN ====\n"
 )
 
 _REFUSAL_MARKERS = (
@@ -2294,20 +2101,18 @@ def _looks_like_technician(text):
 
 
 def _missing_diagnosis_sections(text, lab_type=None):
-    """Asosiy tashxis bo'limlari yo'qmi."""
+    """Qisqa hisobotning majburiy bo'limlari yo'qmi."""
     if not text:
         return True
     low = text.lower()
+    if lab_type == "histology":
+        has_dx = "tashxis" in low
+        has_why = ("nega shu tashxis" in low) or ("nega bu tashxis" in low)
+        has_fact = ("fakt" in low) or ("morfologiya" in low)
+        has_diff = ("nega boshqasi emas" in low) or ("differensial" in low)
+        return not (has_dx and has_why and has_fact and has_diff)
     has_dx = ("aniq tashxis" in low) or ("ishchi morfologik taassurot" in low and "yetakchi" in low)
     has_who = ("who mezon" in low) or ("essential" in low)
-    if lab_type == "histology":
-        has_detail = (
-            "tashxis izohi" in low
-            or "batafsil morfologik" in low
-            or "morfologik tahlil" in low
-        )
-        has_diff = ("differensial" in low) or ("nega bu" in low) or ("nega emas" in low)
-        return not (has_dx and has_who and has_detail and has_diff)
     has_detail = (
         "batafsil morfologik" in low
         or ("morfologik tahlil" in low and len(text) > 4500)
@@ -2324,8 +2129,40 @@ def _missing_diagnosis_sections(text, lab_type=None):
     return not (has_dx and has_who and has_detail and has_think and has_next and has_plan)
 
 
+_VERBOSE_MARKERS = (
+    "klinik fikrlash",
+    "profilaktika",
+    "davolash rejasi",
+    "1-professor",
+    "2-professor",
+    "3-professor",
+    "rais yakuni",
+    "tashxis izohi",
+    "batafsil morfologik",
+    "savol:",
+    "quyoshdan himoya",
+    "kuzatuv rejasi",
+)
+
+
+def _too_verbose(text, lab_type=None):
+    """Ortiqcha uzun yoki taqiqlangan bo'limli hisobot — qayta yozish kerak."""
+    if not text or lab_type != "histology":
+        return False
+    low = text.lower()
+    if any(m in low for m in _VERBOSE_MARKERS):
+        return True
+    if len(text) > _MAX_REPORT_CHARS:
+        return True
+    if _table_row_count(text) >= 3:
+        return True
+    if len(re.findall(r"\d{1,3}\s*%", text)) >= 3:
+        return True
+    return False
+
+
 def _too_shallow(text, lab_type=None):
-    min_len = 1200 if lab_type == "histology" else 1800
+    min_len = 350 if lab_type == "histology" else 1800
     if not _usable(text, min_len):
         return True
     if _looks_like_technician(text):
@@ -2343,7 +2180,7 @@ def _too_shallow(text, lab_type=None):
     ))
     if "taassurot" not in low and "tashxis" not in low and not named_dx:
         return True
-    shallow_len = 2800 if lab_type == "histology" else 5000
+    shallow_len = 900 if lab_type == "histology" else 5000
     if _missing_diagnosis_sections(text, lab_type) and len(text) < shallow_len:
         return True
     return False
@@ -2358,10 +2195,8 @@ def _multi_image_protocol(n):
         f"Bu {n} ta rasm BIR xil bemor / BIR xil kasallik / BIR xil namuna holatiga tegishli "
         "(turli rakurs, turli maydon, turli kattalashtirish yoki turli joy).\n"
         "- HAR BIR tasvirni alohida ko'rib chiq (TASVIR 1…N). Faqat 1-rasmga tayanma.\n"
-        "- Topilmalarni SINTEZ qil: bitta #### ANIQ TASHXIS, #### WHO MEZONLARI, "
-        "#### NIMA QILISH KERAK, #### PROFILAKTIKA VA DAVOLASH REJASI.\n"
-        "- Hisobot boshida yoz: «Ko‘rib chiqilgan rasmlar: N ta».\n"
-        "- Qisqa bo‘lim: #### RASMLAR SINTESI — har biridan 1–2 muhim topilma, keyin yagona xulosa.\n"
+        "- Topilmalarni SINTEZ qil: BITTA yagona tashxis, bitta qisqa hisobot.\n"
+        "- Alohida «rasmlar sintezi» bo‘limi YOZILMAYDI — hammasi 4 bo‘limga sig‘adi.\n"
         "- Bir rasmda ko‘rinib, boshqasida yo‘q bo‘lgan belgini yashirma.\n"
         "- Turli organ tashxislariga sakrama — bu bir holatning turli ko‘rinishlari.\n"
     )
@@ -2404,8 +2239,8 @@ def _vision_user(prompt, image_parts):
             f"==== SINTEZ ({n} ta tasvir) ====\n"
             f"Yuqoridagi {n} ta TASVIRNING HAMMASINI inobatga ol. "
             "Faqat birinchi yoki oxirgi rasmga tayanma. "
-            "Bitta yagona ANIQ TASHXIS (tushunarli xulosa) + WHO MEZONLARI + TASHXIS IZOHI yoz. "
-            "#### RASMLAR SINTESI qisqa bo'lsin — asosiy o'rin tashxisda."
+            "Bitta yagona TASHXIS, uning sababi va ko'ringan fakt — 4 bo'limdan iborat "
+            "qisqa hisobot. Alohida «rasmlar sintezi» bo'limi yozilmaydi."
         ),
     })
     return out
@@ -2462,51 +2297,6 @@ def _preview(text):
     return (text or "").replace("\n", " ").strip()[:180]
 
 
-def _professor_pass_user(lab_type, full_prompt):
-    m = _lab_meta(lab_type)
-    return (
-        f"ICHKI LIS hisobot. Namuna: {m['specimen']}. Role: {m['role']}. "
-        "Bemorga tashxis emas. Rad etma. "
-        "Avval 3 morfologik ishchi taassurot, keyin 3 professor bo'limi, rais yakuni. "
-        "Baho 1-5 va normal orientir TAQIQLANADI.\n\n"
-        + (full_prompt or "")
-    )
-
-
-def _board_review(draft, full_prompt, kwargs, image_parts=None, lab_type="histology"):
-    """3 professor tanqid qiladi, rais to'liq bayonni qayta yozadi."""
-    voices = _board_voices(lab_type)
-    user_text = (
-        _lab_lock_text(lab_type)
-        + "\n"
-        + "BU — ICHKI QORALAMA (bemorga tashxis emas). 3 professor tanqid qiladi, rais QAYTA YOZADI.\n"
-        + f"Jamoa: {voices}.\n"
-        + "Har professor: nima MOS, nima QARSHI, nima yetishmaydi (8+ jumla).\n"
-        + "Agar qoralama 'baho 1-5' / 'normal orientir' uslubida bo'lsa — uni YO'QOT.\n"
-        + "Yakun: avval 3 morfologik ishchi taassurot (ehtimollik %), "
-        "1-professor morfologiya, 2-professor differensial, 3-professor test, rais yakuni.\n"
-        + "Rad etma. Ko'rinmagan narsani uydirma. Yulduzcha ** yo'q.\n\n"
-        + "==== QORALAMA ====\n"
-        + (draft or "")[:12000]
-        + "\n==== QORALAMA TUGADI ====\n\n"
-        + (full_prompt or "")[:8000]
-    )
-    content = _vision_user(user_text, image_parts) if image_parts else user_text
-    board_kwargs = dict(kwargs or {})
-    try:
-        t = float(board_kwargs.get("temperature", 0.32))
-    except (TypeError, ValueError):
-        t = 0.32
-    board_kwargs["temperature"] = max(0.28, min(t + 0.10, 0.55))
-    return _chat_complete(
-        [
-            {"role": "system", "content": _analysis_system(lab_type)},
-            {"role": "user", "content": content},
-        ],
-        board_kwargs,
-    )
-
-
 def _needs_rewrite(text, lab_type, organ_lock=None):
     return (
         _too_shallow(text, lab_type)
@@ -2516,13 +2306,14 @@ def _needs_rewrite(text, lab_type, organ_lock=None):
         or _missing_diagnosis_sections(text, lab_type)
         or (lab_type == "histology" and _histology_cancer_overcall(text))
         or (lab_type == "histology" and _histology_melanoma_overcall(text))
+        or _too_verbose(text, lab_type)
     )
 
 
 def _safe_expand(draft, kwargs, image_parts=None, lab_type="histology", organ_lock=None, patient_context=None):
     """Uzaytirish: tashxis so'zisiz, filtr rad etmasin."""
     protocol = _histology_protocol(organ_lock, patient_context) if lab_type == "histology" else (
-        "Ichki LIS protokoli. 50+ jumla. 3 ishchi taassurot (nom+%), MOS/QARSHI. Rad etma."
+        "Ichki LIS protokoli: qisqa tashxis, uning asosi va ko'ringan fakt. Rad etma."
     )
     lock = _histology_organ_lock_text(organ_lock) if lab_type == "histology" else ""
     kb = ""
@@ -2541,18 +2332,19 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="histology", organ_lo
         + kb
         + multi
         + protocol
-        + "\n\n==== QISQA QORALAMA (shu asosda UZAYTIR, qisqartirma) ====\n"
+        + "\n\n==== ICHKI QORALAMA (shu asosda YAKUNIY QISQA hisobotni yoz) ====\n"
         + (draft or "")[:8000]
         + "\n==== TUGADI ====\n"
-        "Kamida 40 jumla. BIR organ. #### ANIQ TASHXIS (8–15 jumlalik xulosa) + #### WHO MEZONLARI + "
-        "#### TASHXIS IZOHI + #### DIFFERENSIAL majburiy. "
-        "Savol-javob, profilaktika, foizli 60/30/10 vitrina YO'Q. "
+        "BIR organ. Hisobot FAQAT 4 bo'lim: #### TASHXIS, #### NEGA SHU TASHXIS, "
+        "#### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS. "
+        "Jami 1500-3000 belgi, 4200 dan oshmasin. "
+        "Savol-javob, profilaktika, davolash, professor bo'limlari, jadval, foiz — YO'Q. "
         + (f"Barcha {n_img} ta rasmni sintez qil; faqat 1-rasmga tayanma. " if n_img > 1 else "")
-        + "Tashxis tushunarli va batafsil bo'lmasa YAROQSIZ. "
-        "3 taassurot SHU organ oilasidan. Boshqa organ differensiali YO'Q. "
-        "Bemor jinsi va namuna joyiga zid yozma. Yolg'iz 'papillary adenoma' yo'q. "
+        + "Har mezon qatori: <mezon> — KO'RINDI: <bir jumlalik dalil>. "
+        "Ko'rinmagan mezonni yozma. Boshqa organ differensiali YO'Q. "
+        "Bemor jinsi va namuna joyiga zid yozma. "
         "Agar organ qulfi TERI bo'lsa buyrak rakini / RCC ni YOZMA. "
-        "Malignite qo'yish huquqi YO'Q bo'lsa yetakchi karsinoma/RCC/rak BO'LMASIN — benign/reaktiv nom yoz. "
+        "Malignite qo'yish huquqi YO'Q bo'lsa asosiy tashxis benign/reaktiv bo'ladi. "
         "Sog'lom/dalilsiz holatga rak qo'yish — hisobot yaroqsiz."
     )
     content = _vision_user(user_text, image_parts) if image_parts else user_text
@@ -2816,11 +2608,11 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
         or (lab_type == "histology" and _histology_report_organs_conflict(report))
         or (lab_type == "histology" and _histology_report_wrong_organ(report, organ_lock))
         or (lab_type == "histology" and _histology_cancer_overcall(report))
-        or len(report) < (2800 if lab_type == "histology" else 5000)
+        or len(report) < (MIN_REPORT_CHARS if lab_type == "histology" else 5000)
     ):
         log.info("%s: 2-bosqich uzaytirish (%s belgi) lab=%s", ZIYRAKAI_DISPLAY_NAME, len(report), lab_type)
         expanded = _safe_expand(report, kwargs, image_parts, lab_type, organ_lock, patient_context)
-        if _usable(expanded, 1200) and not _looks_like_refusal(expanded):
+        if _usable(expanded, MIN_REPORT_CHARS) and not _looks_like_refusal(expanded):
             organ_bad = lab_type == "histology" and (
                 _histology_report_organs_conflict(expanded)
                 or _histology_report_wrong_organ(expanded, organ_lock)
@@ -2856,7 +2648,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
                 else full_prompt
             )
             deeper = _deepen_report(report, deepen_prompt, kwargs, image_parts, lab_type)
-            if _usable(deeper, 1200) and not _looks_like_technician(deeper):
+            if _usable(deeper, MIN_REPORT_CHARS) and not _looks_like_technician(deeper):
                 report = deeper
 
     if _usable(report, 400):

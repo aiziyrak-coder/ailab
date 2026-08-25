@@ -401,13 +401,72 @@ class DermatopathologyCanonTests(TestCase):
         from lab_core import engine as eng
 
         lock = {"organ": "teri"}
-        base = (
-            "#### ANIQ TASHXIS teri, dermatofibroma\n#### WHO MEZONLARI essential\n"
-            "#### TASHXIS IZOHI\n#### DIFFERENSIAL\n" + "epidermis dermis matn. " * 200
+        good = "\n".join([
+            "#### TASHXIS",
+            "teri, dermatofibroma - benign",
+            "Organ/qatlam: teri, dermis | Ishonch: yuqori | Malignite qo'yish huquqi: YO'Q",
+            "#### NEGA SHU TASHXIS",
+            "Kollagen tuzogi - KO'RINDI: periferiyada kollagen tutamlari o'ralgan.",
+            "Grenz zonasi - KO'RINDI: epidermis ostida tor bo'sh yo'lak.",
+            "#### FAKT (ko'rinadigan morfologiya)",
+            "Reaksiya patterni: neoplastik, dermal.",
+            "Epidermis: giperplaziya.",
+            "Hujayra: fibroblast va histiotsit, to'lqinli tutam.",
+            "Mitoz: kam.",
+            "#### NEGA BOSHQASI EMAS",
+            "DFSP - yog'ga honeycomb infiltratsiya YO'Q.",
+        ])
+        self.assertFalse(eng._looks_like_weak_generic(good, "histology", lock))
+
+        no_pattern = (
+            good.replace("Epidermis", "To'qima")
+            .replace("dermis", "soha")
+            .replace("Reaksiya patterni: neoplastik, dermal.", "Umumiy ko'rinish.")
         )
-        self.assertFalse(eng._looks_like_weak_generic(base + " reaksiya patterni: neoplastik", "histology", lock))
-        no_pattern = base.replace("epidermis dermis", "to'qima")
         self.assertTrue(eng._looks_like_weak_generic(no_pattern, "histology", lock))
+
+    def test_verbose_report_is_rejected(self):
+        from lab_core import engine as eng
+
+        base = "\n".join([
+            "#### TASHXIS",
+            "teri, dermatofibroma - benign",
+            "#### NEGA SHU TASHXIS",
+            "Kollagen tuzogi - KO'RINDI: periferik kollagen o'ralgan.",
+            "#### FAKT (ko'rinadigan morfologiya)",
+            "Epidermis: giperplaziya. Dermis: fibroblast proliferatsiyasi.",
+            "Reaksiya patterni: neoplastik.",
+            "#### NEGA BOSHQASI EMAS",
+            "DFSP - infiltratsiya yo'q.",
+        ])
+        self.assertFalse(eng._too_verbose(base, "histology"))
+        self.assertTrue(eng._too_verbose(base + "\n#### PROFILAKTIKA\nquyoshdan himoya", "histology"))
+        self.assertTrue(eng._too_verbose(base + "\n#### KLINIK FIKRLASH\nSavol: nima?", "histology"))
+        self.assertTrue(eng._too_verbose(base + ("\nmatn" * 3000), "histology"))
+
+    def test_short_four_section_report_is_accepted(self):
+        from lab_core import engine as eng
+
+        rep = "\n".join([
+            "#### TASHXIS",
+            "teri, seborrheic keratosis - benign",
+            "#### NEGA SHU TASHXIS",
+            "Shox kistalari - KO'RINDI: epidermis ichida keratin kistalari.",
+            "#### FAKT (ko'rinadigan morfologiya)",
+            "Reaksiya patterni: neoplastik, epidermal lezyon.",
+            "Epidermis: bazaloid hujayralar hisobiga akantoz, sirtda giperkeratoz.",
+            "Shox kistalari va psevdokistalar epiteliy ichida ko'rinadi.",
+            "Chegara: aniq, itaruvchi; bazal membrana butun.",
+            "Yadro: bir xil, atipiya yo'q; mitoz kam va normal shaklda.",
+            "Dermis: tinch, yengil perivaskulyar limfotsitar infiltrat.",
+            "Invaziya: yo'q. Nekroz: yo'q. Pigment: bazal qatlamda o'rtacha.",
+            "#### NEGA BOSHQASI EMAS",
+            "SCC - to'liq qalinlikdagi keratinotsit atipiyasi va invaziya YO'Q.",
+            "Verruca - koilotsit va gipergranuloz YO'Q.",
+        ])
+        self.assertFalse(eng._missing_diagnosis_sections(rep, "histology"))
+        self.assertFalse(eng._too_verbose(rep, "histology"))
+        self.assertFalse(eng._looks_like_weak_generic(rep, "histology", {"organ": "teri"}))
 
 
 class KnowledgeBaseSourceTests(TestCase):
