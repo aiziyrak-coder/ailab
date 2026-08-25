@@ -1,5 +1,6 @@
 import cv2
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import time
 import logging
 import numpy as np
@@ -853,7 +854,7 @@ def _lock_histology_organ(image_parts, patient_context=None):
         return None
     try:
         low_parts = []
-        for part in image_parts[: min(4, len(image_parts))]:
+        for part in image_parts[: min(2, len(image_parts))]:
             url = (part.get("image_url") or {}).get("url") or ""
             low_parts.append(
                 {"type": "image_url", "image_url": {"url": url, "detail": "high"}}
@@ -2705,6 +2706,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
         log.warning("%s: patient/lab mismatch lab=%s", ZIYRAKAI_DISPLAY_NAME, lab_type)
         return mismatch_pt
 
+    t_start = time.time()
     full_prompt = "\n\n".join(item for item in content_list if isinstance(item, str))
     image_parts = [
         {
@@ -2722,15 +2724,25 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
         kwargs.setdefault("seed", 42)
 
     n_img = len(image_parts)
+    organ_lock = None
     if image_parts:
-        mismatch = _gate_specimen_match(image_parts, lab_type)
+        # Namuna turi tekshiruvi va organ qulfi bir-biriga bog'liq emas — parallel bajariladi
+        t0 = time.time()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            gate_f = pool.submit(_gate_specimen_match, image_parts, lab_type)
+            lock_f = (
+                pool.submit(_lock_histology_organ, image_parts, patient_context)
+                if lab_type == "histology"
+                else None
+            )
+            mismatch = gate_f.result()
+            organ_lock = lock_f.result() if lock_f is not None else None
+        log.info(
+            "%s: gate+organ qulf %.1fs (parallel)", ZIYRAKAI_DISPLAY_NAME, time.time() - t0
+        )
         if mismatch:
             log.warning("%s: specimen mismatch lab=%s — tahlil to'xtatildi", ZIYRAKAI_DISPLAY_NAME, lab_type)
             return mismatch
-
-    organ_lock = None
-    if lab_type == "histology" and image_parts:
-        organ_lock = _lock_histology_organ(image_parts, patient_context)
 
     kb_block = ""
     if lab_type == "histology":
@@ -2842,6 +2854,10 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
     if _usable(report, 400):
         if lab_type == "histology":
             report = _strip_other_organ_differential(report)
+        log.info(
+            "%s: hisobot tayyor lab=%s imgs=%s belgi=%s %.1fs",
+            ZIYRAKAI_DISPLAY_NAME, lab_type, n_img, len(report), time.time() - t_start,
+        )
         return report
     log.warning("%s: hisobot olinmadi: %r", ZIYRAKAI_DISPLAY_NAME, _preview(report))
     return _REFUSAL_FALLBACK_UZ

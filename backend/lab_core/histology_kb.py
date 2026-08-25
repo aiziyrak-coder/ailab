@@ -369,6 +369,24 @@ def _openai_client():
     return OpenAI(api_key=key, timeout=120.0)
 
 
+_QUERY_CACHE = {}
+_QUERY_CACHE_MAX = 512
+
+
+def embed_queries(queries):
+    """Qidiruv so'rovlari uchun embedding — takroriy so'rovlar keshdan (tezlik)."""
+    queries = list(queries)
+    missing = [q for q in queries if q not in _QUERY_CACHE]
+    if missing:
+        vecs = embed_texts(missing)
+        with _lock:
+            for q, v in zip(missing, vecs):
+                _QUERY_CACHE[q] = v
+            while len(_QUERY_CACHE) > _QUERY_CACHE_MAX:
+                _QUERY_CACHE.pop(next(iter(_QUERY_CACHE)), None)
+    return np.vstack([_QUERY_CACHE[q] for q in queries])
+
+
 def embed_texts(texts):
     client = _openai_client()
     if client is None:
@@ -558,7 +576,7 @@ def retrieve(queries, k=None, organ=None, per_source_max=None):
     if emb is None:
         return []
     try:
-        qv = embed_texts(list(queries))
+        qv = embed_queries(queries)
     except Exception as e:
         log.warning("histology_kb: embed xato: %s", e)
         return []
@@ -640,6 +658,8 @@ def format_prompt_block(hits, organ=None):
         ),
         "",
     ]
+    # Teri — asosiy yo'nalish: kitob mezonlariga ko'proq joy ajratiladi
+    budget = int(MAX_PROMPT_CHARS * 1.4) if skin else MAX_PROMPT_CHARS
     used = 0
     for n, h in enumerate(hits, start=1):
         src = source_label(h.get("source") or "")
@@ -648,7 +668,7 @@ def format_prompt_block(hits, organ=None):
         if len(body) > 780:
             body = body[:780].rsplit(" ", 1)[0] + "…"
         block = f"[{n}] {src}, sahifa {page}: {body}"
-        if used + len(block) > MAX_PROMPT_CHARS:
+        if used + len(block) > budget:
             break
         lines.append(block)
         used += len(block) + 1
@@ -665,7 +685,9 @@ def histology_kb_prompt_block(organ_lock=None, patient_context=None, draft=None)
         return ""
     organ = ((organ_lock or {}).get("organ") or "noaniq").strip().lower()
     queries = _query_parts(organ_lock, patient_context, draft)
-    hits = retrieve(queries, k=TOP_K, organ=organ)
+    # Teri — asosiy yo'nalish: kitob mezonlaridan ko'proq parcha olinadi
+    k = TOP_K + 4 if organ == "teri" else TOP_K
+    hits = retrieve(queries, k=k, organ=organ)
     if not hits:
         return ""
     log.info(
@@ -676,3 +698,22 @@ def histology_kb_prompt_block(organ_lock=None, patient_context=None, draft=None)
         hits[0].get("score") or 0.0,
     )
     return format_prompt_block(hits, organ)
+
+
+def warm_index(background=True):
+    """Indeksni oldindan xotiraga yuklash — birinchi tahlil kutib qolmasin."""
+    if not kb_enabled() or not index_ready():
+        return None
+
+    def _load():
+        try:
+            _load_index()
+        except Exception as e:
+            log.warning("histology_kb: warmup xato: %s", e)
+
+    if not background:
+        _load()
+        return None
+    t = threading.Thread(target=_load, name="kb-warmup", daemon=True)
+    t.start()
+    return t
