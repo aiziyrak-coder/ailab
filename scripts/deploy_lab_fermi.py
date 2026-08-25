@@ -13,6 +13,24 @@ except ImportError:
     print("pip install paramiko", file=sys.stderr)
     sys.exit(1)
 
+def _load_ssh_env():
+    """SSH sozlamalari backend/.env dan ham o'qiladi (parol terminal tarixiga tushmasin)."""
+    env = Path(__file__).resolve().parents[1] / "backend" / ".env"
+    if not env.is_file():
+        return
+    for line in env.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip()
+        if k.startswith("AILAB_") and not os.environ.get(k):
+            os.environ[k] = v.strip().strip('"').strip("'")
+
+
+_load_ssh_env()
+
+
 HOST = os.environ.get("AILAB_SSH_HOST", "192.168.0.101").strip()
 PORT = int(os.environ.get("AILAB_SSH_PORT", "22"))
 USER = os.environ.get("AILAB_SSH_USER", "admin_root").strip()
