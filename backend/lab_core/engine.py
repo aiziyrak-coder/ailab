@@ -890,6 +890,7 @@ def _lock_histology_organ(image_parts, patient_context=None):
                 },
             ],
             {"max_tokens": 180, "temperature": 0.0, "top_p": 0.1},
+            model=_router_model(),
         )
         parsed = _parse_histology_organ(raw)
         if not parsed:
@@ -2209,14 +2210,20 @@ def _looks_like_refusal(text):
     return False
 
 
-def _chat_complete(messages, kwargs):
+def _router_model():
+    """Tekshiruv/organ aniqlash uchun model — arzonroq/tezroqqa almashtirish mumkin."""
+    return (os.environ.get("OPENAI_ROUTER_MODEL") or OPENAI_MODEL_ID).strip() or OPENAI_MODEL_ID
+
+
+def _chat_complete(messages, kwargs, model=None):
     max_retries = max(1, int(os.environ.get("OPENAI_MAX_RETRIES", "3")))
     base_delay = float(os.environ.get("OPENAI_RETRY_DELAY_SEC", "2"))
     call_kwargs = dict(kwargs or {})
+    model_id = (model or OPENAI_MODEL_ID).strip() or OPENAI_MODEL_ID
     for attempt in range(max_retries):
         try:
             resp = openai_client.chat.completions.create(
-                model=OPENAI_MODEL_ID,
+                model=model_id,
                 messages=messages,
                 **call_kwargs,
             )
@@ -2668,6 +2675,7 @@ def _gate_specimen_match(image_parts, lab_type):
                 {"role": "user", "content": _vision_user(user, low_parts)},
             ],
             gate_kwargs,
+            model=_router_model(),
         )
         parsed = _parse_specimen_gate(raw)
         if not parsed:
