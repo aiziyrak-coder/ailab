@@ -588,10 +588,17 @@ def retrieve(queries, k=None, organ=None, per_source_max=None):
     out = []
     seen = set()
     per_source = {}
+    def _limit_for(code):
+        """Organga mos manbadan ko'proq parcha olinadi (teri emas → umumiy kanon)."""
+        dom = source_meta(code)["domain"]
+        if organ == "teri":
+            return per_source_max + 2 if dom in ("skin", "vascular", "melanoma") else per_source_max
+        return per_source_max + 2 if dom == "general" else per_source_max
+
     for i in idx:
         ch = chunks[int(i)]
         code = ch.get("source") or "histology"
-        if per_source.get(code, 0) >= per_source_max:
+        if per_source.get(code, 0) >= _limit_for(code):
             continue
         key = (code, ch.get("page"), (ch.get("text") or "")[:80])
         if key in seen:
