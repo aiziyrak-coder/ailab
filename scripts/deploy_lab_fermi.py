@@ -35,6 +35,10 @@ HOST = os.environ.get("AILAB_SSH_HOST", "192.168.0.101").strip()
 PORT = int(os.environ.get("AILAB_SSH_PORT", "22"))
 USER = os.environ.get("AILAB_SSH_USER", "admin_root").strip()
 PASSWORD = os.environ.get("AILAB_SSH_PASSWORD", "").strip()
+# Parolsiz kalit (masalan ~/.ssh/imentor_deploy). Sudo uchun baribir parol kerak bo'lishi mumkin.
+KEYFILE = os.path.expanduser(os.environ.get("AILAB_SSH_KEY", "").strip())
+# Sudo paroli alohida bo'lsa (kalit bilan kirib, sudo parol so'rasa)
+SUDO_PASSWORD = os.environ.get("AILAB_SUDO_PASSWORD", "").strip() or PASSWORD
 REPO = os.environ.get("AILAB_SSH_REPO", "https://github.com/aiziyrak-coder/ailab.git").strip()
 DOMAIN = "lab.fermi.uz"
 
@@ -50,7 +54,10 @@ def local_openai_key() -> str:
 
 
 def sudo_bash(client: paramiko.SSHClient, script: str, timeout: int = 600) -> tuple[int, str]:
-    inner = f"echo {shlex.quote(PASSWORD)} | sudo -S -p '' bash -lc {shlex.quote(script)}"
+    if SUDO_PASSWORD:
+        inner = f"echo {shlex.quote(SUDO_PASSWORD)} | sudo -S -p '' bash -lc {shlex.quote(script)}"
+    else:
+        inner = f"sudo -n bash -lc {shlex.quote(script)}"
     stdin, stdout, stderr = client.exec_command(inner, timeout=timeout)
     out = stdout.read().decode("utf-8", errors="replace")
     err = stderr.read().decode("utf-8", errors="replace")
@@ -60,8 +67,8 @@ def sudo_bash(client: paramiko.SSHClient, script: str, timeout: int = 600) -> tu
 
 
 def main() -> int:
-    if not PASSWORD:
-        print("AILAB_SSH_PASSWORD kerak", file=sys.stderr)
+    if not PASSWORD and not KEYFILE:
+        print("AILAB_SSH_PASSWORD yoki AILAB_SSH_KEY kerak", file=sys.stderr)
         return 2
 
     openai_key = local_openai_key()
@@ -207,7 +214,8 @@ echo OK_HTTP $(git -C "$APP" rev-parse --short HEAD)
         HOST,
         port=PORT,
         username=USER,
-        password=PASSWORD,
+        password=PASSWORD or None,
+        key_filename=KEYFILE or None,
         timeout=45,
         allow_agent=False,
         look_for_keys=False,

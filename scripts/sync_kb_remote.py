@@ -55,10 +55,17 @@ HOST = os.environ.get("AILAB_SSH_HOST", "192.168.0.101").strip()
 PORT = int(os.environ.get("AILAB_SSH_PORT", "22"))
 USER = os.environ.get("AILAB_SSH_USER", "admin_root").strip()
 PASSWORD = os.environ.get("AILAB_SSH_PASSWORD", "").strip()
+# Parolsiz kalit (masalan ~/.ssh/imentor_deploy). Sudo uchun baribir parol kerak bo'lishi mumkin.
+KEYFILE = os.path.expanduser(os.environ.get("AILAB_SSH_KEY", "").strip())
+# Sudo paroli alohida bo'lsa (kalit bilan kirib, sudo parol so'rasa)
+SUDO_PASSWORD = os.environ.get("AILAB_SUDO_PASSWORD", "").strip() or PASSWORD
 
 
 def sudo_bash(client, script, timeout=600):
-    inner = f"echo {shlex.quote(PASSWORD)} | sudo -S -p '' bash -lc {shlex.quote(script)}"
+    if SUDO_PASSWORD:
+        inner = f"echo {shlex.quote(SUDO_PASSWORD)} | sudo -S -p '' bash -lc {shlex.quote(script)}"
+    else:
+        inner = f"sudo -n bash -lc {shlex.quote(script)}"
     stdin, stdout, stderr = client.exec_command(inner, timeout=timeout)
     out = stdout.read().decode("utf-8", errors="replace")
     err = stderr.read().decode("utf-8", errors="replace")
@@ -74,8 +81,8 @@ def main() -> int:
     ap.add_argument("--no-restart", action="store_true")
     args = ap.parse_args()
 
-    if not PASSWORD:
-        print("AILAB_SSH_PASSWORD kerak", file=sys.stderr)
+    if not PASSWORD and not KEYFILE:
+        print("AILAB_SSH_PASSWORD yoki AILAB_SSH_KEY kerak", file=sys.stderr)
         return 2
 
     kb = Path(args.kb_dir)
@@ -90,8 +97,16 @@ def main() -> int:
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     print(f"SSH {USER}@{HOST}:{PORT}")
-    client.connect(HOST, port=PORT, username=USER, password=PASSWORD,
-                   timeout=45, allow_agent=False, look_for_keys=False)
+    client.connect(
+        HOST,
+        port=PORT,
+        username=USER,
+        password=PASSWORD or None,
+        key_filename=KEYFILE or None,
+        timeout=45,
+        allow_agent=False,
+        look_for_keys=False,
+    )
 
     remote_kb = f"{args.app}/backend/data/histology_kb"
     staging = "/tmp/medlab_kb_upload"
