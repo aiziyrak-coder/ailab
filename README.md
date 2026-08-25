@@ -85,3 +85,40 @@ GitHub Actions: `.github/workflows/ci.yml` — har push/PR da `check` + `test`.
 - **Admin**: `DJANGO_ADMIN_ENABLED=1` — `https://<API-domen>/admin/` (masalan `ailabapi`). `0` bo‘lsa marshrutlar umuman yo‘q — 404. Kuchli parol + kerak bo‘lsa nginx da IP cheklovi.
 - **Kirish (prod)**: brauzer **https://lab.fermi.uz** — login **`12345`**.
 - **ZiyrakAi (texnik)**: `OPENAI_MAX_RETRIES`, `OPENAI_RETRY_DELAY_SEC` — vaqtinchalik API xatolarida qayta urinish.
+
+## Bilim bazasi — dermatopatologiya kitoblari (RAG)
+
+MedLab tashxisni **kitob mezonlari** asosida qo'yadi. Kitoblar vektor indeksiga
+aylantiriladi (`backend/data/histology_kb/`), tahlil paytida faqat mos parchalar
+promptga qo'shiladi — kitob matni gitga yozilmaydi va so'zma-so'z ko'chirilmaydi.
+
+Indeksdagi manbalar:
+
+| Manba | Rol |
+|-------|-----|
+| Weedon's Skin Pathology (3rd ed) + Essentials | dermatopatologiya etaloni |
+| Dermatopathology: Diagnosis by First Impression | pattern-tanish (skaner kuchi) |
+| Dermatopathology Vademecum / The Basics / Color Atlas | tashxis mezonlari |
+| Pathology of Vascular Skin Lesions | tomir lezyonlari |
+| Genetics of Melanoma | melanotsitar molekulyar kontekst |
+| Атлас диагностических биопсий кожи, Дерматоонкопатология, Цветкова | rus manbalari |
+| Junqueira, Langman, Alberts (MBOC) | umumiy gistologiya kanoni |
+
+### O'qitish (indeks yaratish)
+
+```bash
+python scripts/ingest_histology_kb.py --pdf-dir "C:\Users\me\Desktop\Gistalogiya Kitoblar" --ocr
+```
+
+- Har bir kitob `sha256` bo'yicha keshlanadi — takroriy ishga tushirishda faqat yangi kitob embed qilinadi.
+- Skanerlangan (matn qatlami yo'q) PDF `--ocr` bilan OpenAI vision orqali transkripsiya qilinadi, natija keshda saqlanadi.
+- PDF endi diskda bo'lmasa: `--keep-source junqueira --keep-source mboc` bilan eski vektorlar saqlab qolinadi.
+- Holat: `python scripts/ingest_histology_kb.py --status` yoki `GET /api/health` → `knowledge_base`.
+
+### Teri holatida qo'shimcha protokol
+
+Namuna joyi yoki organ qulfi **teri** bo'lsa, promptga Weedon/Ackerman uslubidagi
+algoritm qo'shiladi: skaner kuchi → to'qima reaksiya patterni → hujayra yo'nalishi →
+melanotsitar xavfsizlik (Breslow, mitoz, pagetoid) → BCC/SCC/DF-DFSP farqlash → IHC.
+Melanoma yetakchi tashxis bo'lishi uchun Breslow, mitoz va pagetoid/assimetriya
+dalillari matnda bo'lishi shart — aks holda hisobot qayta yoziladi.

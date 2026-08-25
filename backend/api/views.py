@@ -316,6 +316,14 @@ class HealthView(APIView):
 
         eng.ensure_openai_from_env()
         ziyrakai_ready = eng.openai_client is not None
+
+        try:
+            from lab_core.histology_kb import index_stats
+
+            kb = index_stats()
+        except Exception:
+            kb = {"ready": False, "chunks": 0, "sources": {}}
+
         overall = db_ok and snap_ok
         payload = {
             "ok": overall,
@@ -326,6 +334,12 @@ class HealthView(APIView):
             "snapshot_dir_writable": snap_ok,
             "ziyrakai_ready": ziyrakai_ready,
             "product": eng.ZIYRAKAI_DISPLAY_NAME,
+            "knowledge_base": {
+                "ready": bool(kb.get("ready")),
+                "chunks": kb.get("chunks") or 0,
+                "skin_chunks": kb.get("skin_chunks") or 0,
+                "books": len(kb.get("sources") or {}),
+            },
         }
         st = status.HTTP_200_OK if overall else status.HTTP_503_SERVICE_UNAVAILABLE
         return Response(payload, status=st)

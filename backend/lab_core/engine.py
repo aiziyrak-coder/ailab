@@ -555,6 +555,73 @@ Har qator: MOS emas, chunki …
 TAQIQLANGAN: Savol-javob, profilaktika, quyoshdan himoya, 3-professor, 120 jumlalik suv.
 """
 
+_HISTOLOGY_DERM_PATTERN_CANON = """
+#### DERMATOPATOLOGIYA ALGORITMI (Weedon / Ackerman uslubi — TERI uchun MAJBURIY)
+Manba kanoni: Weedon's Skin Pathology (3rd ed) va Essentials; Diagnosis by First Impression;
+Dermatopathology Vademecum; The Basics; Color Atlas of Dermatopathology;
+Pathology of Vascular Skin Lesions; Genetics of Melanoma;
+Атлас диагностических биопсий кожи; Дерматоонкопатология; Цветкова.
+Kitob matnini KO'CHIRMA — METOD va MEZONNI qo'lla.
+
+1-QADAM — SKANER KUCHI (kichik kattalashtirish, «first impression»):
+- Lezyon joyi: epidermal | dermoepidermal (interface) | dermal | subkutan | adneksal | tomir | aralash.
+- Siluet: yassi | ekzofit (papillomatoz) | endofit | tugunli (nodulyar) | diffuz infiltrat | kistoz.
+- Chegara: aniq/itaruvchi (benign tomon) vs infiltrativ/qirrasi yo'q (malign tomon).
+- Simmetriya va yon chegara: assimetriya + yomon chegara → melanotsitar lezyonda xavf belgisi.
+- Majburiy qator: «Skaner ko'rinish: …».
+
+2-QADAM — TO'QIMA REAKSIYA PATTERNI (bittasini tanla va NOMLA):
+ a) Spongiotik (ekzematoz)         f) Granulomatoz / palisadlangan
+ b) Psoriaziform                    g) Vaskulopatik / vaskulit
+ c) Lixenoid / interfeys            h) Pannikulit (septal vs lobulyar)
+ d) Vezikulobulloz (yoriq darajasi) i) Deponirlanish / metabolik
+ e) Perivaskulyar (yuza/chuqur)     j) NEOPLASTIK (o'sma) — 3-qadamga o't
+Majburiy qator: «Reaksiya patterni: …» + nima uchun (2–4 dalil).
+
+3-QADAM — NEOPLASTIK bo'lsa, HUJAYRA YO'NALISHI:
+- Keratinotsitar (SK, verruca, AK, Bowen/SCC in situ, invaziv SCC, keratoakantoma)
+- Bazaloid (BCC — nodulyar/yuzaki/infiltrativ/morfeaform; trikoepitelioma bilan farq)
+- Melanotsitar (nevus: junctional/compound/intradermal, Spitz, displastik; melanoma)
+- Adneksal (follikulyar, sebatseous, ekkrin/apokrin)
+- Fibrogistiotsitar (dermatofibroma turlari; DFSP)
+- Tomir (gemangioma, piyogen granuloma, Kaposi, angiosarkoma)
+- Limfoid (reaktiv psevdolimfoma vs mycosis fungoides / limfoma)
+- Nerv / silliq mushak (neyrofibroma, leyomioma)
+Majburiy qator: «Hujayra yo'nalishi: …».
+
+4-QADAM — MELANOTSITAR XAVFSIZLIK (melanoma faqat qat'iy dalil bilan):
+Melanoma yetakchi bo'lishi uchun kamida: assimetriya + yon chegarada pagetoid tarqalish +
+maturatsiya YO'Qligi + dermal mitozlar + sitologik atipiya + (ko'pincha) infiltrat/regressiya.
+Ko'rsatilishi shart: Breslow qalinligi (mm, taxminiy), yara bor/yo'q, mitoz/mm²,
+tarqalish darajasi (in situ vs invaziv), Clark darajasi (ixtiyoriy).
+Bu belgilar yo'q bo'lsa → benign nevus / atipik nevus deb yoz, melanoma emas.
+
+5-QADAM — BCC vs SCC vs boshqa (eng ko'p uchraydigan xatolar):
+- BCC: bazaloid uyalar, PERIFERIK PALISAD, stroma retraksiyasi (kleft), mitoz+apoptoz, muсin stroma.
+- Trikoepitelioma: papillyar mezenxima, follikulyar farqlanish, kleft YO'Q, CD34+ stroma.
+- SCC: keratinotsit atipiyasi to'liq qalinlikda (in situ) yoki bazal membranadan tashqariga
+  chiqqan uyalar (invaziv), keratin marvaridlari, dyskeratoz.
+- AK: qisman qalinlik atipiyasi, adneks saqlanadi, parakeratoz «flag sign».
+- SK: bazaloid akantoz + SHOX KISTALARI (horn cysts) + pseudohorn, atipiya YO'Q.
+- Verruca: papillomatoz + koilotsit + gipergranuloz + rete ridgelar ichkariga qayrilgan.
+
+6-QADAM — DF vs DFSP (yana bir tez-tez xato):
+DF: yaxshi chegaralangan dermal proliferatsiya, PERIFERIK KOLLAGEN TUZOG'I, Grenz zonasi,
+ustki epidermal giperplaziya (± bazal pigment), FXIIIa+, CD34−.
+DFSP: storiform, yog'ga «asalari uyasi» (honeycomb) infiltratsiya, CD34+ diffuz, epidermal
+giperplaziya odatda yo'q. Infiltratsiya KO'RINMASA DFSP ni yetakchi qilma.
+
+7-QADAM — IHC (faqat farqlash uchun, 3–6 jumla):
+S100/SOX10/Melan-A (melanotsitar), p63/CK5-6 (keratinotsitar), BerEP4 (BCC),
+CD34 vs FXIIIa (DFSP vs DF), CD31/ERG/HHV8 (tomir), CD3/CD20/CD30 (limfoid), Ki-67 proliferatsiya.
+
+MAJBURIY QO'SHIMCHA BO'LIM (teri hisobotida):
+#### KITOB MEZONLARI (manba)
+Yuqoridagi kanon parchalaridan foydalanib, qo'yilgan tashxisning 4–7 ta mezonini
+KO'RINADI / KO'RINMAYDI qilib yoz va qaysi manba oilasiga tayanganingni ayt
+(masalan: «Weedon — bazaloid uyalarda periferik palisad»). Parchani so'zma-so'z ko'chirma.
+"""
+
 _HISTOLOGY_SAFE_PROTOCOL = """
 ADASHISH HUQUQI YO'Q. FAQAT gistologiya. Professor protokoli buzilsa hisobot YAROQSIZ.
 ICHKI gistopatologiya XULOSASI (imzo emas). O'zbek tilida.
@@ -622,10 +689,24 @@ _HISTOLOGY_ORGAN_UZ = {
 
 _HISTOLOGY_WHO_FAMILY = {
     "teri": (
-        "FAQAT TERI oilasi (McKee + WHO skin): seborrheic keratosis; verruca; squamous papilloma; "
-        "actinic keratosis; SCC in situ; BCC; nevus; dermatofibroma (turini yoz); "
-        "DFSP faqat kuchli infiltratsiya dalili. "
-        "TAQIQLANGAN: buyrak RCC; qisqa 60/30/10 foiz vitrinasi."
+        "FAQAT TERI oilasi (Weedon + WHO skin + Dermatoonkopatologiya). Ruxsat etilgan nomlar:\n"
+        "- Keratinotsitar: seborrheic keratosis (akantotik/hyperkeratotik/adenoid/irritatsiyalangan), "
+        "verruca vulgaris, squamous papilloma, actinic keratosis, keratoacanthoma, "
+        "SCC in situ (Bowen), invaziv SCC (differensiatsiya darajasi bilan);\n"
+        "- Bazaloid: BCC (nodulyar / yuzaki / infiltrativ / morfeaform / bazoskvamoz), trichoepithelioma;\n"
+        "- Melanotsitar: junctional/compound/intradermal nevus, Spitz nevus, displastik nevus, "
+        "melanoma (Breslow + mitoz + yara ko'rsatilsa);\n"
+        "- Fibrogistiotsitar: dermatofibroma (klassik/hujayrali/anevrizmal/gemosiderotik), DFSP, "
+        "atipik fibroxantoma;\n"
+        "- Tomir: gemangioma (kapillyar/kavernoz/lobulyar), pyogenic granuloma, angiokeratoma, "
+        "limfangioma, Kaposi sarkomasi, angiosarkoma;\n"
+        "- Adneksal: trichofolliculoma, pilomatricoma, syringoma, hidradenoma, sebaceous adenoma;\n"
+        "- Limfoid: reaktiv psevdolimfoma, mycosis fungoides;\n"
+        "- Yallig'lanish: psoriasis, spongiotik dermatit, lichen planus, interface/lupus, "
+        "granuloma annulare, sarkoidoz, leykositoklastik vaskulit, erythema nodosum;\n"
+        "- Kista: epidermal inklyuzion kista, pilar (trichilemmal) kista.\n"
+        "TAQIQLANGAN: buyrak RCC, urotel, sut bezi tashxislari; qisqa 60/30/10 foiz vitrinasi; "
+        "dalilsiz melanoma yoki DFSP."
     ),
     "sut_bezi": (
         "FAQAT SUT BEZI: intraductal papilloma; ADH/DCIS; encapsulated/solid papillary carcinoma; "
@@ -860,6 +941,25 @@ def _histology_organ_lock_text(organ_info):
     )
 
 
+def _is_skin_case(organ_lock=None, patient_context=None):
+    """Organ qulfi yoki klinik namuna joyi teri ekanligini aniqlash."""
+    code = ((organ_lock or {}).get("organ") or "").strip().lower()
+    if code == "teri":
+        return True
+    if code and code != "noaniq":
+        return False
+    p = _normalize_patient_context(patient_context)
+    site = " ".join(x for x in (p.get("specimen_site"), p.get("clinical_note")) if x)
+    return _organ_from_text(site) == "teri"
+
+
+def _histology_protocol(organ_lock=None, patient_context=None):
+    """Gistologiya protokoli; teri holatida dermatopatologiya algoritmi ham qo'shiladi."""
+    if _is_skin_case(organ_lock, patient_context):
+        return _HISTOLOGY_SAFE_PROTOCOL + _HISTOLOGY_DERM_PATTERN_CANON
+    return _HISTOLOGY_SAFE_PROTOCOL
+
+
 def _histology_report_wrong_organ(text, organ_lock):
     """Qulfdagi organga zid tashxis oilasi (teri → buyrak rak)."""
     if not text or not organ_lock:
@@ -915,7 +1015,7 @@ def _strip_other_organ_differential(text):
 
 def _worksheet_user(lab_type, organ_lock=None, kb_block=""):
     m = _lab_meta(lab_type)
-    extra = _HISTOLOGY_SAFE_PROTOCOL if lab_type == "histology" else (
+    extra = _histology_protocol(organ_lock) if lab_type == "histology" else (
         "Keyin 40-60 jumla: pattern/tuzilma NOMLARI. Oxirida 3 ishchi taassurot, ehtimollik %."
     )
     lock = _histology_organ_lock_text(organ_lock) if lab_type == "histology" else ""
@@ -948,7 +1048,7 @@ def _describe_user(lab_type, organ_lock=None, kb_block=""):
             f"{m['forbid']}\n\n"
             + _histology_organ_lock_text(organ_lock)
             + kb
-            + _HISTOLOGY_SAFE_PROTOCOL
+            + _histology_protocol(organ_lock)
         )
     return (
         f"Microscope field of {m['specimen']}. Internal LIS note in Uzbek as {m['role']}. "
@@ -1008,6 +1108,32 @@ def _histology_cancer_overcall(text):
     return False
 
 
+_MELANOMA_LEAD_RE = re.compile(r"melanom", re.I)
+
+
+def _histology_melanoma_overcall(text):
+    """Melanoma yetakchi bo'lsa — Breslow / mitoz / pagetoid dalili majburiy."""
+    if not text:
+        return False
+    block = _histology_dx_block(text)
+    lead = ""
+    for line in block.splitlines():
+        if re.search(r"yetakchi|1-o.?rin|tashxis\s*\(", line, re.I):
+            lead = line
+            break
+    if not lead:
+        lead = block[:600]
+    if not _MELANOMA_LEAD_RE.search(lead):
+        return False
+    low = text.lower().replace("‘", "'").replace("’", "'")
+    if "nevus" in lead.lower() and "melanoma" not in lead.lower():
+        return False
+    has_breslow = bool(re.search(r"breslow|qalinlig[i']?\s*[:=]?\s*\d|\d[\.,]?\d*\s*mm", low))
+    has_mitosis = bool(re.search(r"mitoz", low))
+    has_pattern = bool(re.search(r"pagetoid|maturatsiya|atipik melanotsit|assimetri", low))
+    return not (has_breslow and has_mitosis and has_pattern)
+
+
 def _looks_like_weak_generic(text, lab_type, organ_lock=None):
     if not text:
         return True
@@ -1061,8 +1187,20 @@ def _looks_like_weak_generic(text, lab_type, organ_lock=None):
             return True
         if _histology_cancer_overcall(text):
             return True
+        if _histology_melanoma_overcall(text):
+            return True
         if low.count("%") >= 8 and "baho" in low:
             return True
+        if (organ_lock or {}).get("organ") == "teri":
+            has_pattern = any(x in low for x in (
+                "reaksiya patterni", "pattern", "skaner ko'rin", "skaner korin",
+                "hujayra yo'nalishi", "hujayra yonalishi",
+            ))
+            if not has_pattern:
+                return True
+            has_layers = any(x in low for x in ("epidermis", "dermis", "epiderm"))
+            if not has_layers:
+                return True
     return False
 
 
@@ -1149,6 +1287,8 @@ def _full_analysis_prompt(base, microscope_prefix, lab_type=None, patient_contex
         parts.append(_HISTOLOGY_CANON_REF.strip())
         parts.append(_HISTOLOGY_WHO_STRICT.strip())
         parts.append(_HISTOLOGY_TEACHING_DEEP.strip())
+        if _is_skin_case(None, patient_context):
+            parts.append(_HISTOLOGY_DERM_PATTERN_CANON.strip())
     parts.append(merged)
     return _append_output_format("\n\n".join(parts), lab_type)
 
@@ -2367,12 +2507,13 @@ def _needs_rewrite(text, lab_type, organ_lock=None):
         or _looks_like_weak_generic(text, lab_type, organ_lock)
         or _missing_diagnosis_sections(text, lab_type)
         or (lab_type == "histology" and _histology_cancer_overcall(text))
+        or (lab_type == "histology" and _histology_melanoma_overcall(text))
     )
 
 
 def _safe_expand(draft, kwargs, image_parts=None, lab_type="histology", organ_lock=None, patient_context=None):
     """Uzaytirish: tashxis so'zisiz, filtr rad etmasin."""
-    protocol = _HISTOLOGY_SAFE_PROTOCOL if lab_type == "histology" else (
+    protocol = _histology_protocol(organ_lock, patient_context) if lab_type == "histology" else (
         "Ichki LIS protokoli. 50+ jumla. 3 ishchi taassurot (nom+%), MOS/QARSHI. Rad etma."
     )
     lock = _histology_organ_lock_text(organ_lock) if lab_type == "histology" else ""
@@ -2690,7 +2831,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
                 (_patient_prompt_prefix(patient_context, lab_type) + "\n"
                  + _histology_organ_lock_text(organ_lock)
                  + (("\n" + kb_retry + "\n") if kb_retry else "")
-                 + _HISTOLOGY_SAFE_PROTOCOL)
+                 + _histology_protocol(organ_lock, patient_context))
                 if lab_type == "histology"
                 else full_prompt
             )

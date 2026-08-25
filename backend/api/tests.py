@@ -360,3 +360,87 @@ class BackupCommandTests(TestCase):
             files = list(Path(d).glob("db_*.sqlite3"))
             self.assertTrue(files)
             self.assertGreater(files[0].stat().st_size, 0)
+
+
+class DermatopathologyCanonTests(TestCase):
+    """Teri holatida dermatopatologiya kanoni va xavfsizlik filtrlari."""
+
+    def test_skin_case_detected_from_specimen_site(self):
+        from lab_core import engine as eng
+
+        self.assertTrue(eng._is_skin_case(None, {"specimen_site": "Teri, yelka"}))
+        self.assertTrue(eng._is_skin_case({"organ": "teri"}, None))
+        self.assertFalse(eng._is_skin_case({"organ": "buyrak"}, {"specimen_site": "teri"}))
+
+    def test_derm_protocol_only_for_skin(self):
+        from lab_core import engine as eng
+
+        skin = eng._histology_protocol({"organ": "teri"})
+        other = eng._histology_protocol({"organ": "ichak"})
+        self.assertIn("DERMATOPATOLOGIYA ALGORITMI", skin)
+        self.assertNotIn("DERMATOPATOLOGIYA ALGORITMI", other)
+
+    def test_melanoma_needs_breslow_and_mitosis(self):
+        from lab_core import engine as eng
+
+        weak = "#### ANIQ TASHXIS\nYetakchi: Melanoma (70%)\nEpidermis o'zgargan."
+        strong = (
+            "#### ANIQ TASHXIS\nYetakchi: Melanoma (70%)\n"
+            "Breslow 1.2 mm, mitoz 3/mm2, pagetoid tarqalish va assimetriya bor."
+        )
+        self.assertTrue(eng._histology_melanoma_overcall(weak))
+        self.assertFalse(eng._histology_melanoma_overcall(strong))
+
+    def test_nevus_lead_is_not_melanoma_overcall(self):
+        from lab_core import engine as eng
+
+        txt = "#### ANIQ TASHXIS\nYetakchi: Intradermal nevus (85%)\nMelanoma emas."
+        self.assertFalse(eng._histology_melanoma_overcall(txt))
+
+    def test_skin_report_without_pattern_is_weak(self):
+        from lab_core import engine as eng
+
+        lock = {"organ": "teri"}
+        base = (
+            "#### ANIQ TASHXIS teri, dermatofibroma\n#### WHO MEZONLARI essential\n"
+            "#### TASHXIS IZOHI\n#### DIFFERENSIAL\n" + "epidermis dermis matn. " * 200
+        )
+        self.assertFalse(eng._looks_like_weak_generic(base + " reaksiya patterni: neoplastik", "histology", lock))
+        no_pattern = base.replace("epidermis dermis", "to'qima")
+        self.assertTrue(eng._looks_like_weak_generic(no_pattern, "histology", lock))
+
+
+class KnowledgeBaseSourceTests(TestCase):
+    """Kitob manbalarini fayl nomidan aniqlash va sozlamalar."""
+
+    def test_detect_source_for_all_books(self):
+        from lab_core.histology_kb import detect_source
+
+        cases = {
+            "Weedon's_Skin_Pathology_3rd_ed.pdf": "weedon",
+            "Weedon's_Skin_Pathology_Essentials_R_Johnston.pdf": "weedon_estimate",
+            "Dermatopathology__Diagnosis_by_First_Impression.pdf": "first_impression",
+            "Dermatopathology_Vademecum_Ramon_L_Sanchez.pdf": "vademecum",
+            "Dermatopathology The Basics.pdf": "derm_basics",
+            "Color_Atlas_of_Dermatopathology.pdf": "color_atlas",
+            "Pathology of Vascular Skin Lesions.pdf": "vascular_skin",
+            "Genetics of Melanoma.pdf": "melanoma_genetics",
+            "Атлас_диагностических_биопсий_кожи.pdf": "atlas_biopsy_ru",
+            "ДЕРМАТООНКОПАТОЛОГИЯ.pdf": "dermatoonko_ru",
+            "Дерматология Цветкова 2003.pdf": "tsvetkova_ru",
+            "1.Junqueira's_Basic_Histology.pdf": "junqueira",
+        }
+        cases["Weedon's_Skin_Pathology_Essentials_R_Johnston.pdf"] = "weedon_essentials"
+        for name, expected in cases.items():
+            self.assertEqual(detect_source(name), expected, name)
+
+    def test_skin_sources_are_boosted_for_skin_organ(self):
+        from lab_core.histology_kb import _source_bonus
+
+        self.assertGreater(_source_bonus("weedon", "teri"), _source_bonus("mboc", "teri"))
+        self.assertGreater(_source_bonus("junqueira", "ichak"), _source_bonus("weedon", "ichak"))
+
+    def test_prompt_block_empty_without_hits(self):
+        from lab_core.histology_kb import format_prompt_block
+
+        self.assertEqual(format_prompt_block([]), "")
