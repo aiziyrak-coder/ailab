@@ -108,6 +108,7 @@ Path(".env").write_text(
         "DJANGO_ADMIN_ENABLED=0",
         "OPENAI_API_KEY=",
         "OPENAI_MODEL_ID=gpt-4o",
+        "OPENAI_ROUTER_MODEL=gpt-4o-mini",
     ]) + "\n"
 )
 print("env_created")
@@ -122,6 +123,7 @@ repls = {{
     "MEDLAB_PUBLIC_UI_BASE=": "MEDLAB_PUBLIC_UI_BASE=https://lab.fermi.uz",
     "CORS_ALLOWED_ORIGINS=": "CORS_ALLOWED_ORIGINS=https://lab.fermi.uz",
     "CSRF_TRUSTED_ORIGINS=": "CSRF_TRUSTED_ORIGINS=https://lab.fermi.uz,http://lab.fermi.uz",
+    "OPENAI_ROUTER_MODEL=": "OPENAI_ROUTER_MODEL=gpt-4o-mini",
 }}
 lines = []
 seen = set()

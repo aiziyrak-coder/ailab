@@ -126,3 +126,17 @@ dalillari matnda bo'lishi shart — aks holda hisobot qayta yoziladi.
 > **Eslatma:** skanerlangan kitoblar OCR matni `backend/data/histology_kb/cache/ocr_*.jsonl`
 > da saqlanadi. OCR bir marta bajariladi; keyin yuqoridagi buyruqni qayta ishga tushirsangiz
 > faqat embedding qilinadi (kesh tufayli boshqa kitoblar qayta hisoblanmaydi).
+
+### Serverga kitob indeksini yuborish
+
+Indeks (`backend/data/histology_kb/`, ~125 MB) gitga kirmaydi, shuning uchun
+`git pull` uni serverga olib bormaydi. Kod deploy qilingandan keyin:
+
+```bash
+python scripts/sync_kb_remote.py
+```
+
+`AILAB_SSH_PASSWORD` (va kerak bo'lsa `AILAB_SSH_HOST`, `AILAB_SSH_USER`) muhit
+o'zgaruvchisi kerak. Skript indeksni SFTP orqali yuboradi, `www-data` ga beradi,
+gunicorn ni qayta ishga tushiradi va `/api/health` ni tekshiradi.
+Boshqa server uchun: `--app /opt/ailab --service ailab-gunicorn`.
