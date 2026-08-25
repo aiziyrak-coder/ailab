@@ -389,6 +389,10 @@ def embed_texts(texts):
 def _clean_text(raw):
     t = (raw or "").replace("\x00", " ")
     t = t.replace("­", "")
+    # OCR javoblari ba'zan ``` bloklariga o'raladi
+    t = re.sub(r"^\s*```[a-zA-Z]*\s*", "", t)
+    t = re.sub(r"\s*```\s*$", "", t)
+    t = t.replace("```", " ")
     t = re.sub(r"[ \t]+", " ", t)
     t = re.sub(r"\n{3,}", "\n\n", t)
     return t.strip()

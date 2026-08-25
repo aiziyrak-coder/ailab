@@ -122,3 +122,7 @@ algoritm qo'shiladi: skaner kuchi → to'qima reaksiya patterni → hujayra yo'n
 melanotsitar xavfsizlik (Breslow, mitoz, pagetoid) → BCC/SCC/DF-DFSP farqlash → IHC.
 Melanoma yetakchi tashxis bo'lishi uchun Breslow, mitoz va pagetoid/assimetriya
 dalillari matnda bo'lishi shart — aks holda hisobot qayta yoziladi.
+
+> **Eslatma:** skanerlangan kitoblar OCR matni `backend/data/histology_kb/cache/ocr_*.jsonl`
+> da saqlanadi. OCR bir marta bajariladi; keyin yuqoridagi buyruqni qayta ishga tushirsangiz
+> faqat embedding qilinadi (kesh tufayli boshqa kitoblar qayta hisoblanmaydi).
