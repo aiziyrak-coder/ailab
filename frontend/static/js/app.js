@@ -691,6 +691,15 @@ function startNewAnalysis() {
   if (ov) ov.classList.add('hidden');
   clearResult();
   clearPatientFields();
+  // Yuklangan rasm/video ro'yxati ham tozalanadi — «yangi tahlil» bo'sh boshlanadi
+  clearFile();
+  const headerSearch = document.getElementById('headerIdSearch');
+  if (headerSearch) headerSearch.value = '';
+  const analyzeStatus = document.getElementById('analyzeStatus');
+  if (analyzeStatus) analyzeStatus.textContent = '';
+  const hint = document.getElementById('sexNameHint');
+  if (hint) { hint.textContent = ''; hint.classList.add('hidden'); }
+  markPatientFields(false);
   // Yangi namuna raqami (oldingi natija bilan aralashmasin)
   _sampleSeq = 0;
   allocateSampleSeq();
