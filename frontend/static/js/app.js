@@ -223,7 +223,7 @@ function selectLab(lab) {
   const s = labSpec(lab);
   const root = document.querySelector('.app-root');
   if (root) {
-    root.style.setProperty('--lab-accent', '#1b3a5c');
+    root.style.setProperty('--lab-accent', '#564621');
     root.setAttribute('data-lab', lab);
   }
   syncLabChrome(m, s);
@@ -2457,7 +2457,7 @@ function msg(id, text, color) {
   const el = document.getElementById(id);
   if (!el) return;
   el.textContent = text;
-  el.style.color = { green:'#166534', red:'#b91c1c', gray:'#475569', '':'' }[color] || '#475569';
+  el.style.color = { green:'#166534', red:'#b91c1c', gray:'#665e4a', '':'' }[color] || '#665e4a';
 }
 
 async function api(url, method = 'GET', body = null) {
