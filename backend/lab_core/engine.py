@@ -71,8 +71,8 @@ MAX_FILE_READ_BYTES    = 200 * 1024 * 1024  # bitta so'rov yig'indisi Flask limi
 MAX_VIDEO_BYTES        = 180 * 1024 * 1024  # bitta video fayl
 MAX_CUSTOM_PROMPT_LEN  = 6000
 # Yakuniy hisobot: aniq tashxis + sabab + fakt. Uzun bayon talab qilinmaydi.
-MIN_REPORT_CHARS       = 500
-_MAX_REPORT_CHARS      = 4200
+MIN_REPORT_CHARS       = 700
+_MAX_REPORT_CHARS      = 6500
 MAX_MICRO_FIELD_LEN    = 500
 
 
@@ -183,7 +183,7 @@ ICHKI FIKRLASH (bu qismni hisobotga YOZMA — faqat o'zing uchun):
 5) Muqobillar va ular nima uchun mos emasligi.
 6) Malignite huquqi bor-yo'qligini QONUN bo'yicha hal qil.
 
-HISOBOTGA esa faqat yakuniy 4 bo'lim tushadi: TASHXIS, NEGA SHU TASHXIS,
+HISOBOTGA esa faqat yakuniy 6 bo'lim tushadi: TASHXIS, NEGA SHU TASHXIS,
 FAKT, NEGA BOSHQASI EMAS. Fikrlash jarayonini bayon qilma — natijani yoz.
 Qisqa, aniq, shifokor tilida. Uzun matn — xato.
 Agar H&E to'qima EMAS bo'lsa: «bu gistologiya kesmasi emas» deb to'xta.
@@ -216,7 +216,7 @@ LAB_IDENTITY = {
         ),
         "dx": (
             "Asosiy mahsulot: ANIQ TASHXIS + nega shu tashxis + ko'ringan fakt. "
-            "Hisobot 4 bo'limdan iborat, 1500-3000 belgi. "
+            "Hisobot 6 bo'limdan iborat, 2000-4500 belgi. "
             "Uzun bayon, savol-javob, foizli vitrina, jadval TAQIQLANADI. "
             "Dalilsiz malignite asosiy tashxis qilinmaydi."
         ),
@@ -276,9 +276,10 @@ def _analysis_system(lab_type):
     voices = _board_voices(lab_type)
     tail = (
         "ADASHISH HUQUQI YO'Q. "
-        "HISOBOT FAQAT 4 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, "
-        "#### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS. "
-        "Jami 1500-3000 belgi. Savol-javob, profilaktika, davolash rejasi, "
+        "HISOBOT FAQAT 6 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, "
+        "#### FAKT (o'lchangan morfologiya), #### NEGA BOSHQASI EMAS, "
+        "#### TASDIQLASH, #### BAHOLANMAGAN. "
+        "Jami 2000-4500 belgi. Savol-javob, profilaktika, davolash rejasi, "
         "professor bo'limlari, jadval, ehtimollik foizi YOZILMAYDI. "
     )
     return (
@@ -401,46 +402,75 @@ F) MALIGNITE: bemor xavfsizligi qonunlari ustun. Soxta rak — eng og'ir xato.
 _HISTOLOGY_TEACHING_DEEP = """
 #### HISOBOT SHAKLI — QAT'IY (boshqa bo'lim YOZILMAYDI)
 
-Foydalanuvchi shifokor. Unga TASHXIS, uning SABABI va KO'RINGAN FAKT kerak.
-Suvli matn, o'quv savol-javob, uzun muhokama — hisobot yaroqsiz.
-Butun hisobot 1500–3000 belgi. Ko'proq yozish XATO.
+O'quvchi — shifokor. Unga konsultant-patolog darajasidagi ANIQ xulosa kerak:
+tashxis, uning mezonlari, o'lchangan fakt, rad etilgan muqobillar va tasdiqlash yo'li.
+Suvli matn, o'quv muhokamasi, umumiy nasihat — hisobot yaroqsiz.
+Butun hisobot 2000–4500 belgi. Har qator ma'lumot tashisin; bo'sh jumla yozma.
 
-Hisobotda FAQAT shu 4 bo'lim, shu tartibda:
+Hisobotda FAQAT shu 6 bo'lim, shu tartibda:
 
 #### TASHXIS
-Bir qator: <to'liq nom + turi> — <benign | reaktiv | in situ | invaziv>
-Ikkinchi qator: Organ/qatlam: … | Ishonch: yuqori/o'rta/past | Malignite huquqi: HA yoki YO'Q
+1-qator: <WHO/Weedon bo'yicha to'liq nom + variant/turi> — <benign | reaktiv | in situ | invaziv>
+2-qator: Organ/qatlam: … | Daraja: <grade yoki «qo'llanilmaydi»> | Ishonch: yuqori/o'rta/past |
+         Malignite qo'yish huquqi: HA yoki YO'Q
+Nom umumiy bo'lmasin: variantni ayt (masalan «akantotik», «nodulyar», «hujayrali»),
+agar variantni ajratuvchi belgi ko'rinsa. Ko'rinmasa variantni uydirma.
 
-SHABLON JAVOB TAQIQLANADI. Ro'yxatlardagi nomlar ALIFBO tartibida berilgan —
-ketma-ketlik ehtimollikni bildirmaydi. Eng ko'p uchraydigan nomni (masalan seboreik
-keratoz, dermatofibroma) SUKUT BO'YICHA tanlash — og'ir xato.
-Tashxis FAQAT «TASVIRDAN OLINGAN BELGILAR» ro'yxatidagi belgilardan chiqadi.
-Har xil tasvirga bir xil javob bermaslik uchun: avval belgilarni o'qi, keyin nom qo'y.
+SHABLON JAVOB TAQIQLANADI. Ro'yxatlardagi nomlar ALIFBO tartibida —
+ketma-ketlik ehtimollikni bildirmaydi. Eng ko'p uchraydigan nomni (seboreik keratoz,
+dermatofibroma) SUKUT BO'YICHA tanlash — og'ir xato.
+Tashxis FAQAT «TASVIRDAN OLINGAN BELGILAR» ro'yxatidan chiqadi.
 
 BELGILAR YETARLI BO'LMASA (bu TO'G'RI javob, kamchilik emas):
-«Aniq tashxis uchun yetarli emas» deb yoz, keyin:
-- Nima ko'rindi (2-3 belgi)
-- Qaysi belgi yetishmayapti
-- Nima kerak: qo'shimcha kesma, chuqurroq daraja, IHC (aniq nomlari), klinik ma'lumot
-Noto'g'ri aniq tashxisdan ko'ra halol «yetarli emas» xavfsizroq.
+«Aniq tashxis uchun yetarli emas» + eng yaqin tavsifiy toifa
+(masalan «bazaloid epidermal proliferatsiya, atipiyasiz»), keyin qaysi belgi
+yetishmayotgani va nima hal qilishi.
 
 #### NEGA SHU TASHXIS
-4–6 ta qator, boshqa hech narsa. Har qator: <mezon nomi> — <bir jumlalik ko'ringan dalil>.
-Faqat TASVIRDA ko'ringan mezon yoziladi. Ko'rinmagan mezonni yozma.
+4–7 qator. Har qator: <mezon nomi> — KO'RINDI: <bir jumlalik aniq dalil, joyi bilan>.
+Mezon nomi kitob atamasi bo'lsin (periferik palisad, Grenz zonasi, kollagen tuzog'i,
+horn cyst, koilotsit, pagetoid tarqalish...). Ko'rinmagan mezonni YOZMA.
 
-#### FAKT (ko'rinadigan morfologiya)
-5–8 ta qisqa qator: qatlam, pattern, hujayra turi, yadro/mitoz, stroma/kollagen,
-chegara, invaziya (ha/yo'q), qo'shimcha belgi. Har qator — bitta qisqa jumla.
+#### FAKT (o'lchangan morfologiya)
+6–10 qator, har biri qisqa va SONLI/aniq. Majburiy qatorlar (mos bo'lsa):
+- Arxitektura: pattern nomi, simmetriya, chegara turi (itaruvchi/infiltrativ)
+- Epidermis: qalinlik o'zgarishi, keratinizatsiya turi, atipiya darajasi
+- Hujayra: tur, sitoplazma, yadro o'lchami/xromatin, yadrocha
+- Mitoz: /10 HPF (taxminiy son), atipik mitoz bor/yo'q
+- Stroma: kollagen, desmoplaziya, musin, elastoz
+- Yallig'lanish: turi va zichligi
+- Invaziya: yo'q/shubhali/bor — nimaga asoslanib
+- Chuqurlik/qalinlik: melanotsitar bo'lsa Breslow (mm), yara bor/yo'q
+- Chekka (rezeksiya) holati: erkin / tegib turadi / baholab bo'lmaydi
+"ko'p", "oz" yolg'iz yetarli emas — taxminiy son yoki daraja yoz.
 
 #### NEGA BOSHQASI EMAS
-2–3 ta qator. Har qator: <muqobil tashxis> — <nima YO'Q, shuning uchun emas>.
-Xavfli muqobil (rak, melanoma, DFSP) bo'lsa, birinchi shu yerda rad etiladi.
+3–4 qator. Har qator: <muqobil tashxis> — <qaysi AJRATUVCHI belgi yo'q/boshqacha>.
+Eng xavfli muqobil (karsinoma, melanoma, sarkoma, DFSP) BIRINCHI rad etiladi.
+"Mos emas" yolg'iz yetarli emas — ajratuvchi belgini ayt.
 
-TAQIQLANGAN BO'LIMLAR (yozilsa hisobot yaroqsiz):
-«Savol:», klinik fikrlash, profilaktika, davolash rejasi, kuzatuv rejasi,
+#### TASDIQLASH
+2–4 qator, faqat tashxisni HAL QILADIGANI:
+- IHC paneli: aniq markerlar + kutilayotgan natija (masalan «CD34 diffuz musbat → DFSP;
+  FXIIIa musbat, CD34 manfiy → dermatofibroma»)
+- Qo'shimcha kesma / chuqurroq daraja / maxsus bo'yoq — nima uchun
+- Klinik ma'lumot — aniq nima so'raladi (kasallik muddati, o'lcham, joy, o'sish tezligi)
+Tashxis ishonchi «yuqori» va qo'shimcha tekshiruv shart bo'lmasa: «Qo'shimcha tekshiruv shart emas».
+Davolash rejasi, profilaktika, kuzatuv jadvali YOZILMAYDI.
+
+#### BAHOLANMAGAN
+1–3 qator: shu kesmada baholab BO'LMAGAN narsalar va sababi
+(masalan «Chekka baholanmadi — kesma yo'nalishi ko'rinmaydi»,
+«Chuqur qism yo'q — invaziya to'liq istisno qilinmaydi»,
+«Immunobo'yoq yo'q — hujayra kelib chiqishi morfologiya bo'yicha»).
+Hech narsa qolmagan bo'lsa: «Baholashga to'siq yo'q».
+Bu bo'lim — xavfsizlik uchun: nazardan qochgan narsa ochiq aytiladi.
+
+TAQIQLANGAN (yozilsa hisobot yaroqsiz):
+«Savol:», klinik fikrlash bo'limi, profilaktika, davolash rejasi, kuzatuv rejasi,
 1/2/3-professor, rais yakuni, batafsil morfologik tahlil, tashxis izohi,
 foizli 60/30/10 vitrina, «baho 1-5», jadval, quyoshdan himoya, umumiy nasihat.
-Ehtimollik foizi YOZILMAYDI — uning o'rniga «Ishonch: yuqori/o'rta/past».
+Ehtimollik foizi YOZILMAYDI — «Ishonch: yuqori/o'rta/past».
 """
 
 
@@ -541,9 +571,10 @@ Dalilsiz "urotel"/"renal"/"silindrik" deb yozma — nima KO'RINISHINI yoz.
 
 ICHKI TEKSHIRUV (hisobotga yozilmaydi): yetakchi organ + dalil; pattern;
 yadro grade, mitoz, invaziya; WHO Essential mezonlar; muqobillar.
-HISOBOT esa faqat 4 bo'lim: #### TASHXIS, #### NEGA SHU TASHXIS,
-#### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS.
-Jami 1500–3000 belgi. Rad etma. Ko'rinmagan narsani uydirma.
+HISOBOT esa faqat 6 bo'lim: #### TASHXIS, #### NEGA SHU TASHXIS,
+#### FAKT (o'lchangan morfologiya), #### NEGA BOSHQASI EMAS,
+#### TASDIQLASH, #### BAHOLANMAGAN.
+Jami 2000–4500 belgi. Rad etma. Ko'rinmagan narsani uydirma.
 """
 
 _HISTOLOGY_ORGAN_CODES = (
@@ -937,8 +968,20 @@ _OBSERVE_SCHEMA = (
     '"mitoses_10hpf": "0|1-2|3-10|>10|noaniq", "atypical_mitoses": false, "prominent_nucleoli": false, '
     '"clear_cytoplasm": false, "keratin_pearls": false, "maturation_with_depth": false}, '
     '"invasion": "yo\'q|shubhali|bor", '
+    '"invasion_evidence_uz": "bir jumla — nimaga asoslanib", '
+    '"depth": {"deepest_level": "epidermis|papillyar derma|retikulyar derma|gipoderma|noaniq", '
+    '"thickness_mm": "taxminiy son yoki noaniq", "ulceration": false}, '
+    '"margins": {"assessable": false, "involved": "erkin|tegib turadi|noaniq"}, '
+    '"special": {"perineural": false, "lymphovascular": false, "adnexal_involvement": false, '
+    '"pigment_incontinence": false, "foreign_material": false, "organisms_suspected": false, '
+    '"crush_or_cautery_artifact": false}, '
+    '"symmetry": "simmetrik|assimetrik|noaniq", '
+    '"border": "itaruvchi|infiltrativ|noaniq", '
+    '"inflammation": {"type": "yo\'q|limfotsitar|neytrofil|granulomatoz|aralash", '
+    '"density": "yo\'q|yengil|o\'rta|zich", "distribution": "perivaskulyar|lentasimon|diffuz|yo\'q"}, '
+    '"not_assessable_uz": ["baholab bo\'lmagan narsalar va sababi — 0-3 ta"], '
     '"dominant_pattern": "one short English phrase for the architectural pattern", '
-    '"observations_uz": ["3-6 ta qisqa o\'zbekcha jumla — faqat KO\'RINGAN narsa, tashxis nomisiz"]}'
+    '"observations_uz": ["4-8 ta qisqa o\'zbekcha jumla — faqat KO\'RINGAN narsa, tashxis nomisiz"]}'
 )
 
 
@@ -1052,6 +1095,13 @@ _FEATURE_UZ = {
     "clear_cytoplasm": "tiniq sitoplazma",
     "keratin_pearls": "keratin marvaridlari",
     "maturation_with_depth": "chuqurlik bo'yicha maturatsiya",
+    "perineural": "perinevral tarqalish",
+    "lymphovascular": "limfovaskulyar invaziya",
+    "adnexal_involvement": "adneks jalb bo'lgan",
+    "pigment_incontinence": "pigment inkontinensiyasi",
+    "foreign_material": "begona material",
+    "organisms_suspected": "mikroorganizm shubhasi",
+    "crush_or_cautery_artifact": "ezilish / kuydirish artefakti",
 }
 
 # Tashxis "langari": nom qo'yilsa, quyidagi SPETSIFIK belgilardan KAMIDA BITTASI
@@ -1116,17 +1166,44 @@ def _features_prompt_block(features):
         )
         if not _feature_true(features, k)
     ]
-    cyt = features.get("cytology") if isinstance(features.get("cytology"), dict) else {}
+    def _sub(name):
+        v = features.get(name)
+        return v if isinstance(v, dict) else {}
+
+    cyt = _sub("cytology")
+    depth = _sub("depth")
+    margins = _sub("margins")
+    special = _sub("special")
+    infl = _sub("inflammation")
     lines = [
         "#### TASVIRDAN OLINGAN BELGILAR (avtomatik ko'rik — tashxis SHU ro'yxatdan chiqadi)",
         f"Pattern: {_truncate_field(features.get('dominant_pattern'), 120) or '—'}",
-        f"Invaziya: {features.get('invasion') or 'noaniq'} | "
+        f"Simmetriya: {features.get('symmetry') or 'noaniq'} | "
+        f"Chegara: {features.get('border') or 'noaniq'}",
+        f"Invaziya: {features.get('invasion') or 'noaniq'}"
+        + (f" ({_truncate_field(features.get('invasion_evidence_uz'), 140)})"
+           if features.get("invasion_evidence_uz") else ""),
+        f"Chuqurlik: {depth.get('deepest_level') or 'noaniq'} | "
+        f"Qalinlik: {depth.get('thickness_mm') or 'noaniq'} | "
+        f"Yara: {'bor' if depth.get('ulceration') is True else 'yo`q'}",
+        f"Chekka: {'baholanadi' if margins.get('assessable') is True else 'baholab bo`lmaydi'}"
+        f" — {margins.get('involved') or 'noaniq'}",
         f"Pleomorfizm: {cyt.get('pleomorphism') or 'noaniq'} | "
-        f"Mitoz/10HPF: {cyt.get('mitoses_10hpf') or 'noaniq'} | "
-        f"Namuna sifati: {features.get('sample_quality') or 'noaniq'}",
-        "KO'RINGAN: " + (", ".join(present[:26]) if present else "—"),
+        f"Yadro darajasi: {cyt.get('nuclear_grade') or 'noaniq'} | "
+        f"Mitoz/10HPF: {cyt.get('mitoses_10hpf') or 'noaniq'}",
+        f"Yallig'lanish: {infl.get('type') or 'noaniq'}, {infl.get('density') or 'noaniq'}, "
+        f"{infl.get('distribution') or 'noaniq'}",
+        f"Namuna sifati: {features.get('sample_quality') or 'noaniq'} | "
+        f"Kattalashtirish: {features.get('magnification') or 'noaniq'}",
+        "KO'RINGAN: " + (", ".join(present[:30]) if present else "—"),
         "KO'RINMAGAN (muhim): " + (", ".join(absent[:14]) if absent else "—"),
     ]
+    flags = [k for k, v in special.items() if v is True]
+    if flags:
+        lines.append("Alohida belgilar: " + ", ".join(_FEATURE_UZ.get(f, f) for f in flags))
+    gaps = features.get("not_assessable_uz")
+    if isinstance(gaps, list) and gaps:
+        lines.append("Baholab bo'lmadi: " + "; ".join(_truncate_field(g, 120) for g in gaps[:3] if g))
     obs = features.get("observations_uz")
     if isinstance(obs, list) and obs:
         lines.append("Ko'rik izohi:")
@@ -1137,7 +1214,9 @@ def _features_prompt_block(features):
     lines.append(
         "QOIDA: tashxis FAQAT «KO'RINGAN» belgilarga tayanadi. «KO'RINMAGAN» belgini "
         "talab qiladigan tashxisni QO'YMA. Agar ko'ringan belgilar biror aniq nozologiyaga "
-        "yetarli bo'lmasa — «Aniq tashxis uchun yetarli emas» deb yoz va nima kerakligini ayt."
+        "yetarli bo'lmasa — «Aniq tashxis uchun yetarli emas» deb yoz va nima kerakligini ayt. "
+        "Yuqoridagi sonlar va darajalar «FAKT» bo'limiga ko'chiriladi; «Baholab bo'lmadi» "
+        "qatorlari «BAHOLANMAGAN» bo'limiga tushadi."
     )
     return "\n".join(lines) + "\n"
 
@@ -1198,7 +1277,7 @@ def _worksheet_user(lab_type, organ_lock=None, kb_block=""):
         f"{m['forbid']}\n\n"
         + lock
         + kb
-        + "Jadval YOZMA. Baho 1-5 ISHLATMA. Faqat 4 bo'lim: TASHXIS, NEGA SHU TASHXIS, "
+        + "Jadval YOZMA. Baho 1-5 ISHLATMA. Faqat 6 bo'lim: TASHXIS, NEGA SHU TASHXIS, "
         "FAKT, NEGA BOSHQASI EMAS.\n"
         f"Ichkarida tekshiriladigan maydonlar: {m['count']}.\n"
         + extra
@@ -1213,8 +1292,10 @@ def _describe_user(lab_type, organ_lock=None, kb_block=""):
         return (
             f"H&E tissue photomicrograph. You are a histopathology chair. NO RIGHT TO ERR: "
             f"wrong organ, invented findings, other lab protocols = INVALID. "
-            f"Write a SHORT pathology report in Uzbek: the diagnosis, why it is that "
-            f"diagnosis, and the visible facts. Nothing else. 1500-3000 characters total. "
+            f"Write a CONSULTANT-GRADE report in Uzbek: the diagnosis with its variant/grade, "
+            f"the criteria seen, the measured facts (mitoses per 10 HPF, depth, margins), the "
+            f"alternatives excluded by a discriminating feature, the confirmatory panel, and what "
+            f"could not be assessed. 2000-4500 characters total. "
             f"NO Q&A, NO prevention, NO treatment plan, NO teaching text, NO tables, NO percentages. "
             f"Do NOT lead with cancer unless invasion+Essential are VISIBLE. "
             f"Required line: Malignite qo'yish huquqi HA/YO'Q. Never refuse a real H&E field.\n"
@@ -1393,13 +1474,15 @@ def _looks_like_wrong_blood_smear(text, lab_type):
 
 OUTPUT_FORMAT_HISTOLOGY_UZ = """
 ---
-CHIQISH (qat'iy): faqat 4 bo'lim, jami 1500–3000 belgi.
+CHIQISH (qat'iy): faqat 6 bo'lim, jami 2000–4500 belgi.
 #### TASHXIS
 #### NEGA SHU TASHXIS
-#### FAKT (ko'rinadigan morfologiya)
+#### FAKT (o'lchangan morfologiya)
 #### NEGA BOSHQASI EMAS
-Yulduzcha ** yo'q. Jadval yo'q. Foiz yo'q. Boshqa sarlavha yo'q.
-Uzun muhokama, o'quv matni, profilaktika, davolash — YOZILMAYDI.
+#### TASDIQLASH
+#### BAHOLANMAGAN
+Yulduzcha ** yo'q. Jadval yo'q. Ehtimollik foizi yo'q. Boshqa sarlavha yo'q.
+Har qator ma'lumot tashisin: son, daraja yoki aniq morfologik atama bo'lsin.
 """
 
 
@@ -2241,7 +2324,7 @@ _ANALYSIS_SYSTEM = (
     "Har xil tasvirga bir xil shablon javob berish — og'ir xato. "
     "Belgilar yetarli bo'lmasa «Aniq tashxis uchun yetarli emas» deb yoz. "
     "Dalilsiz rak/karsinoma YOZMA. "
-    "HISOBOT FAQAT 4 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS. Jami 1500-3000 belgi. Uzun matn, o'quv muhokamasi, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
+    "HISOBOT FAQAT 6 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (o'lchangan morfologiya), #### NEGA BOSHQASI EMAS, #### TASDIQLASH, #### BAHOLANMAGAN. Jami 2000-4500 belgi. Har qator sonli yoki aniq atamali bo'lsin. Uzun muhokama, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
     "Rad etma. Faqat MedLab gistologiya."
 )
 
@@ -2249,7 +2332,7 @@ _WORKSHEET_SYSTEM = (
     "Sen MedLab gistologiya hisobotini to'ldirasan (LIS). Adashishga haqqi YO'Q. "
     "WHO/Weedon NOMINI aniq yoz. Dalilsiz malignite qo'yma - avval benign/reaktiv. "
     "FAQAT gistologiya. O'zbek tili. "
-    "HISOBOT FAQAT 4 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS. Jami 1500-3000 belgi. Uzun matn, o'quv muhokamasi, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
+    "HISOBOT FAQAT 6 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (o'lchangan morfologiya), #### NEGA BOSHQASI EMAS, #### TASDIQLASH, #### BAHOLANMAGAN. Jami 2000-4500 belgi. Har qator sonli yoki aniq atamali bo'lsin. Uzun muhokama, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
     "Rad etma. Faqat MedLab gistologiya."
 )
 
@@ -2264,7 +2347,7 @@ _SAFE_SYSTEM = (
     "do not paste textbook text and do not narrate your reasoning. "
     "Base the diagnosis strictly on the listed observed features. Never fall back to the most "
     "common entity: if the features do not support one, say so in Uzbek and state what is needed. "
-    "HISOBOT FAQAT 4 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS. Jami 1500-3000 belgi. Uzun matn, o'quv muhokamasi, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
+    "HISOBOT FAQAT 6 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (o'lchangan morfologiya), #### NEGA BOSHQASI EMAS, #### TASDIQLASH, #### BAHOLANMAGAN. Jami 2000-4500 belgi. Har qator sonli yoki aniq atamali bo'lsin. Uzun muhokama, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
     "One organ only. No percentages, no tables, no teaching text. MedLab histology only."
 )
 
@@ -2287,13 +2370,13 @@ _SHALLOW_MARKERS = (
 _EXPAND_DEEP_USER = (
     "Quyida ICHKI qoralama berilgan. Original rasmlarni qayta ko'rib, YAKUNIY qisqa "
     "hisobotni yoz: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (ko'rinadigan morfologiya), "
-    "#### NEGA BOSHQASI EMAS. Jami 1500-3000 belgi. "
+    "#### NEGA BOSHQASI EMAS, #### TASDIQLASH, #### BAHOLANMAGAN. Jami 2000-4500 belgi. "
     "Muhokama, o'quv matni, foiz, jadval yozma. O'zbek tili. Yulduzcha ** yo'q.\n\n"
 )
 
 _RETRY_DEEP_USER = (
     "Oldingi matn talabga mos emas. Qayta yoz: aniq tashxis, uning sababi va ko'ringan fakt. "
-    "Faqat 4 bo'lim, 1500-3000 belgi. Ortiqcha gap, savol-javob, foiz, jadval - o'chir. "
+    "Faqat 6 bo'lim, 2000-4500 belgi. Ortiqcha gap, savol-javob, foiz, jadval - o'chir. "
     "Rad etma.\n\n"
     "==== OLDINGI MATN ====\n"
 )
@@ -2427,7 +2510,9 @@ def _missing_diagnosis_sections(text, lab_type=None):
         has_why = ("nega shu tashxis" in low) or ("nega bu tashxis" in low)
         has_fact = ("fakt" in low) or ("morfologiya" in low)
         has_diff = ("nega boshqasi emas" in low) or ("differensial" in low)
-        return not (has_dx and has_why and has_fact and has_diff)
+        has_next = ("tasdiqlash" in low) or ("ihc" in low) or ("immuno" in low)
+        has_gaps = ("baholanmagan" in low) or ("baholab bo'lmadi" in low) or ("to'siq yo'q" in low)
+        return not (has_dx and has_why and has_fact and has_diff and has_next and has_gaps)
     has_dx = ("aniq tashxis" in low) or ("ishchi morfologik taassurot" in low and "yetakchi" in low)
     has_who = ("who mezon" in low) or ("essential" in low)
     has_detail = (
@@ -2556,8 +2641,9 @@ def _vision_user(prompt, image_parts):
             f"==== SINTEZ ({n} ta tasvir) ====\n"
             f"Yuqoridagi {n} ta TASVIRNING HAMMASINI inobatga ol. "
             "Faqat birinchi yoki oxirgi rasmga tayanma. "
-            "Bitta yagona TASHXIS, uning sababi va ko'ringan fakt — 4 bo'limdan iborat "
-            "qisqa hisobot. Alohida «rasmlar sintezi» bo'limi yozilmaydi."
+            "Bitta yagona TASHXIS va bitta hisobot (6 bo'lim). Maydonlar orasida "
+            "farq bo'lsa, eng og'ir topilma hisobga olinadi. Alohida «rasmlar sintezi» "
+            "bo'limi yozilmaydi."
         ),
     })
     return out
@@ -2655,9 +2741,9 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="histology", organ_lo
         + "\n\n==== ICHKI QORALAMA (shu asosda YAKUNIY QISQA hisobotni yoz) ====\n"
         + (draft or "")[:8000]
         + "\n==== TUGADI ====\n"
-        "BIR organ. Hisobot FAQAT 4 bo'lim: #### TASHXIS, #### NEGA SHU TASHXIS, "
-        "#### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS. "
-        "Jami 1500-3000 belgi, 4200 dan oshmasin. "
+        "BIR organ. Hisobot FAQAT 6 bo'lim: #### TASHXIS, #### NEGA SHU TASHXIS, "
+        "#### FAKT (o'lchangan morfologiya), #### NEGA BOSHQASI EMAS, #### TASDIQLASH, "
+        "#### BAHOLANMAGAN. Jami 2000-4500 belgi, 6500 dan oshmasin. "
         "Savol-javob, profilaktika, davolash, professor bo'limlari, jadval, foiz — YO'Q. "
         + (f"Barcha {n_img} ta rasmni sintez qil; faqat 1-rasmga tayanma. " if n_img > 1 else "")
         + "Har mezon qatori: <mezon> — KO'RINDI: <bir jumlalik dalil>. "
@@ -2678,6 +2764,84 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="histology", organ_lo
         ],
         expand_kwargs,
     )
+
+
+_EXPERT_REVIEW_SYSTEM = (
+    "You are the head of a histopathology department doing the final sign-out check of a "
+    "trainee's draft. You see the same slide images, the machine-extracted feature list and "
+    "the retrieved textbook criteria. Your job is NOT to praise or discuss: you return the "
+    "CORRECTED FINAL REPORT only, in Uzbek, in the required 6-section format. "
+    "Fix silently: a name that the features do not support, a missing variant/grade, "
+    "vague wording where a number belongs, an alternative dismissed without a discriminator, "
+    "a missing confirmation panel, and anything the draft failed to declare as unassessable. "
+    "Never invent a finding that is not in the features or visible in the image. "
+    "If the features do not support any specific entity, the final answer is "
+    "'Aniq tashxis uchun yetarli emas' with the nearest descriptive category. "
+    "Output the report only — no commentary, no meta text, no headings other than the six."
+)
+
+
+def _expert_review_enabled():
+    v = (os.environ.get("HISTOLOGY_EXPERT_REVIEW") or "1").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
+def _expert_review(draft, kwargs, image_parts=None, lab_type="histology",
+                   organ_lock=None, patient_context=None, features=None, kb_block=""):
+    """Kafedra mudiri tekshiruvi: qoralamani belgilar va mezonlar bo'yicha yakunlash."""
+    if lab_type != "histology" or not _expert_review_enabled():
+        return draft
+    feats = _features_prompt_block(features)
+    lock = _histology_organ_lock_text(organ_lock)
+    patient = _patient_prompt_prefix(patient_context, lab_type)
+    n_img = len(image_parts or [])
+    user_text = (
+        (patient + "\n" if patient else "")
+        + lock
+        + (feats + "\n" if feats else "")
+        + ((kb_block + "\n") if kb_block else "")
+        + _HISTOLOGY_TEACHING_DEEP
+        + "\n==== SHOGIRD QORALAMASI ====\n"
+        + (draft or "")[:9000]
+        + "\n==== QORALAMA TUGADI ====\n\n"
+        "IMZO OLDIDAN TEKSHIRUV RO'YXATI (har bandni jimgina tuzat):\n"
+        "1) Tashxis nomi belgilarga mos keladimi? Variant/daraja ko'rsatilganmi?\n"
+        "2) Har bir mezon qatorida KO'RINGAN dalil bormi? Uydirma mezon yo'qmi?\n"
+        "3) FAKT bo'limida sonlar bormi: mitoz/10HPF, qalinlik, chuqurlik, chekka?\n"
+        "4) Har bir muqobil AJRATUVCHI belgi bilan rad etilganmi? Eng xavflisi birinchi turibdimi?\n"
+        "5) TASDIQLASH bo'limida aniq IHC/kesma/klinik so'rov bormi (kutilayotgan natija bilan)?\n"
+        "6) BAHOLANMAGAN bo'limida chekka, chuqurlik, artefakt kabi cheklovlar aytilganmi?\n"
+        "7) Malignite qo'yish huquqi qoidasi buzilmaganmi?\n"
+        + (f"8) Barcha {n_img} ta maydon hisobga olinganmi?\n" if n_img > 1 else "")
+        + "\nFAQAT yakuniy hisobotni qaytar (6 bo'lim, 2000-4500 belgi). Izoh yozma."
+    )
+    content = _vision_user(user_text, image_parts) if image_parts else user_text
+    review_kwargs = dict(kwargs or {})
+    review_kwargs["temperature"] = 0.0
+    try:
+        out = _chat_complete(
+            [
+                {"role": "system", "content": _EXPERT_REVIEW_SYSTEM},
+                {"role": "user", "content": content},
+            ],
+            review_kwargs,
+        )
+    except Exception as e:
+        log.warning("%s: professor tekshiruvi xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
+        return draft
+    if not _usable(out, MIN_REPORT_CHARS) or _looks_like_refusal(out):
+        log.warning("%s: professor tekshiruvi yaroqsiz — qoralama saqlanadi", ZIYRAKAI_DISPLAY_NAME)
+        return draft
+    if features and _report_contradicts_features(out, features):
+        log.warning("%s: professor tekshiruvi ham belgiga zid — qoralama saqlanadi",
+                    ZIYRAKAI_DISPLAY_NAME)
+        return draft
+    if _too_verbose(out, lab_type):
+        log.warning("%s: professor tekshiruvi juda uzun — qoralama saqlanadi", ZIYRAKAI_DISPLAY_NAME)
+        return draft
+    log.info("%s: professor tekshiruvi qo'llandi (%s → %s belgi)",
+             ZIYRAKAI_DISPLAY_NAME, len(draft or ""), len(out))
+    return out
 
 
 _SPECIMEN_CODE_SET = frozenset(LAB_PROMPTS.keys()) | frozenset({"unknown", "other"})
@@ -3002,6 +3166,12 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
             )
             if _usable(retry, MIN_REPORT_CHARS) and not _report_contradicts_features(retry, features):
                 report = retry
+
+    # Yakuniy imzo tekshiruvi: mezon, sonlar, differensial, tasdiqlash, cheklovlar
+    if lab_type == "histology" and _usable(report, MIN_REPORT_CHARS):
+        report = _expert_review(
+            report, kwargs, image_parts, lab_type, organ_lock, patient_context, features, kb_block
+        )
 
     if _usable(report, 400):
         if lab_type == "histology":
