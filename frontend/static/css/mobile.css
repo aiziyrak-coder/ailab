@@ -1,0 +1,459 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   MedLab — telefon va planshet uchun tartib (style.css va lab-pro.css dan keyin)
+
+   Ish tamoyili: desktopda ilova "oyna" ichida (body overflow:hidden, 3 ustun),
+   telefonda esa oddiy sahifa kabi pastga scroll qilinadi va panellar ustma-ust
+   joylashadi. Asosiy tugma barmoq yetadigan joyda — pastda yopishib turadi.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 900px) {
+  /* ── Sahifa oddiy scroll bo'ladi ─────────────────────────────────────── */
+  /* DIQQAT: html/body ga `overflow: auto` qo'yilsa (balandlik `auto` bo'lganda)
+     sahifa umuman scroll bo'lmay qoladi — scroll konteyneri html bo'lib qoladi,
+     lekin uning ichida ortiqcha kontent bo'lmaydi. Shuning uchun `visible`. */
+  html,
+  body {
+    height: auto !important;
+    min-height: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    font-size: 15px;
+    /* Pastdagi yopishqoq panel uchun joy + telefon "home" chizig'i */
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+  body::before {
+    position: fixed;
+  }
+
+  /* Ilova qobig'i desktopda qat'iy balandlikda (flex + overflow:hidden) —
+     telefonda uni ochamiz, aks holda panellar 20px lik quticha ichida qoladi. */
+  .app-root {
+    display: block !important;
+    height: auto !important;
+    min-height: 100dvh !important;
+    max-height: none !important;
+    overflow: visible !important;
+    animation: none !important;
+  }
+
+  /* ── Sarlavha: ikki qator, yopishqoq ─────────────────────────────────── */
+  /* Sarlavha ekranni yemasin — u bilan birga suriladi, faqat qadam paneli
+     tepada yopishib qoladi (telefonda ekran balandligi qimmat). */
+  .header {
+    position: static;
+    z-index: 60;
+    margin: 0 !important;
+    border-radius: 0 0 18px 18px !important;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px !important;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .header-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .header-kicker {
+    display: none;
+  }
+  .header-title {
+    font-size: 1.02rem;
+  }
+  .header-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    order: 3;
+  }
+  .header-id-search {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: none;
+    display: flex;
+    gap: 6px;
+  }
+  .header-id-search input {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 16px; /* iOS fokusda sahifani kattalashtirmasin */
+    min-height: 42px;
+  }
+  .header-id-search button,
+  .btn-history,
+  .btn-auth-logout {
+    min-height: 42px;
+    padding-inline: 14px;
+  }
+  .status-pill--user,
+  .status-pill--mode {
+    font-size: 0.66rem;
+  }
+  .lab-hud {
+    display: none !important;
+  }
+
+  /* ── Qadam paneli: gorizontal, yopishqoq ─────────────────────────────── */
+  .workbar {
+    position: sticky;
+    top: 0;
+    z-index: 55;
+    margin: 6px 0 0 !important;
+    border-radius: 0 !important;
+    padding: 6px 10px !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .workbar::-webkit-scrollbar {
+    display: none;
+  }
+  .wb-clock,
+  .wb-bsl,
+  .wb-haz {
+    display: none !important;
+  }
+  .wb-flow {
+    display: flex;
+    gap: 6px;
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .wb-flow li {
+    flex: 1 1 0;
+    min-width: 68px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.72rem;
+    border-radius: 12px;
+    padding: 0 6px;
+    touch-action: manipulation;
+  }
+
+  /* ── Panellar ustma-ust ──────────────────────────────────────────────── */
+  .main-layout {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    padding: 10px !important;
+  }
+  .left-panel,
+  .center-panel,
+  .right-panel {
+    display: block;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin-bottom: 12px;
+  }
+  .left-panel > .card,
+  .center-panel > *,
+  .right-panel > * {
+    min-height: 0;
+  }
+  /* Yopishqoq qadam paneli ostida qolib ketmasin (jumpToStep / avto-scroll) */
+  .left-panel,
+  .center-panel,
+  .right-panel,
+  .left-panel > .card,
+  .capture-card,
+  .media-box,
+  #analyzeCard {
+    scroll-margin-top: 78px;
+  }
+  /* backdrop-filter va transform "containing block" yaratadi — u bo'lsa ichdagi
+     position:fixed panel ekranga emas, panelga yopishadi. Telefonda ikkalasi ham
+     shart emas (va ular sekin ishlaydi). */
+  .left-panel,
+  .center-panel,
+  .right-panel,
+  .main-layout {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transform: none !important;
+    animation: none !important;
+    filter: none !important;
+    will-change: auto !important;
+  }
+
+  /* ── Bemor formasi: keng maydonlar, barmoqqa qulay ───────────────────── */
+  .acc-form {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 12px;
+  }
+  .acc-form label {
+    font-size: 0.62rem;
+    gap: 4px;
+  }
+  /* lab-pro.css da `.left-panel .acc-form input { height: 24px !important }` bor —
+     shuning uchun bu yerda ham bir xil aniqlik va !important kerak. */
+  .left-panel .acc-form input,
+  .left-panel .acc-form select,
+  .acc-form input,
+  .acc-form select {
+    height: 44px !important;
+    min-height: 44px !important;
+    font-size: 16px !important; /* iOS zoom oldini oladi */
+    border-radius: 10px !important;
+    padding: 0 10px !important;
+  }
+  .left-panel .acc-form label,
+  .acc-form label {
+    font-size: 0.64rem !important;
+  }
+  .acc-form .acc-span,
+  .acc-form .field-hint {
+    grid-column: 1 / -1;
+  }
+  .daftar-more summary {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* ── Manba tanlash (fayl / telefon / mikroskop) ──────────────────────── */
+  .src-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .src-tab {
+    min-height: 46px !important;
+    padding: 10px 6px !important;
+    font-size: 0.72rem;
+    touch-action: manipulation;
+  }
+  .lab-select,
+  .micro-select {
+    min-height: 44px !important;
+    font-size: 16px !important;
+  }
+  #accSample {
+    height: 44px !important;
+  }
+  /* lab-pro.css desktop uchun `.left-panel X { …!important }` bilan hamma
+     boshqaruvni siqib qo'ygan — telefonda aynan shu aniqlikda ochib beramiz. */
+  .left-panel .src-tab {
+    min-height: 46px !important;
+    padding: 10px 6px !important;
+    font-size: 0.74rem !important;
+  }
+  .left-panel .lab-select,
+  .left-panel .capture-card .lab-select,
+  .left-panel .micro-select {
+    height: 44px !important;
+    min-height: 44px !important;
+    font-size: 16px !important;
+  }
+  .left-panel .analyze-card .btn-ziyrakai {
+    height: 52px !important;
+    min-height: 52px !important;
+    padding: 0 14px !important;
+    font-size: 0.95rem !important;
+  }
+  .left-panel .btn {
+    height: auto !important;
+    min-height: 44px !important;
+    padding: 8px 12px !important;
+  }
+  .analyze-actions .btn-ghost-sm {
+    min-height: 44px !important;
+  }
+  .left-panel .btn-x,
+  .file-list .btn-x {
+    min-height: 36px !important;
+    min-width: 36px !important;
+  }
+
+  .upload-zone {
+    min-height: 132px;
+    padding: 18px 14px;
+    touch-action: manipulation;
+  }
+  .upload-main {
+    font-size: 0.95rem;
+  }
+
+  /* ── Tasvir oynasi: vh emas, nisbat bo'yicha ─────────────────────────── */
+  .media-box {
+    aspect-ratio: 4 / 3;
+    height: auto !important;
+    min-height: 200px;
+    max-height: 62vh;
+  }
+  .media-thumbs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .media-thumbs::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ── Natija varag'i ──────────────────────────────────────────────────── */
+  .right-panel.report-sheet {
+    padding: 12px;
+  }
+  .result-content {
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .result-content table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* ── Asosiy tugma pastda yopishib turadi ─────────────────────────────── */
+  .analyze-card {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 58;
+    margin: 0 !important;
+    border-radius: 18px 18px 0 0 !important;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    backdrop-filter: blur(14px) saturate(1.1);
+    box-shadow: 0 -8px 28px rgba(27, 58, 92, 0.14) !important;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .analyze-card .btn-ziyrakai {
+    width: 100%;
+    min-height: 52px;
+    font-size: 0.95rem;
+    touch-action: manipulation;
+  }
+  .analyze-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .analyze-actions .btn {
+    flex: 1 1 0;
+    min-height: 42px;
+  }
+  .analyze-status {
+    font-size: 0.72rem;
+    text-align: center;
+  }
+
+  /* ── Tarix: to'liq ekran ─────────────────────────────────────────────── */
+  .hist-drawer {
+    width: 100vw;
+    border-radius: 0;
+  }
+  .hist-head {
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 14px 10px;
+  }
+  .hist-item {
+    padding: 14px 12px;
+  }
+  .hist-close,
+  .hist-item button {
+    min-height: 42px;
+    min-width: 42px;
+  }
+
+  /* ── Umumiy: barmoqqa mos o'lchamlar ─────────────────────────────────── */
+  button,
+  .btn,
+  select,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+  .btn,
+  button:not(.btn-x):not(.wb-flow li) {
+    min-height: 40px;
+  }
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* ── Kichik telefonlar ────────────────────────────────────────────────── */
+@media (max-width: 560px) {
+  /* Forma 2 ustunda qoladi: uzun maydonlar allaqachon .acc-span bilan to'liq
+     kenglikda, faqat Yosh/Jins juftligi yonma-yon — bu scrollni qisqartiradi. */
+  .acc-form {
+    gap: 8px;
+    padding: 10px;
+  }
+  .media-box {
+    aspect-ratio: 1 / 1;
+    max-height: 56vh;
+  }
+  .micro-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .result-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .result-actions .btn {
+    width: 100%;
+  }
+}
+
+/* ── Landshaft (yotiq) holat: past ekran ──────────────────────────────── */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 520px) {
+  .workbar {
+    position: static;
+  }
+  .media-box {
+    aspect-ratio: 16 / 9;
+    max-height: 70vh;
+  }
+  .analyze-card {
+    position: static;
+    box-shadow: none !important;
+  }
+  body {
+    padding-bottom: 0;
+  }
+}
+
+/* ── Kirish sahifasi ──────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  body.auth-page-body {
+    padding-bottom: 0;
+  }
+  .auth-page {
+    padding: 18px 14px calc(18px + env(safe-area-inset-bottom, 0px));
+    min-height: 100dvh;
+  }
+  .auth-card {
+    padding: 24px 18px 20px;
+    border-radius: 20px;
+  }
+  .auth-card input {
+    min-height: 46px;
+    font-size: 16px;
+  }
+  .auth-card button[type="submit"] {
+    min-height: 50px;
+    font-size: 0.95rem;
+  }
+}
