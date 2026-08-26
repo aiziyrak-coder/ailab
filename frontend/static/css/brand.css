@@ -500,3 +500,78 @@ body.auth-page-body { background: var(--rd-mist) !important; }
   color: #ffffff !important;
   border-color: #983626 !important;
 }
+
+/* ─── Pastki qator: klinika kontaktlari ────────────────────────────────── */
+.app-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  border-top: 1px solid var(--rd-line);
+  background: #ffffff;
+  font-size: 0.68rem;
+  color: var(--rd-ink-soft);
+}
+
+.app-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.app-footer-brand strong { color: var(--rd-ink); font-weight: 700; }
+
+.app-footer-mark {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.app-footer-contacts {
+  display: flex;
+  align-items: center;
+  gap: 6px 14px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.app-footer-contacts a {
+  color: var(--rd-gold-deep) !important;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.app-footer-contacts a:hover { text-decoration: underline; }
+
+.app-footer-right {
+  color: var(--rd-ink-soft);
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .app-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+  .app-footer-contacts { gap: 4px 12px; }
+}
+
+/* Ikkinchi darajali amal — oq, oltin chegara (asosiy amal oltin qoladi) */
+.btn-new-side,
+.js-new-analysis {
+  background: #ffffff !important;
+  color: var(--rd-gold-deep) !important;
+  border: 1px solid var(--rd-gold) !important;
+  font-weight: 600;
+}
+
+.btn-new-side:hover,
+.js-new-analysis:hover {
+  background: var(--rd-gold) !important;
+  color: #ffffff !important;
+}

@@ -11,10 +11,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" href="/static/img/favicon.png" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=off59">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=off59">
-  <link rel="stylesheet" href="/static/css/mobile.css?v=m2">
-  <link rel="stylesheet" href="/static/css/brand.css?v=b4">
+  <link rel="stylesheet" href="/static/css/style.css?v=r3">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=r3">
+  <link rel="stylesheet" href="/static/css/mobile.css?v=r3">
+  <link rel="stylesheet" href="/static/css/brand.css?v=r3">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -410,11 +410,19 @@
   </div>
 
   <footer class="app-footer">
-    <span class="app-footer-logo">🔬</span>
-    <span class="app-footer-text">
-      Klinik laboratoriya diagnostikasi · &copy; 2026 <strong>Far&#x2018;ona Jamoat Salomatligi Tibbiyot Instituti</strong>
-    </span>
-    <span class="app-footer-right">DermaPATH · Radeski Skin Clinic · <span id="ftStation">WS-01</span> · <span id="ftClock"></span></span>
+    <div class="app-footer-brand">
+      <img src="/static/img/radeski-mark.png" alt="" class="app-footer-mark">
+      <span>&copy; 2026 <strong>Radeski Skin &amp; Aesthetic Clinic</strong> · DermaPATH</span>
+    </div>
+    <div class="app-footer-contacts">
+      <a href="tel:+998952107373">+998 95 210 73 73</a>
+      <a href="tel:+998732007373">+998 (73) 200-73-73</a>
+      <span>Farg&#x2018;ona sh., O&#x2018;zbekiston Ovozi ko&#x2018;chasi, 1A-bino</span>
+      <span>Qo&#x2018;qon sh., 47-MFI, Huqandiy mavzesi, 144A</span>
+      <a href="mailto:info@radeski.uz">info@radeski.uz</a>
+      <a href="https://radeski.uz" target="_blank" rel="noopener">radeski.uz</a>
+    </div>
+    <span class="app-footer-right"><span id="ftStation">WS-01</span> · <span id="ftClock"></span></span>
   </footer>
 
 </div>
@@ -516,8 +524,9 @@
         <div class="print-footer-left">
           <img src="/static/img/radeski-logo.png" alt="" class="print-footer-logo">
           <div>
-            <div class="print-footer-inst">Far&#x2018;ona Jamoat Salomatligi Tibbiyot Instituti</div>
-            <div class="print-footer-addr">Far&#x2018;ona viloyati, O&#x2018;zbekiston</div>
+            <div class="print-footer-inst">Radeski Skin &amp; Aesthetic Clinic</div>
+            <div class="print-footer-addr">Farg&#x2018;ona sh., O&#x2018;zbekiston Ovozi ko&#x2018;chasi, 1A-bino · +998 95 210 73 73<br>
+              Qo&#x2018;qon sh., 47-MFI, Huqandiy mavzesi, 144A · +998 (73) 200-73-73 · radeski.uz</div>
           </div>
         </div>
         <div class="print-footer-right">
@@ -526,7 +535,7 @@
         </div>
       </div>
       <div id="printFooterCopy" class="print-footer-copy">
-        &copy; 2026 Far&#x2018;ona Jamoat Salomatligi Tibbiyot Instituti. Barcha huquqlar himoyalangan.
+        &copy; 2026 Radeski Skin &amp; Aesthetic Clinic. Barcha huquqlar himoyalangan.
         Yakuniy tashxis faqat mutaxassis tomonidan qo&#x2018;yilishi lozim.
       </div>
     </div>
@@ -557,6 +566,6 @@
 <script src="/static/js/auth.js"></script>
 <script src="/static/js/app.js?v=b4"></script>
 <script src="/static/js/ux.js?v=u2"></script>
-<script src="/static/js/referral.js?v=r1"></script>
+<script src="/static/js/referral.js?v=r3"></script>
 </body>
 </html>
