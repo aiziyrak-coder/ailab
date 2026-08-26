@@ -599,3 +599,93 @@ class ObservationGateTests(TestCase):
         raw = '```json\n{"invasion": "yo\'q", "dominant_pattern": "x"}\n```'
         parsed = eng._parse_observation(raw)
         self.assertEqual(parsed.get("dominant_pattern"), "x")
+
+
+class EvidenceCeilingTests(TestCase):
+    """Dalil kam bo'lsa ishonchli aniq tashxis chiqmasligi kerak."""
+
+    REPORT = "\n".join([
+        "#### TASHXIS",
+        "Seboreik keratoz - akantotik variant - benign",
+        "Organ/qatlam: Teri, epidermis | Daraja: qo'llanilmaydi | Ishonch: yuqori | "
+        "Malignite qo'yish huquqi: YO'Q",
+        "#### NEGA SHU TASHXIS",
+        "Akantoz - KO'RINDI: epidermis qalinlashgan.",
+        "#### FAKT (o'lchangan morfologiya)",
+        "Mitoz: 0/10 HPF.",
+        "#### NEGA BOSHQASI EMAS",
+        "SCC - atipiya yo'q.",
+        "#### TASDIQLASH",
+        "IHC shart emas.",
+        "#### BAHOLANMAGAN",
+        "Chekka baholanmadi.",
+    ])
+
+    THIN = {
+        "sample_quality": "o'rtacha",
+        "dominant_pattern": "acanthosis with lymphoid infiltrate",
+        "epidermis": {"acanthosis": True, "hyperkeratosis": True, "horn_cysts": False},
+        "junction": {}, "dermis": {"dense_lymphoid_infiltrate": True}, "cytology": {},
+    }
+
+    RICH = {
+        "sample_quality": "yaxshi",
+        "dominant_pattern": "exophytic basaloid proliferation",
+        "epidermis": {
+            "acanthosis": True, "hyperkeratosis": True, "horn_cysts": True,
+            "basaloid_proliferation": True, "papillomatosis": True,
+            "parakeratosis": True, "basal_pigment": True,
+        },
+        "junction": {}, "dermis": {"dense_lymphoid_infiltrate": True, "solar_elastosis": True},
+        "cytology": {},
+    }
+
+    def test_thin_evidence_blocks_a_named_entity(self):
+        from lab_core import engine as eng
+
+        n, level = eng._evidence_level(self.THIN)
+        self.assertEqual(level, "past")
+        out = eng._apply_evidence_rules(self.REPORT, self.THIN)
+        self.assertIn("Aniq tashxis uchun yetarli emas", out)
+        self.assertIn("Ishonch: past", out)
+        self.assertNotIn("Ishonch: yuqori", out)
+        # Qolgan bo'limlar joyida qoladi
+        for head in ("#### FAKT", "#### TASDIQLASH", "#### BAHOLANMAGAN"):
+            self.assertIn(head, out)
+
+    def test_rich_evidence_keeps_the_diagnosis(self):
+        from lab_core import engine as eng
+
+        n, level = eng._evidence_level(self.RICH)
+        self.assertGreaterEqual(n, 8)
+        self.assertEqual(level, "yuqori")
+        out = eng._apply_evidence_rules(self.REPORT, self.RICH)
+        self.assertIn("Seboreik keratoz", out)
+        self.assertIn("Ishonch: yuqori", out)
+
+    def test_medium_evidence_caps_confidence(self):
+        from lab_core import engine as eng
+
+        mid = dict(self.RICH)
+        mid["sample_quality"] = "o'rtacha"
+        out = eng._apply_evidence_rules(self.REPORT, mid)
+        self.assertIn("Seboreik keratoz", out)
+        self.assertIn("Ishonch: o'rta", out)
+
+    def test_unsupported_name_is_downgraded_not_published(self):
+        from lab_core import engine as eng
+
+        out = eng._force_insufficient(self.REPORT, self.THIN, "sinov sababi")
+        self.assertIn("Aniq tashxis uchun yetarli emas", out)
+        self.assertNotIn("Seboreik keratoz", out.split("#### NEGA SHU TASHXIS")[0])
+        self.assertIn("Sabab: sinov sababi", out)
+
+    def test_image_spread_covers_the_whole_set(self):
+        from lab_core import engine as eng
+
+        parts = [{"image_url": {"url": str(i)}} for i in range(26)]
+        picked = eng._spread_pick(parts, 8)
+        self.assertEqual(len(picked), 8)
+        self.assertEqual(picked[0]["image_url"]["url"], "0")
+        self.assertEqual(picked[-1]["image_url"]["url"], "25")
+        self.assertEqual(eng._spread_pick(parts[:5], 8), parts[:5])

@@ -938,12 +938,20 @@ def _strip_other_organ_differential(text):
 # tashxisga (masalan seboreik keratoz) yopishib qoladi va har xil keyslarga
 # bir xil javob beradi.
 _HISTOLOGY_OBSERVE_SYSTEM = (
-    "You are a histopathology image reader. Report ONLY what is visible in this H&E "
-    "photomicrograph. Return ONE JSON object, no markdown, no commentary. "
+    "You are a histopathology image reader. Report ONLY what is visible in the H&E "
+    "photomicrographs. Return ONE JSON object, no markdown, no commentary. "
     "CRITICAL: do NOT name any disease, tumour, or diagnosis anywhere in the output. "
     "No entity names (no 'keratosis', 'carcinoma', 'nevus', 'dermatofibroma', ...). "
-    "Only descriptive morphology. If a feature is not visible, use false. "
-    "Never refuse; if the field is blurry, mark sample_quality low and describe what is discernible."
+    "Only descriptive morphology. "
+    "WORK THROUGH EVERY IMAGE AND EVERY FIELD: a feature is true if it is present in ANY "
+    "of the fields shown, false only if you looked and it is absent. Do not leave the form "
+    "nearly empty — a real section shows many features at once (layers, architecture, "
+    "keratinisation, cell type, nuclei, stroma, inflammation, vessels, adnexa). "
+    "A read that marks fewer than eight features true is almost always an incomplete read: "
+    "go back over the images before answering. "
+    "Use 'noaniq' only where the images genuinely cannot answer the field. "
+    "Never refuse; if everything is blurry, set sample_quality past and still describe what "
+    "is discernible."
 )
 
 _OBSERVE_SCHEMA = (
@@ -1008,6 +1016,28 @@ def _parse_observation(raw):
     return data if isinstance(data, dict) else None
 
 
+def _spread_pick(image_parts, k):
+    """Ko'p rasmdan teng oraliqda k tasini tanlash (birinchi va oxirgisi kiradi).
+
+    O'nlab rasm bir chaqiruvga tiqilsa model diqqati tarqaladi va ko'rik bo'shab
+    qoladi — shuning uchun butun to'plamni qamrab oluvchi kichik namuna olinadi.
+    """
+    parts = list(image_parts or [])
+    if len(parts) <= k:
+        return parts
+    step = (len(parts) - 1) / float(k - 1)
+    idx = sorted({int(round(i * step)) for i in range(k)})
+    return [parts[i] for i in idx]
+
+
+def _observe_max_images():
+    try:
+        v = int(os.environ.get("HISTOLOGY_OBSERVE_IMAGES", "8"))
+    except ValueError:
+        v = 8
+    return max(2, min(v, 16))
+
+
 def _observe_histology(image_parts, patient_context=None):
     """Tasvirdagi belgilarni tashxis nomisiz yig'ish — har keys uchun o'ziga xos."""
     if not image_parts or not _observe_enabled():
@@ -1015,18 +1045,25 @@ def _observe_histology(image_parts, patient_context=None):
     p = _normalize_patient_context(patient_context)
     site = (p.get("specimen_site") or "").strip() or "—"
     try:
+        n_all = len(image_parts)
         user = (
             f"Clinical specimen site: {site}. "
-            "Read EVERY field provided. Fill this JSON exactly, same keys, no extra keys:\n"
+            f"{n_all} field(s) from ONE case; the images below are a spread across them. "
+            "Scan each at low power first (architecture, symmetry, borders, layers), then at "
+            "high power (cells, nuclei, mitoses, stroma, inflammation). "
+            "Fill this JSON exactly, same keys, no extra keys:\n"
             + _OBSERVE_SCHEMA
-            + "\nRemember: NO diagnosis names anywhere."
+            + "\nEvery boolean must be a deliberate yes/no, not a default false. "
+            "observations_uz: 4-8 short Uzbek sentences of what you actually see. "
+            "Remember: NO diagnosis names anywhere."
         )
+        picked = _spread_pick(image_parts, _observe_max_images())
         raw = _chat_complete(
             [
                 {"role": "system", "content": _HISTOLOGY_OBSERVE_SYSTEM},
-                {"role": "user", "content": _vision_user(user, image_parts)},
+                {"role": "user", "content": _vision_user(user, picked)},
             ],
-            {"max_tokens": 1200, "temperature": 0.0, "top_p": 0.1},
+            {"max_tokens": 2000, "temperature": 0.0, "top_p": 0.1},
         )
         data = _parse_observation(raw)
         if not data:
@@ -1398,6 +1435,105 @@ def _histology_melanoma_overcall(text):
     has_mitosis = bool(re.search(r"mitoz", low))
     has_pattern = bool(re.search(r"pagetoid|maturatsiya|atipik melanotsit|assimetri", low))
     return not (has_breslow and has_mitosis and has_pattern)
+
+
+# ─── Dalil darajasi: ishonch ko'rikdan kelib chiqadi ─────────────────────────
+MIN_FEATURES_FOR_ENTITY = 4      # shundan kam belgi — aniq nozologiya qo'yilmaydi
+MIN_FEATURES_FOR_HIGH = 8        # «Ishonch: yuqori» uchun kerak bo'lgan belgi soni
+
+_INSUFFICIENT_DX = "Aniq tashxis uchun yetarli emas"
+
+
+def _evidence_level(features):
+    """(belgi soni, ruxsat etilgan eng yuqori ishonch) — ko'rik natijasidan."""
+    n = len(_true_features(features)) if isinstance(features, dict) else 0
+    quality = str((features or {}).get("sample_quality") or "").lower()
+    if n >= MIN_FEATURES_FOR_HIGH and quality.startswith("yaxshi"):
+        return n, "yuqori"
+    if n >= MIN_FEATURES_FOR_ENTITY:
+        return n, "o'rta"
+    return n, "past"
+
+
+def _cap_confidence(text, max_level):
+    """Hisobotdagi «Ishonch: …» qatorini dalil darajasidan oshirmaslik."""
+    order = {"past": 0, "o'rta": 1, "orta": 1, "yuqori": 2}
+    cap = order.get(max_level, 0)
+
+    def fix(m):
+        cur = order.get(m.group(1).strip().lower().replace("‘", "'").replace("’", "'"), 2)
+        return "Ishonch: " + (m.group(1) if cur <= cap else max_level)
+
+    return re.sub(r"Ishonch:\s*([A-Za-z'‘’o]+)", fix, text or "", flags=re.I)
+
+
+def _force_insufficient(text, features, reason):
+    """Tashxis nomini «yetarli emas» ga almashtirish (dalil yo'q yoki zid).
+
+    #### TASHXIS sarlavhasidan keyingi birinchi mazmunli qator — tashxis nomi;
+    o'sha qator almashtiriladi, qolgan bo'limlar (fakt, differensial, tasdiqlash,
+    baholanmagan) shundayligicha qoladi.
+    """
+    if not text:
+        return text
+    pattern = _truncate_field((features or {}).get("dominant_pattern"), 90)
+    head = _INSUFFICIENT_DX + (f" — tavsifiy ko'rinish: {pattern}" if pattern else "")
+    reason_line = f"Sabab: {reason}"
+
+    lines = (text or "").splitlines()
+    out = []
+    state = "before"  # before → sarlavha topilmagan; heading → nom qatorini kutamiz
+    for line in lines:
+        if state == "before" and re.match(r"^\s*#+\s*(?:aniq\s+)?tashxis\b", line, flags=re.I):
+            out.append(line)
+            state = "heading"
+            continue
+        if state == "heading":
+            if not line.strip():
+                out.append(line)
+                continue
+            # Tashxis nomi shu qator — almashtiriladi
+            out.append(head)
+            out.append(reason_line)
+            state = "done"
+            continue
+        out.append(line)
+
+    if state == "done":
+        joined = "\n".join(out)
+    else:
+        joined = "#### TASHXIS\n" + head + "\n" + reason_line + "\n\n" + (text or "")
+
+    joined = _cap_confidence(joined, "past")
+    if "Malignite qo'yish huquqi" not in joined:
+        joined = joined.replace(head, head + "\nMalignite qo'yish huquqi: YO'Q", 1)
+    return joined
+
+
+def _apply_evidence_rules(text, features, lab_type="histology"):
+    """Ishonch va tashxis darajasini ko'rikdagi dalil bilan moslashtirish."""
+    if lab_type != "histology" or not text:
+        return text
+    if not isinstance(features, dict):
+        return text
+    n, max_level = _evidence_level(features)
+    quality = str(features.get("sample_quality") or "noaniq")
+    text = _cap_confidence(text, max_level)
+    low_dx = _histology_dx_block(text).lower()
+    already = _INSUFFICIENT_DX.lower() in low_dx or "yetarli emas" in low_dx
+    if n < MIN_FEATURES_FOR_ENTITY and not already:
+        log.warning(
+            "%s: dalil kam (%s ta belgi, sifat=%s) — aniq tashxis o'rniga «yetarli emas»",
+            ZIYRAKAI_DISPLAY_NAME, n, quality,
+        )
+        return _force_insufficient(
+            text,
+            features,
+            f"tasvirdan faqat {n} ta ishonchli morfologik belgi olindi "
+            f"(namuna sifati: {quality}). Aniq nozologiya uchun yetarli emas — "
+            "10× umumiy ko'rinish va 40× hujayra tafsiloti aniq fokusda kerak.",
+        )
+    return text
 
 
 def _looks_like_weak_generic(text, lab_type, organ_lock=None):
@@ -2931,7 +3067,7 @@ def _gate_specimen_match(image_parts, lab_type):
         for part in gate_img:
             url = (part.get("image_url") or {}).get("url") or ""
             low_parts.append(
-                {"type": "image_url", "image_url": {"url": url, "detail": "low"}}
+                {"type": "image_url", "image_url": {"url": url, "detail": "high"}}
             )
         if not low_parts:
             return None
@@ -3166,12 +3302,20 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
             )
             if _usable(retry, MIN_REPORT_CHARS) and not _report_contradicts_features(retry, features):
                 report = retry
+            else:
+                # Tuzatib bo'lmadi — asossiz nomni chiqarish mumkin emas
+                log.warning("%s: zid tashxis tuzatilmadi — «yetarli emas» ga tushirildi",
+                            ZIYRAKAI_DISPLAY_NAME)
+                report = _force_insufficient(report, features, conflict)
 
     # Yakuniy imzo tekshiruvi: mezon, sonlar, differensial, tasdiqlash, cheklovlar
     if lab_type == "histology" and _usable(report, MIN_REPORT_CHARS):
         report = _expert_review(
             report, kwargs, image_parts, lab_type, organ_lock, patient_context, features, kb_block
         )
+
+    if lab_type == "histology" and features:
+        report = _apply_evidence_rules(report, features, lab_type)
 
     if _usable(report, 400):
         if lab_type == "histology":
