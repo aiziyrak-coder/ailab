@@ -20,7 +20,7 @@ class HealthEndpointTests(TestCase):
         self.assertEqual(data.get("service"), "medlab-ai")
         self.assertIn("version", data)
         self.assertIn("ziyrakai_ready", data)
-        self.assertEqual(data.get("product"), "MedLab")
+        self.assertEqual(data.get("product"), "DermaPATH")
         self.assertTrue(data.get("database"))
         self.assertTrue(data.get("snapshot_dir_writable"))
         self.assertIn("env", data)
@@ -126,7 +126,7 @@ class AnalyzeEdgeCaseTests(TestCase):
         self.assertIn(r.status_code, (400, 503))
         if r.status_code == 503:
             data = r.json()
-            self.assertIn("MEDLAB", data.get("message", "").upper())
+            self.assertIn("DERMAPATH", data.get("message", "").upper())
 
 
 class ApiHostUiRedirectTests(TestCase):

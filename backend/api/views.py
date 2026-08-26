@@ -1,5 +1,5 @@
 """
-MedLab AI REST API va kamera oqimi.
+DermaPATH (Radeski Skin Clinic) REST API va kamera oqimi.
 Flask loyihadagi marshrutlar bilan mos keladi (/api/*, /video_feed).
 """
 import io
@@ -260,7 +260,9 @@ def _abort_started_job(job_id, rec, message):
 def favicon_view(_request):
     try:
         base = Path(settings.FRONTEND_DIR).resolve()
-        p = (base / "static" / "logo.png").resolve()
+        p = (base / "static" / "img" / "favicon.png").resolve()
+        if not p.is_file():
+            p = (base / "static" / "logo.png").resolve()
         p.relative_to(base)
         if not p.is_file():
             return HttpResponse(status=204)
@@ -500,7 +502,7 @@ class AnalyzeView(APIView):
                 {
                     "success": False,
                     "message": (
-                        "MedLab tahlil ishlamayapti: OPENAI_API_KEY backend/.env faylida yo‘q yoki bo‘sh. "
+                        "DermaPATH tahlil ishlamayapti: OPENAI_API_KEY backend/.env faylida yo‘q yoki bo‘sh. "
                         "Kalitni qo‘shib serverni qayta ishga tushiring."
                     ),
                 },

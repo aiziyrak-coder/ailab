@@ -79,6 +79,12 @@ class SecurityHeadersMiddleware:
         p = (request.path or "").rstrip("/") or "/"
         if p.startswith("/api"):
             response.setdefault("Cache-Control", "no-store, private")
+        else:
+            # HTML sahifalar keshda qolmasin — aks holda yangi CSS/JS versiyalari
+            # foydalanuvchiga yetib bormaydi (statik fayllar o'zi keshlanadi).
+            ct = (response.get("Content-Type") or "").lower()
+            if ct.startswith("text/html"):
+                response.setdefault("Cache-Control", "no-cache, must-revalidate")
         if p == "/video_feed":
             response.setdefault("Cache-Control", "no-cache, no-store, must-revalidate")
             response.setdefault("Pragma", "no-cache")

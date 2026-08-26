@@ -90,7 +90,7 @@ VIDEO_EXT = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".mpeg", ".m4v"}
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 
 # ─── MedLab (foydalanuvchiga ko'rinadigan nom); texnik API — OpenAI ─
-ZIYRAKAI_DISPLAY_NAME = "MedLab"
+ZIYRAKAI_DISPLAY_NAME = "DermaPATH"
 OPENAI_MODEL_ID = (os.environ.get("OPENAI_MODEL_ID") or "gpt-4o").strip()
 
 

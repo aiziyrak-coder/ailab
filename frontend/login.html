@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="icon" href="/favicon.ico" type="image/png">
+  <link rel="icon" href="/static/img/favicon.png" type="image/png">
   <link rel="stylesheet" href="/static/css/style.css?v=off44">
   <link rel="stylesheet" href="/static/css/lab-pro.css?v=off44">
   <link rel="stylesheet" href="/static/css/mobile.css?v=m2">
-  <link rel="stylesheet" href="/static/css/brand.css?v=b1">
+  <link rel="stylesheet" href="/static/css/brand.css?v=b4">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body class="auth-page-body">
@@ -30,15 +30,11 @@
 
 <div class="auth-page">
   <section class="auth-card" aria-labelledby="authTitle">
-    <div class="auth-logo">
-      <span class="auth-logo-mark" aria-hidden="true">
-        <svg width="26" height="26"><use href="#icon-microscope"/></svg>
-      </span>
-      <div>
-        <h1>Derma<span class="brand-path">PATH</span></h1>
-        <span class="brand-slogan">Radeski Skin Clinic</span>
-        <p>Laboratoriya tahlili</p>
-      </div>
+    <div class="auth-brandbox">
+      <img class="auth-logo" src="/static/img/radeski-logo.png"
+           alt="Radeski Skin Clinic" width="262" height="81">
+      <h1>Derma<span class="brand-path">PATH</span></h1>
+      <span class="brand-slogan">Gistopatologiya platformasi</span>
     </div>
     <h2 id="authTitle">Kirish</h2>
     <p class="auth-sub">Login va parolni yozing</p>

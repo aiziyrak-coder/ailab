@@ -1,166 +1,305 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   DermaPATH — Radeski Skin Clinic brend qatlami
-   radeski.uz uslubi: iliq oltin urg'u, krem fon, oq kartalar, yumshoq qirralar.
-   Bu fayl eng oxirida yuklanadi va faqat ranglar/tipografiyani qayta belgilaydi.
+   DermaPATH — Radeski Skin Clinic
+   Palitra va tipografika radeski.uz saytidan olingan:
+     oltin   #C09949   (tugmalar, urg'u)
+     fon     #F2F6F5   (yumshoq yashil-kulrang) va #FFFFFF (kartalar)
+     matn    #1A1A1A
+     shrift  Montserrat (sarlavha) + Inter (matn)
+     qirra   6–8px, soya deyarli yo'q — tekis, toza uslub
+   Bu fayl oxirida yuklanadi va faqat ko'rinishni qayta belgilaydi.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Brend ranglari */
-  --rd-gold: #c2a15c;
-  --rd-gold-deep: #a8853f;
-  --rd-gold-soft: #e6d5b4;
-  --rd-cream: #faf6f0;
-  --rd-cream-2: #f3ebe0;
-  --rd-ink: #2b2620;
-  --rd-ink-soft: #6b6157;
-  --rd-line: rgba(43, 38, 32, 0.10);
+  --rd-gold: #c09949;
+  --rd-gold-deep: #a8813a;
+  --rd-gold-soft: #e8dcc2;
+  --rd-gold-wash: #faf6ec;
+  --rd-mist: #f2f6f5;
+  --rd-mist-2: #f8f8f8;
+  --rd-ink: #1a1a1a;
+  --rd-ink-soft: #5f6664;
+  --rd-line: #e4e9e8;
 
-  /* Mavjud tokenlarni brendga moslash */
-  --surface-app: var(--rd-cream);
+  --ios-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --rd-display: "Montserrat", "Inter", sans-serif;
+
+  /* Sayt uslubi: kichik radius, tekis yuzalar */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
+
+  --surface-app: var(--rd-mist);
   --surface-card: #ffffff;
-  --surface-muted: var(--rd-cream-2);
-  --surface-elevated: rgba(255, 255, 255, 0.94);
+  --surface-muted: var(--rd-mist-2);
+  --surface-elevated: #ffffff;
 
-  --glass-fill: rgba(255, 255, 255, 0.82);
-  --glass-fill-2: rgba(255, 255, 255, 0.97);
-  --glass-border: rgba(43, 38, 32, 0.10);
-  --glass-border-bright: rgba(43, 38, 32, 0.16);
+  --glass-fill: #ffffff;
+  --glass-fill-2: #ffffff;
+  --glass-border: var(--rd-line);
+  --glass-border-bright: #d7dedc;
 
   --text-primary: var(--rd-ink);
-  --text-secondary: #4a4239;
+  --text-secondary: #3d4442;
   --text-muted: var(--rd-ink-soft);
 
-  --ios-cyan: var(--rd-gold-deep);
-  --ios-blue: var(--rd-gold-deep);
-  --ios-violet: #8a6d3b;
+  --ios-cyan: var(--rd-gold);
+  --ios-blue: var(--rd-gold);
+  --ios-violet: var(--rd-gold-deep);
   --ring-focus: var(--rd-gold);
-  --lab-accent: var(--rd-gold-deep);
-  --histo: var(--rd-gold-deep);
+  --lab-accent: var(--rd-gold);
+  --histo: var(--rd-gold);
+
+  --shadow-lift: 0 1px 2px rgba(26, 26, 26, 0.05);
 }
 
 body {
-  background: var(--rd-cream) !important;
+  background: var(--rd-mist) !important;
+  font-family: var(--ios-font);
+  color: var(--rd-ink);
 }
 
+/* Sayt tekis — orqa fon effektlari olib tashlanadi */
 body::before {
-  background:
-    radial-gradient(1100px 520px at 8% -8%, rgba(194, 161, 92, 0.10), transparent 58%),
-    radial-gradient(900px 480px at 100% 110%, rgba(168, 133, 63, 0.07), transparent 52%),
-    linear-gradient(180deg, #fdfaf5, var(--rd-cream)) !important;
+  background: var(--rd-mist) !important;
+}
+
+h1, h2, h3, h4,
+.header-title,
+.card-title,
+.result-title,
+.auth-card h1 {
+  font-family: var(--rd-display);
+  letter-spacing: -0.01em;
 }
 
 /* ─── Sarlavha ─────────────────────────────────────────────────────────── */
 .header {
-  background: rgba(255, 255, 255, 0.92) !important;
+  background: #ffffff !important;
   border: 1px solid var(--rd-line) !important;
-  box-shadow: 0 10px 30px rgba(43, 38, 32, 0.06) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-top: 0 !important;
 }
 
 .header-logo-wrap {
-  background: linear-gradient(145deg, var(--rd-gold) 0%, var(--rd-gold-deep) 100%) !important;
-  box-shadow: 0 8px 18px rgba(168, 133, 63, 0.28) !important;
-  color: #fff;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
+.header-logo-wrap svg { display: none; }
+
+.header-logo-wrap::before {
+  content: "";
+  width: 34px;
+  height: 34px;
+  background: url("/static/img/radeski-mark.png") center/contain no-repeat;
+}
+
+.header .header-brand .header-title,
 .header-title {
-  font-family: "Outfit", var(--ios-font);
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--rd-ink);
+  font-family: var(--rd-display) !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em !important;
+  color: var(--rd-ink) !important;
+  text-transform: none !important;
+  background: none !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+.header .header-brand .header-title .brand-path {
+  color: var(--rd-gold) !important;
+  -webkit-text-fill-color: var(--rd-gold) !important;
 }
 
 .header-title .brand-path {
-  color: var(--rd-gold-deep);
+  color: var(--rd-gold);
 }
 
 .header-kicker {
   color: var(--rd-ink-soft);
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: 600;
 }
 
-/* ─── Tugmalar ─────────────────────────────────────────────────────────── */
+/* ─── Tugmalar: saytdagidek to'q oltin, oq matn, 8px qirra ─────────────── */
 .btn-ziyrakai,
 .btn-green,
-.btn-sm-ok {
-  background: linear-gradient(145deg, var(--rd-gold) 0%, var(--rd-gold-deep) 100%) !important;
-  border-color: var(--rd-gold-deep) !important;
-  color: #fff !important;
-  box-shadow: 0 8px 20px rgba(168, 133, 63, 0.24) !important;
+.btn-sm-ok,
+.auth-card button[type="submit"],
+.header-id-search button {
+  background: var(--rd-gold) !important;
+  border: 1px solid var(--rd-gold) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  border-radius: 8px !important;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .btn-ziyrakai:hover:not(:disabled),
-.btn-green:hover:not(:disabled) {
-  filter: brightness(1.04);
+.btn-green:hover:not(:disabled),
+.auth-card button[type="submit"]:hover:not(:disabled),
+.header-id-search button:hover {
+  background: var(--rd-gold-deep) !important;
+  border-color: var(--rd-gold-deep) !important;
+}
+
+.btn-ziyrakai:disabled { opacity: 0.45; }
+
+.btn,
+.btn-small,
+.btn-history,
+.btn-auth-logout,
+.btn-referral {
+  border-radius: 8px !important;
+  box-shadow: none !important;
 }
 
 .btn-history,
 .btn-auth-logout,
 .btn-small {
-  border-color: var(--rd-line) !important;
+  background: #ffffff !important;
+  border: 1px solid var(--rd-line) !important;
   color: var(--rd-ink) !important;
 }
 
-.src-tab.active {
-  border-color: var(--rd-gold-deep) !important;
-  background: linear-gradient(145deg, #fdf7ec 0%, #ffffff 100%) !important;
+.btn-history:hover,
+.btn-auth-logout:hover,
+.btn-small:hover:not(:disabled) {
+  border-color: var(--rd-gold) !important;
   color: var(--rd-gold-deep) !important;
-  box-shadow: 0 0 0 1px rgba(194, 161, 92, 0.30), 0 6px 16px rgba(168, 133, 63, 0.12) !important;
 }
 
-/* ─── Kartalar va panellar ─────────────────────────────────────────────── */
+.btn-red { border-radius: 8px !important; }
+
+/* ─── Manba tanlash ────────────────────────────────────────────────────── */
+.src-tab {
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  border: 1px solid var(--rd-line) !important;
+  box-shadow: none !important;
+}
+
+.src-tab.active {
+  border-color: var(--rd-gold) !important;
+  background: var(--rd-gold-wash) !important;
+  color: var(--rd-gold-deep) !important;
+  box-shadow: none !important;
+  font-weight: 600;
+}
+
+/* ─── Panellar va kartalar: tekis, ingichka chegara ────────────────────── */
 .left-panel,
-.right-panel {
-  background: linear-gradient(180deg, #ffffff 0%, #fffdf9 100%) !important;
+.right-panel,
+.center-panel {
+  background: #ffffff !important;
   border: 1px solid var(--rd-line) !important;
-  box-shadow: 0 16px 40px rgba(43, 38, 32, 0.07) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
+.left-panel .card,
+.right-panel .card,
 .card {
+  background: #ffffff !important;
   border: 1px solid var(--rd-line) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
 }
 
 .card-title {
   color: var(--rd-ink-soft);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.6rem;
+  font-weight: 700;
 }
 
 .workbar {
-  background: rgba(255, 255, 255, 0.9) !important;
+  background: #ffffff !important;
   border: 1px solid var(--rd-line) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+}
+
+.wb-flow li {
+  border-radius: 6px !important;
+  border: 1px solid transparent;
+  color: var(--rd-ink-soft);
 }
 
 .wb-flow li.on {
-  background: linear-gradient(145deg, var(--rd-gold) 0%, var(--rd-gold-deep) 100%) !important;
-  color: #fff !important;
-  border-color: var(--rd-gold-deep) !important;
+  background: var(--rd-gold) !important;
+  color: #ffffff !important;
+  border-color: var(--rd-gold) !important;
 }
 
 .wb-flow li.done {
   color: var(--rd-gold-deep) !important;
+  background: var(--rd-gold-wash) !important;
   border-color: var(--rd-gold-soft) !important;
 }
 
-/* ─── Forma maydonlari ─────────────────────────────────────────────────── */
+/* ─── Forma ────────────────────────────────────────────────────────────── */
+.acc-form {
+  background: #ffffff !important;
+  border-bottom-color: var(--rd-line) !important;
+}
+
+.acc-form input,
+.acc-form select,
+.lab-select,
+.micro-select,
+.header-id-search input {
+  border-radius: 6px !important;
+  border-color: var(--rd-line) !important;
+  background: #ffffff !important;
+  color: var(--rd-ink) !important;
+}
+
 .acc-form input:focus,
 .acc-form select:focus,
 .lab-select:focus,
-.micro-select:focus {
-  outline-color: var(--rd-gold-deep) !important;
+.micro-select:focus,
+.header-id-search input:focus {
+  outline: 2px solid var(--rd-gold) !important;
+  outline-offset: 0;
+  border-color: var(--rd-gold) !important;
 }
 
+.acc-form label.req > span::after { color: #b4442f; }
+
 .upload-zone {
-  border-color: var(--rd-gold-soft) !important;
-  background: linear-gradient(180deg, #fffdf9 0%, #fdf8f0 100%) !important;
+  border: 1.5px dashed var(--rd-gold-soft) !important;
+  background: var(--rd-gold-wash) !important;
+  border-radius: 8px !important;
 }
 
 .upload-zone:hover,
 .upload-zone.drag-active {
-  border-color: var(--rd-gold-deep) !important;
-  background: #fffdf7 !important;
+  border-color: var(--rd-gold) !important;
+  background: #fffdf6 !important;
 }
+
+.upload-main { color: var(--rd-ink); font-weight: 600; }
 
 /* ─── Yo'llanmadan to'ldirish ──────────────────────────────────────────── */
 .referral-row {
@@ -172,27 +311,23 @@ body::before {
 }
 
 .btn-referral {
-  border: 1px solid var(--rd-gold-deep);
-  background: linear-gradient(145deg, #fffaf0 0%, #ffffff 100%);
+  border: 1px solid var(--rd-gold);
+  background: #ffffff;
   color: var(--rd-gold-deep);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.76rem;
-  letter-spacing: 0.02em;
   padding: 9px 14px;
-  border-radius: 12px;
   cursor: pointer;
   min-height: 40px;
-  transition: filter 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .btn-referral:hover:not(:disabled) {
-  box-shadow: 0 6px 16px rgba(168, 133, 63, 0.18);
+  background: var(--rd-gold);
+  color: #ffffff;
 }
 
-.btn-referral:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
+.btn-referral:disabled { opacity: 0.55; cursor: default; }
 
 .referral-hint {
   font-size: 0.68rem;
@@ -205,13 +340,10 @@ body::before {
 .referral-hint.is-ok { color: #2f7d51; font-weight: 600; }
 .referral-hint.is-err { color: #b4442f; font-weight: 600; }
 
-/* Yo'llanmadan to'lgan maydon qisqa vaqt yoritiladi */
-.from-referral {
-  animation: referralFill 2.2s var(--ios-ease, ease);
-}
+.from-referral { animation: referralFill 2.2s ease; }
 
 @keyframes referralFill {
-  0% { box-shadow: 0 0 0 3px rgba(194, 161, 92, 0.45); background: #fffaef; }
+  0% { box-shadow: 0 0 0 3px rgba(192, 153, 73, 0.4); background: var(--rd-gold-wash); }
   100% { box-shadow: none; }
 }
 
@@ -219,45 +351,152 @@ body::before {
   .from-referral { animation: none; }
 }
 
-/* ─── Natija varag'i ───────────────────────────────────────────────────── */
-.result-head,
-.result-title {
-  color: var(--rd-ink);
+/* ─── Tasvir va natija ─────────────────────────────────────────────────── */
+.media-box {
+  background: var(--rd-mist-2) !important;
+  border: 1px solid var(--rd-line) !important;
+  border-radius: 10px !important;
+  animation: none !important;
+  box-shadow: none !important;
 }
 
-.result-content h4,
-#resultBody h4 {
+.right-panel.report-sheet { background: #ffffff !important; }
+
+#resultBody h4,
+.result-content h4 {
   color: var(--rd-gold-deep);
+  font-family: var(--rd-display);
+  font-weight: 700;
   border-bottom: 1px solid var(--rd-gold-soft);
+  padding-bottom: 4px;
 }
 
+#resultBody strong { color: var(--rd-ink); }
+
+.result-id,
+.result-reg-id {
+  color: var(--rd-gold-deep) !important;
+  font-weight: 600;
+}
+
+.status-pill,
 .status-pill--user,
 .status-pill--mode {
-  border-color: var(--rd-line) !important;
+  background: #ffffff !important;
+  border: 1px solid var(--rd-line) !important;
   color: var(--rd-ink-soft) !important;
+  border-radius: 999px !important;
 }
 
+.case-pill {
+  border-radius: 999px !important;
+  border: 1px solid var(--rd-line) !important;
+}
+
+/* ─── Tarix ────────────────────────────────────────────────────────────── */
+.hist-drawer { background: #ffffff; }
+.hist-item { border-bottom: 1px solid var(--rd-line); }
+.hist-item:hover { background: var(--rd-gold-wash); }
+
 /* ─── Kirish sahifasi ──────────────────────────────────────────────────── */
+body.auth-page-body { background: var(--rd-mist) !important; }
+
 .auth-card {
   border: 1px solid var(--rd-line);
-  box-shadow: 0 24px 60px rgba(43, 38, 32, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.05);
+  background: #ffffff;
+  backdrop-filter: none;
 }
 
 .auth-card h1 {
-  font-family: "Outfit", var(--ios-font);
+  font-family: var(--rd-display);
+  font-weight: 800;
   color: var(--rd-ink);
 }
 
-.auth-card button[type="submit"] {
-  background: linear-gradient(145deg, var(--rd-gold) 0%, var(--rd-gold-deep) 100%) !important;
-  border-color: var(--rd-gold-deep) !important;
-}
+.auth-card h1 .brand-path { color: var(--rd-gold); }
 
 .brand-slogan {
   display: block;
-  font-size: 0.66rem;
-  letter-spacing: 0.14em;
+  font-size: 0.64rem;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--rd-ink-soft);
   font-weight: 600;
+  margin-top: 2px;
+}
+
+.auth-brandbox {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.auth-logo {
+  display: block;
+  height: 38px;
+  width: auto;
+  margin: 0 auto 12px;
+}
+
+.auth-brandbox h1 {
+  margin: 0;
+  font-size: 1.55rem;
+  line-height: 1.1;
+}
+
+.auth-card input {
+  border-radius: 6px !important;
+  border-color: var(--rd-line) !important;
+}
+
+.auth-card input:focus {
+  outline: 2px solid var(--rd-gold) !important;
+  border-color: var(--rd-gold) !important;
+}
+
+/* ─── Pastki qator ─────────────────────────────────────────────────────── */
+.app-footer,
+.app-footer-right {
+  color: var(--rd-ink-soft);
+  background: transparent;
+}
+
+/* ─── Jonli kamera / tahlil qoplamasi ──────────────────────────────────── */
+.analyzing-overlay { background: rgba(26, 26, 26, 0.72) !important; }
+.az-kicker { color: var(--rd-gold); letter-spacing: 0.2em; }
+
+/* ─── Bildirishnomalar: ma'lumot xato kabi ko'rinmasin ─────────────────── */
+.toast-ios--info,
+.toast-ios--muted,
+.toast-ios--green,
+.toast-ios--red {
+  border-radius: 8px !important;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(26, 26, 26, 0.14) !important;
+  border: 1px solid transparent;
+}
+
+.toast-ios--info {
+  background: var(--rd-gold) !important;
+  color: #ffffff !important;
+  border-color: var(--rd-gold-deep) !important;
+}
+
+.toast-ios--muted {
+  background: #ffffff !important;
+  color: var(--rd-ink) !important;
+  border-color: var(--rd-line) !important;
+}
+
+.toast-ios--green {
+  background: #2f7d51 !important;
+  color: #ffffff !important;
+  border-color: #276a44 !important;
+}
+
+.toast-ios--red {
+  background: #b4442f !important;
+  color: #ffffff !important;
+  border-color: #983626 !important;
 }

@@ -2507,7 +2507,7 @@ async function api(url, method = 'GET', body = null) {
 function toast(text, color = 'red') {
   const el = document.getElementById('toast');
   if (!el) return;
-  const map = { green: 'toast-ios--green', red: 'toast-ios--red', blue: 'toast-ios--red', gray: 'toast-ios--red' };
+  const map = { green: 'toast-ios--green', red: 'toast-ios--red', blue: 'toast-ios--info', gray: 'toast-ios--muted' };
   const cls = map[color] || map.red;
   el.className = cls;
   el.textContent = text;
