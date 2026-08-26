@@ -24,6 +24,7 @@ urlpatterns = [
     path("api/analyses", views.AnalysisListView.as_view(), name="api-analyses"),
     path("api/analyses/<str:public_id>", views.AnalysisDetailView.as_view(), name="api-analysis-detail"),
     path("api/patients/lookup", views.PatientLookupView.as_view(), name="api-patients-lookup"),
+    path("api/referral/parse", views.ReferralParseView.as_view(), name="api-referral-parse"),
     path("api/capture", views.CaptureView.as_view(), name="api-capture"),
     path("api/status", views.StatusView.as_view(), name="api-status"),
 ]

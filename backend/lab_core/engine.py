@@ -3460,6 +3460,151 @@ def _resize_img(img, max_px=None):
         img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
     return img
 
+# ─── Yo'llanma varaqasini o'qish ─────────────────────────────────────────────
+# Klinikadan kelgan "Патоморфологик текширувга йўлланма" blankasi rasmga olinadi;
+# undan bemor kartasi maydonlari avtomatik to'ldiriladi. Bu tashxis emas — hujjatdan
+# matn ko'chirish.
+_REFERRAL_SYSTEM = (
+    "You transcribe a filled-in medical referral form (Uzbek/Russian, often handwritten or "
+    "typed on a clinic letterhead). Return ONE JSON object only, no markdown, no commentary. "
+    "Copy what is written; never invent a value. Use an empty string for anything you cannot "
+    "read. Keep the original spelling of names. Never refuse — this is document transcription, "
+    "not medical advice."
+)
+
+_REFERRAL_SCHEMA = (
+    '{"clinic": "klinika nomi (blankaning yuqorisida)", '
+    '"referral_no": "yo\'llanma yoki gistologik raqami", '
+    '"referral_date": "yo\'llanma sanasi, KK.OO.YYYY", '
+    '"patient_name": "bemor F.I.Sh.", '
+    '"sex": "Erkak|Ayol|\"\"", '
+    '"age": "yosh (faqat son) yoki tug\'ilgan yil", '
+    '"address": "manzil / viloyat", '
+    '"clinical_note": "klinik ma\'lumot va klinik tashxis", '
+    '"procedure": "jarrohlik amaliyoti turi va sanasi", '
+    '"specimen_site": "namuna olingan joy/organ (matndan), masalan: Teri, o\'ng oyoq", '
+    '"doctor": "davolovchi shifokor F.I.Sh.", '
+    '"phone": "telefon raqami", '
+    '"received_date": "olib kelingan sana", '
+    '"is_referral": true}'
+)
+
+_REFERRAL_SITE_HINTS = (
+    ("teri", "Teri"), ("кожа", "Teri"), ("кожн", "Teri"), ("skin", "Teri"),
+    ("почесух", "Teri"), ("биопси", "Teri"),
+    # Dermatologiya klinikasida punch/shave biopsiya — teri
+    ("punch", "Teri"), ("панч", "Teri"), ("shave", "Teri"), ("biopsi", "Teri"),
+    ("dermat", "Teri"), ("nevus", "Teri"), ("papillom", "Teri"), ("keratoz", "Teri"),
+    ("ekzema", "Teri"), ("экзем", "Teri"), ("psoriaz", "Teri"), ("псориаз", "Teri"),
+    ("sut bezi", "Sut bezi"), ("молочн", "Sut bezi"),
+    ("qovuq", "Qovuq"), ("мочев", "Qovuq"),
+    ("prostat", "Prostata"), ("простат", "Prostata"),
+    ("qalqon", "Qalqonsimon bez"), ("щитовид", "Qalqonsimon bez"),
+    ("ichak", "Oshqozon-ichak"), ("кишеч", "Oshqozon-ichak"), ("желуд", "Oshqozon-ichak"),
+    ("endometr", "Endometrium"), ("матк", "Endometrium"),
+    ("yumurtalik", "Yumurtalik"), ("яичник", "Yumurtalik"),
+    ("buyrak", "Buyrak"), ("почк", "Buyrak"),
+    ("o'pka", "O'pka"), ("лёгк", "O'pka"), ("легк", "O'pka"),
+)
+
+
+def _referral_sex(raw):
+    t = (raw or "").strip().lower()
+    if not t:
+        return ""
+    if t.startswith(("erkak", "муж", "m", "э")):
+        return "Erkak"
+    if t.startswith(("ayol", "жен", "f", "а")):
+        return "Ayol"
+    return ""
+
+
+def _referral_age(raw, referral_date=""):
+    """Yosh yoki tug'ilgan yil — ikkalasi ham qabul qilinadi."""
+    digits = re.findall(r"\d{1,4}", str(raw or ""))
+    if not digits:
+        return ""
+    n = int(digits[0])
+    if 1900 <= n <= 2100:  # tug'ilgan yil berilgan
+        year = None
+        m = re.search(r"(20\d{2})", str(referral_date or ""))
+        if m:
+            year = int(m.group(1))
+        if year is None:
+            from datetime import date
+
+            year = date.today().year
+        age = year - n
+        return str(age) if 0 < age < 130 else ""
+    return str(n) if 0 < n < 130 else ""
+
+
+def _referral_site(data):
+    """Namuna joyini yo'llanma matnidan aniqlash."""
+    blob = " ".join(
+        str(data.get(k) or "")
+        for k in ("specimen_site", "procedure", "clinical_note", "referral_no")
+    ).lower()
+    for needle, value in _REFERRAL_SITE_HINTS:
+        if needle in blob:
+            return value
+    return ""
+
+
+def parse_referral_image(pil_image):
+    """Yo'llanma rasmidan bemor kartasi maydonlari (dict) yoki xato sababi."""
+    if openai_client is None:
+        raise RuntimeError("Xizmat kaliti sozlanmagan")
+    img = _resize_img(pil_image, max_px=1800)
+    part = {
+        "type": "image_url",
+        "image_url": {"url": _pil_to_data_url(img), "detail": "high"},
+    }
+    user = (
+        "Transcribe this referral form into JSON with exactly these keys:\n"
+        + _REFERRAL_SCHEMA
+        + "\nIf the sheet is not a referral form (for example it is a microscope "
+        'photograph), return {"is_referral": false}.'
+    )
+    raw = _chat_complete(
+        [
+            {"role": "system", "content": _REFERRAL_SYSTEM},
+            {"role": "user", "content": [{"type": "text", "text": user}, part]},
+        ],
+        {"max_tokens": 900, "temperature": 0.0, "top_p": 0.1},
+    )
+    data = _parse_observation(raw)  # bir xil JSON o'qish mantiqi
+    if not isinstance(data, dict):
+        log.warning("%s: yo'llanma JSON o'qilmadi: %r", ZIYRAKAI_DISPLAY_NAME, _preview(raw))
+        return None
+    if data.get("is_referral") is False:
+        return {"is_referral": False}
+
+    out = {
+        "is_referral": True,
+        "patient_name": _truncate_field(data.get("patient_name"), 120),
+        "sex": _referral_sex(data.get("sex")),
+        "age": _referral_age(data.get("age"), data.get("referral_date")),
+        "clinical_note": _truncate_field(data.get("clinical_note"), 200),
+        "specimen_site": _referral_site(data),
+        "ward": _truncate_field(data.get("clinic") or data.get("address"), 80),
+        "sample_id": re.sub(r"[^A-Za-z0-9]", "", str(data.get("referral_no") or ""))[:40],
+        "referral_no": _truncate_field(data.get("referral_no"), 40),
+        "referral_date": _truncate_field(data.get("referral_date"), 24),
+        "doctor": _truncate_field(data.get("doctor"), 120),
+        "phone": _truncate_field(data.get("phone"), 32),
+        "procedure": _truncate_field(data.get("procedure"), 160),
+        "address": _truncate_field(data.get("address"), 80),
+        "clinic_name": _truncate_field(data.get("clinic"), 80),
+    }
+    filled = sum(1 for k, v in out.items() if k != "is_referral" and v)
+    log.info(
+        "%s: yo'llanma o'qildi — %s maydon (bemor=%r, joy=%r)",
+        ZIYRAKAI_DISPLAY_NAME, filled, out["patient_name"][:30], out["specimen_site"],
+    )
+    return out
+
+
 def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None, patient_context=None):
     """Ko'p rasm tahlili — pil_images: list of PIL.Image (loading=True allaqachon API da)."""
     global latest_analysis

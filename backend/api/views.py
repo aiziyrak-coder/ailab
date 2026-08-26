@@ -851,6 +851,62 @@ class PatientLookupView(APIView):
         )
 
 
+class ReferralParseView(APIView):
+    """POST /api/referral/parse — yo'llanma rasmidan bemor kartasini o'qish."""
+
+    throttle_classes = [AnalyzeThrottle]
+
+    def post(self, request):
+        files = request.FILES.getlist("file") or request.FILES.getlist("files[]")
+        if not files:
+            return Response(
+                {"success": False, "message": "Yo'llanma rasmi yuborilmadi"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        eng.ensure_openai_from_env()
+        if eng.openai_client is None:
+            return Response(
+                {"success": False, "message": "Xizmat kaliti sozlanmagan"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        f = files[0]
+        data = f.read()
+        if not data:
+            return Response(
+                {"success": False, "message": "Fayl bo'sh"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            img = Image.open(io.BytesIO(data))
+            img.load()
+            img = img.convert("RGB")
+        except Exception:
+            return Response(
+                {"success": False, "message": "Rasm ochilmadi"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            parsed = eng.parse_referral_image(img)
+        except Exception as e:
+            eng.log.exception("referral parse: %s", e)
+            return Response(
+                {"success": False, "message": "Yo'llanmani o'qib bo'lmadi"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        if not parsed:
+            return Response(
+                {"success": False, "message": "Yo'llanma matni o'qilmadi — aniqroq surat yuklang"},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+        if parsed.get("is_referral") is False:
+            return Response(
+                {"success": False, "is_referral": False,
+                 "message": "Bu yo'llanma varaqasiga o'xshamaydi"},
+                status=status.HTTP_200_OK,
+            )
+        return Response({"success": True, "referral": parsed})
+
+
 class CaptureView(APIView):
     """POST /api/capture"""
 

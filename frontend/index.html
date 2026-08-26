@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#1b3a5c">
+  <meta name="theme-color" content="#c2a15c">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>MedLab — laboratoriya tahlili</title>
+  <title>DermaPATH — Radeski Skin Clinic</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/static/css/style.css?v=off59">
   <link rel="stylesheet" href="/static/css/lab-pro.css?v=off59">
   <link rel="stylesheet" href="/static/css/mobile.css?v=m2">
+  <link rel="stylesheet" href="/static/css/brand.css?v=b1">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -32,13 +33,13 @@
 <div class="app-root">
 
   <header class="header">
-    <button type="button" class="header-brand" onclick="startNewAnalysis()" title="Yangi tahlil — bosh sahifa" aria-label="MedLab: yangi tahlil">
+    <button type="button" class="header-brand" onclick="startNewAnalysis()" title="Yangi tahlil — bosh sahifa" aria-label="DermaPATH: yangi tahlil">
       <span class="header-logo-wrap" aria-hidden="true">
         <svg width="22" height="22" aria-hidden="true"><use href="#icon-microscope"/></svg>
       </span>
       <span>
-        <span class="header-kicker">Gistopatologiya diagnostikasi</span>
-        <span class="header-title">MedLab</span>
+        <span class="header-kicker">Radeski Skin Clinic</span>
+        <span class="header-title">Derma<span class="brand-path">PATH</span></span>
       </span>
     </button>
     <div class="lab-hud" hidden aria-hidden="true">
@@ -217,6 +218,17 @@
           </div>
           <input type="file" id="fileInput" accept="image/*,video/*,.avi,.mp4,.mov,.mkv,.webm"
                  style="display:none" onchange="handleFileSelect(event)" multiple>
+
+          <div class="referral-row" id="referralRow">
+            <button type="button" class="btn-referral" id="referralBtn"
+                    onclick="document.getElementById('referralInput').click()"
+                    title="Yo'llanma varaqasini suratga oling — bemor kartasi avtomatik to'ladi">
+              Yo‘llanmadan to‘ldirish
+            </button>
+            <input type="file" id="referralInput" accept="image/*" style="display:none"
+                   onchange="handleReferralSelect(event)">
+            <span class="referral-hint" id="referralHint">Yo‘llanma rasmini yuklang — maydonlar avtomatik to‘ladi</span>
+          </div>
           <div id="filePreview" class="file-preview" style="display:none">
             <div class="preview-header">
               <span id="previewCount" class="preview-count"></span>
@@ -344,7 +356,7 @@
               <span class="az-scan"></span>
               <span class="az-core"></span>
             </div>
-            <div class="az-kicker">MedLab</div>
+            <div class="az-kicker">DermaPATH</div>
             <p class="az-title">Tahlil qilinmoqda</p>
             <span class="az-hint" id="azHint">Preparat o‘qilmoqda — biroz kuting</span>
             <span class="az-elapsed" id="azElapsed" aria-live="polite"></span>
@@ -402,7 +414,7 @@
     <span class="app-footer-text">
       Klinik laboratoriya diagnostikasi · &copy; 2026 <strong>Far&#x2018;ona Jamoat Salomatligi Tibbiyot Instituti</strong>
     </span>
-    <span class="app-footer-right">MedLab · <span id="ftStation">WS-01</span> · <span id="ftClock"></span></span>
+    <span class="app-footer-right">DermaPATH · Radeski Skin Clinic · <span id="ftStation">WS-01</span> · <span id="ftClock"></span></span>
   </footer>
 
 </div>
@@ -479,7 +491,7 @@
     <div id="printContent" class="print-content"></div>
 
     <div id="printClosingNote" class="print-closing-note print-closing-clinic">
-      Ushbu hujjat shifokor va laborant uchun to‘liq klinik hisobotdir. MedLab morfologiya yordamchisi;
+      Ushbu hujjat shifokor va laborant uchun to‘liq klinik hisobotdir. DermaPATH morfologiya yordamchisi;
       yakuniy tashxis, davolash va rasmiy xulosa faqat litsenziyali mutaxassis tomonidan qo‘yiladi.
     </div>
 
@@ -510,7 +522,7 @@
         </div>
         <div class="print-footer-right">
           <div id="printPageDate" class="print-footer-date"></div>
-          <div id="printFooterAi" class="print-footer-ai">Klinik hisobot: MedLab</div>
+          <div id="printFooterAi" class="print-footer-ai">Klinik hisobot: DermaPATH — Radeski Skin Clinic</div>
         </div>
       </div>
       <div id="printFooterCopy" class="print-footer-copy">
@@ -545,5 +557,6 @@
 <script src="/static/js/auth.js"></script>
 <script src="/static/js/app.js?v=off59"></script>
 <script src="/static/js/ux.js?v=u2"></script>
+<script src="/static/js/referral.js?v=r1"></script>
 </body>
 </html>
