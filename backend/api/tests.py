@@ -503,3 +503,86 @@ class KnowledgeBaseSourceTests(TestCase):
         from lab_core.histology_kb import format_prompt_block
 
         self.assertEqual(format_prompt_block([]), "")
+
+
+class ObservationGateTests(TestCase):
+    """Tashxis tasvirdagi belgilarga bog'langanini tekshirish."""
+
+    FEATURES = {
+        "sample_quality": "yaxshi",
+        "dominant_pattern": "exophytic papillomatous epidermal proliferation",
+        "invasion": "yo'q",
+        "layers_present": {"epidermis": True, "dermis": True},
+        "epidermis": {
+            "acanthosis": True, "hyperkeratosis": True, "papillomatosis": True,
+            "koilocytes": True, "horn_cysts": False, "basaloid_proliferation": False,
+            "parakeratosis": False, "spongiosis": False, "full_thickness_atypia": False,
+        },
+        "junction": {
+            "peripheral_palisading": False, "pagetoid_spread": False,
+            "melanocyte_nests": False, "single_melanocyte_proliferation": False,
+            "clefting_retraction": False, "band_like_infiltrate": False,
+            "interface_damage": False,
+        },
+        "dermis": {
+            "spindle_cells": False, "storiform_pattern": False, "collagen_trapping": False,
+            "granuloma": False, "vasculitis": False, "vascular_proliferation": False,
+            "tumour_nodule": False, "solar_elastosis": False,
+        },
+        "cytology": {"keratin_pearls": False, "pleomorphism": "yo'q", "mitoses_10hpf": "0"},
+        "observations_uz": ["Epidermis papillomatoz va akantoz.", "Koilotsitlar bor."],
+    }
+
+    def test_unsupported_diagnosis_is_flagged(self):
+        from lab_core import engine as eng
+
+        for name in ("Seboreik keratoz", "Melanoma", "Dermatofibroma"):
+            txt = "#### TASHXIS\n" + name + " - benign\n"
+            self.assertTrue(
+                eng._report_contradicts_features(txt, self.FEATURES),
+                f"{name} bloklanishi kerak edi",
+            )
+
+    def test_supported_diagnosis_passes(self):
+        from lab_core import engine as eng
+
+        txt = "#### TASHXIS\nVerruca vulgaris - benign\n"
+        self.assertFalse(eng._report_contradicts_features(txt, self.FEATURES))
+
+    def test_insufficient_answer_passes(self):
+        from lab_core import engine as eng
+
+        txt = "#### TASHXIS\nAniq tashxis uchun yetarli emas\n"
+        self.assertFalse(eng._report_contradicts_features(txt, self.FEATURES))
+
+    def test_features_block_lists_seen_and_unseen(self):
+        from lab_core import engine as eng
+
+        blk = eng._features_prompt_block(self.FEATURES)
+        self.assertIn("KO'RINGAN", blk)
+        self.assertIn("koilotsitlar", blk)
+        self.assertIn("shox kistalari", blk)  # ko'rinmaganlar ro'yxatida
+        self.assertIn("papillomatous", blk)
+
+    def test_kb_query_follows_the_image(self):
+        from lab_core import engine as eng
+
+        q1 = eng._features_query_text(self.FEATURES)
+        other = {
+            "dominant_pattern": "dermal spindle cell nodule",
+            "invasion": "yo'q",
+            "epidermis": {"acanthosis": True},
+            "dermis": {"spindle_cells": True, "storiform_pattern": True, "collagen_trapping": True},
+            "junction": {}, "cytology": {},
+        }
+        q2 = eng._features_query_text(other)
+        self.assertIn("koilocytes", q1)
+        self.assertIn("storiform", q2)
+        self.assertNotEqual(q1, q2)
+
+    def test_observation_parses_json_in_code_fence(self):
+        from lab_core import engine as eng
+
+        raw = '```json\n{"invasion": "yo\'q", "dominant_pattern": "x"}\n```'
+        parsed = eng._parse_observation(raw)
+        self.assertEqual(parsed.get("dominant_pattern"), "x")

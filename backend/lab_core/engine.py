@@ -411,6 +411,19 @@ Hisobotda FAQAT shu 4 bo'lim, shu tartibda:
 Bir qator: <to'liq nom + turi> — <benign | reaktiv | in situ | invaziv>
 Ikkinchi qator: Organ/qatlam: … | Ishonch: yuqori/o'rta/past | Malignite huquqi: HA yoki YO'Q
 
+SHABLON JAVOB TAQIQLANADI. Ro'yxatlardagi nomlar ALIFBO tartibida berilgan —
+ketma-ketlik ehtimollikni bildirmaydi. Eng ko'p uchraydigan nomni (masalan seboreik
+keratoz, dermatofibroma) SUKUT BO'YICHA tanlash — og'ir xato.
+Tashxis FAQAT «TASVIRDAN OLINGAN BELGILAR» ro'yxatidagi belgilardan chiqadi.
+Har xil tasvirga bir xil javob bermaslik uchun: avval belgilarni o'qi, keyin nom qo'y.
+
+BELGILAR YETARLI BO'LMASA (bu TO'G'RI javob, kamchilik emas):
+«Aniq tashxis uchun yetarli emas» deb yoz, keyin:
+- Nima ko'rindi (2-3 belgi)
+- Qaysi belgi yetishmayapti
+- Nima kerak: qo'shimcha kesma, chuqurroq daraja, IHC (aniq nomlari), klinik ma'lumot
+Noto'g'ri aniq tashxisdan ko'ra halol «yetarli emas» xavfsizroq.
+
 #### NEGA SHU TASHXIS
 4–6 ta qator, boshqa hech narsa. Har qator: <mezon nomi> — <bir jumlalik ko'ringan dalil>.
 Faqat TASVIRDA ko'ringan mezon yoziladi. Ko'rinmagan mezonni yozma.
@@ -888,6 +901,291 @@ def _strip_other_organ_differential(text):
     return cleaned.strip()
 
 
+# ─── Majburiy morfologik ko'rik (tashxisdan OLDIN) ───────────────────────────
+# Model tashxis nomini o'ylashdan oldin tasvirdagi belgilarni sanab chiqadi.
+# Nomlar bu bosqichda TAQIQLANGAN — aks holda model eng ko'p uchraydigan
+# tashxisga (masalan seboreik keratoz) yopishib qoladi va har xil keyslarga
+# bir xil javob beradi.
+_HISTOLOGY_OBSERVE_SYSTEM = (
+    "You are a histopathology image reader. Report ONLY what is visible in this H&E "
+    "photomicrograph. Return ONE JSON object, no markdown, no commentary. "
+    "CRITICAL: do NOT name any disease, tumour, or diagnosis anywhere in the output. "
+    "No entity names (no 'keratosis', 'carcinoma', 'nevus', 'dermatofibroma', ...). "
+    "Only descriptive morphology. If a feature is not visible, use false. "
+    "Never refuse; if the field is blurry, mark sample_quality low and describe what is discernible."
+)
+
+_OBSERVE_SCHEMA = (
+    '{"not_tissue": false, "sample_quality": "yaxshi|o\'rtacha|past", '
+    '"magnification": "kichik|o\'rta|yuqori", '
+    '"layers_present": {"epidermis": false, "dermis": false, "subcutis": false, "adnexa": false}, '
+    '"epidermis": {"acanthosis": false, "hyperkeratosis": false, "parakeratosis": false, '
+    '"papillomatosis": false, "horn_cysts": false, "basaloid_proliferation": false, '
+    '"spongiosis": false, "koilocytes": false, "full_thickness_atypia": false, "ulceration": false, '
+    '"basal_pigment": false}, '
+    '"junction": {"interface_damage": false, "band_like_infiltrate": false, '
+    '"melanocyte_nests": false, "single_melanocyte_proliferation": false, "pagetoid_spread": false, '
+    '"clefting_retraction": false, "peripheral_palisading": false}, '
+    '"dermis": {"tumour_nodule": false, "spindle_cells": false, "storiform_pattern": false, '
+    '"collagen_trapping": false, "grenz_zone": false, "granuloma": false, "vasculitis": false, '
+    '"vascular_proliferation": false, "dense_lymphoid_infiltrate": false, "plasma_cells": false, '
+    '"eosinophils": false, "neutrophils": false, "mucin": false, "desmoplasia": false, '
+    '"necrosis": false, "solar_elastosis": false, "hemosiderin": false, "fibrosis": false}, '
+    '"glandular": {"glands_present": false, "cribriform": false, "papillary_fronds": false, '
+    '"fibrovascular_cores": false, "goblet_cells": false, "colloid": false, "myoepithelial_layer": false}, '
+    '"cytology": {"pleomorphism": "yo\'q|yengil|o\'rta|kuchli", "nuclear_grade": "1|2|3|noaniq", '
+    '"mitoses_10hpf": "0|1-2|3-10|>10|noaniq", "atypical_mitoses": false, "prominent_nucleoli": false, '
+    '"clear_cytoplasm": false, "keratin_pearls": false, "maturation_with_depth": false}, '
+    '"invasion": "yo\'q|shubhali|bor", '
+    '"dominant_pattern": "one short English phrase for the architectural pattern", '
+    '"observations_uz": ["3-6 ta qisqa o\'zbekcha jumla — faqat KO\'RINGAN narsa, tashxis nomisiz"]}'
+)
+
+
+def _observe_enabled():
+    v = (os.environ.get("HISTOLOGY_OBSERVE_PASS") or "1").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
+def _parse_observation(raw):
+    if not raw:
+        return None
+    t = raw.strip()
+    if t.startswith("```"):
+        t = re.sub(r"^```(?:json)?\s*", "", t, flags=re.I)
+        t = re.sub(r"\s*```$", "", t)
+    try:
+        start = t.find("{")
+        end = t.rfind("}")
+        if start < 0 or end <= start:
+            return None
+        data = json.loads(t[start : end + 1])
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _observe_histology(image_parts, patient_context=None):
+    """Tasvirdagi belgilarni tashxis nomisiz yig'ish — har keys uchun o'ziga xos."""
+    if not image_parts or not _observe_enabled():
+        return None
+    p = _normalize_patient_context(patient_context)
+    site = (p.get("specimen_site") or "").strip() or "—"
+    try:
+        user = (
+            f"Clinical specimen site: {site}. "
+            "Read EVERY field provided. Fill this JSON exactly, same keys, no extra keys:\n"
+            + _OBSERVE_SCHEMA
+            + "\nRemember: NO diagnosis names anywhere."
+        )
+        raw = _chat_complete(
+            [
+                {"role": "system", "content": _HISTOLOGY_OBSERVE_SYSTEM},
+                {"role": "user", "content": _vision_user(user, image_parts)},
+            ],
+            {"max_tokens": 1200, "temperature": 0.0, "top_p": 0.1},
+        )
+        data = _parse_observation(raw)
+        if not data:
+            log.warning("%s: ko'rik JSON o'qilmadi: %r", ZIYRAKAI_DISPLAY_NAME, _preview(raw))
+            return None
+        log.info(
+            "%s: ko'rik pattern=%r invaziya=%s sifat=%s belgilar=%s",
+            ZIYRAKAI_DISPLAY_NAME,
+            str(data.get("dominant_pattern"))[:60],
+            data.get("invasion"),
+            data.get("sample_quality"),
+            len(_true_features(data)),
+        )
+        return data
+    except Exception as e:
+        log.warning("%s: ko'rik xato (tahlil davom etadi): %s", ZIYRAKAI_DISPLAY_NAME, e)
+        return None
+
+
+_FEATURE_UZ = {
+    "acanthosis": "akantoz",
+    "hyperkeratosis": "giperkeratoz",
+    "parakeratosis": "parakeratoz",
+    "papillomatosis": "papillomatoz",
+    "horn_cysts": "shox kistalari",
+    "basaloid_proliferation": "bazaloid proliferatsiya",
+    "spongiosis": "spongioz",
+    "koilocytes": "koilotsitlar",
+    "full_thickness_atypia": "to'liq qalinlikdagi atipiya",
+    "ulceration": "yara",
+    "basal_pigment": "bazal pigment",
+    "interface_damage": "interfeys shikasti",
+    "band_like_infiltrate": "lentasimon infiltrat",
+    "melanocyte_nests": "melanotsitar uyalar",
+    "single_melanocyte_proliferation": "yakka melanotsit proliferatsiyasi",
+    "pagetoid_spread": "pagetoid tarqalish",
+    "clefting_retraction": "stroma retraksiyasi (kleft)",
+    "peripheral_palisading": "periferik palisad",
+    "tumour_nodule": "dermal tugun",
+    "spindle_cells": "duksimon hujayralar",
+    "storiform_pattern": "storiform pattern",
+    "collagen_trapping": "kollagen tuzog'i",
+    "grenz_zone": "Grenz zonasi",
+    "granuloma": "granuloma",
+    "vasculitis": "vaskulit",
+    "vascular_proliferation": "tomir proliferatsiyasi",
+    "dense_lymphoid_infiltrate": "zich limfoid infiltrat",
+    "plasma_cells": "plazmatik hujayralar",
+    "eosinophils": "eozinofillar",
+    "neutrophils": "neytrofillar",
+    "mucin": "musin",
+    "desmoplasia": "desmoplaziya",
+    "necrosis": "nekroz",
+    "solar_elastosis": "solar elastoz",
+    "hemosiderin": "gemosiderin",
+    "fibrosis": "fibroz",
+    "glands_present": "bezlar",
+    "cribriform": "cribriform",
+    "papillary_fronds": "papillyar shoxlar",
+    "fibrovascular_cores": "fibrovaskulyar o'zak",
+    "goblet_cells": "goblet hujayralar",
+    "colloid": "kolloid",
+    "myoepithelial_layer": "myoepitelial qavat",
+    "atypical_mitoses": "atipik mitozlar",
+    "prominent_nucleoli": "yirik yadrocha",
+    "clear_cytoplasm": "tiniq sitoplazma",
+    "keratin_pearls": "keratin marvaridlari",
+    "maturation_with_depth": "chuqurlik bo'yicha maturatsiya",
+}
+
+# Tashxis "langari": nom qo'yilsa, quyidagi SPETSIFIK belgilardan KAMIDA BITTASI
+# ko'rikda topilgan bo'lishi shart. Nospetsifik belgilar (akantoz, giperkeratoz)
+# ataylab kiritilmagan — ular deyarli har qanday teri kesmasida uchraydi va
+# noto'g'ri tashxisni "oqlab" yuboradi.
+_DX_REQUIRED_FEATURES = {
+    "seborrheic keratosis": ("horn_cysts", "basaloid_proliferation"),
+    "seboreik keratoz": ("horn_cysts", "basaloid_proliferation"),
+    "verruca": ("koilocytes", "papillomatosis"),
+    "verruka": ("koilocytes", "papillomatosis"),
+    "basal cell carcinoma": ("peripheral_palisading", "clefting_retraction", "basaloid_proliferation"),
+    "bazal hujayrali": ("peripheral_palisading", "clefting_retraction", "basaloid_proliferation"),
+    "squamous cell carcinoma": ("full_thickness_atypia", "keratin_pearls"),
+    "actinic keratosis": ("parakeratosis", "solar_elastosis"),
+    "aktinik keratoz": ("parakeratosis", "solar_elastosis"),
+    "dermatofibroma": ("collagen_trapping", "spindle_cells", "tumour_nodule"),
+    "dermatofibrosarcoma": ("storiform_pattern",),
+    "dfsp": ("storiform_pattern",),
+    "melanoma": ("pagetoid_spread", "single_melanocyte_proliferation", "melanocyte_nests"),
+    "melanom": ("pagetoid_spread", "single_melanocyte_proliferation", "melanocyte_nests"),
+    "nevus": ("melanocyte_nests", "single_melanocyte_proliferation"),
+    "psoriaz": ("parakeratosis",),
+    "psoriasis": ("parakeratosis",),
+    "lichen planus": ("band_like_infiltrate", "interface_damage"),
+    "granuloma annulare": ("granuloma",),
+    "sarkoidoz": ("granuloma",),
+    "vaskulit": ("vasculitis",),
+    "hemangioma": ("vascular_proliferation",),
+    "gemangiom": ("vascular_proliferation",),
+    "kaposi": ("vascular_proliferation", "spindle_cells"),
+    "spongiotik": ("spongiosis",),
+    "mycosis fungoides": ("dense_lymphoid_infiltrate", "pagetoid_spread"),
+}
+
+
+def _true_features(features):
+    """Ko'rikda TRUE bo'lgan belgilar ro'yxati (kalit nomlari)."""
+    out = []
+    if not isinstance(features, dict):
+        return out
+    for group in ("epidermis", "junction", "dermis", "glandular", "cytology"):
+        sub = features.get(group)
+        if isinstance(sub, dict):
+            for k, v in sub.items():
+                if v is True:
+                    out.append(k)
+    return out
+
+
+def _features_prompt_block(features):
+    """Ko'rik natijasi — tashxis shu belgilardan kelib chiqishi shart."""
+    if not isinstance(features, dict):
+        return ""
+    present = [_FEATURE_UZ.get(k, k) for k in _true_features(features)]
+    absent = [
+        _FEATURE_UZ.get(k, k)
+        for k in (
+            "horn_cysts", "koilocytes", "peripheral_palisading", "pagetoid_spread",
+            "storiform_pattern", "collagen_trapping", "granuloma", "vascular_proliferation",
+            "full_thickness_atypia", "keratin_pearls", "melanocyte_nests",
+        )
+        if not _feature_true(features, k)
+    ]
+    cyt = features.get("cytology") if isinstance(features.get("cytology"), dict) else {}
+    lines = [
+        "#### TASVIRDAN OLINGAN BELGILAR (avtomatik ko'rik — tashxis SHU ro'yxatdan chiqadi)",
+        f"Pattern: {_truncate_field(features.get('dominant_pattern'), 120) or '—'}",
+        f"Invaziya: {features.get('invasion') or 'noaniq'} | "
+        f"Pleomorfizm: {cyt.get('pleomorphism') or 'noaniq'} | "
+        f"Mitoz/10HPF: {cyt.get('mitoses_10hpf') or 'noaniq'} | "
+        f"Namuna sifati: {features.get('sample_quality') or 'noaniq'}",
+        "KO'RINGAN: " + (", ".join(present[:26]) if present else "—"),
+        "KO'RINMAGAN (muhim): " + (", ".join(absent[:14]) if absent else "—"),
+    ]
+    obs = features.get("observations_uz")
+    if isinstance(obs, list) and obs:
+        lines.append("Ko'rik izohi:")
+        for o in obs[:6]:
+            t = _truncate_field(o, 200)
+            if t:
+                lines.append(f"- {t}")
+    lines.append(
+        "QOIDA: tashxis FAQAT «KO'RINGAN» belgilarga tayanadi. «KO'RINMAGAN» belgini "
+        "talab qiladigan tashxisni QO'YMA. Agar ko'ringan belgilar biror aniq nozologiyaga "
+        "yetarli bo'lmasa — «Aniq tashxis uchun yetarli emas» deb yoz va nima kerakligini ayt."
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _feature_true(features, key):
+    if not isinstance(features, dict):
+        return False
+    for group in ("epidermis", "junction", "dermis", "glandular", "cytology", "layers_present"):
+        sub = features.get(group)
+        if isinstance(sub, dict) and key in sub:
+            return sub[key] is True
+    return False
+
+
+def _report_contradicts_features(text, features):
+    """Hisobotdagi tashxis ko'rikda topilmagan belgiga tayanmayaptimi."""
+    if not text or not isinstance(features, dict):
+        return ""
+    dx = _histology_dx_block(text).lower()
+    # Rad etilgan nomlar («… EMAS», «… YO'Q») qo'yilgan tashxis emas
+    dx = re.sub(r"[^\n]*\b(emas|yo'q|yoq)\b[^\n]*", " ", dx)
+    for name, required in _DX_REQUIRED_FEATURES.items():
+        if name not in dx:
+            continue
+        missing = [k for k in required if not _feature_true(features, k)]
+        if len(missing) == len(required):
+            return (
+                f"«{name}» qo'yilgan, lekin ko'rikda uning birorta asosiy belgisi topilmadi: "
+                + ", ".join(_FEATURE_UZ.get(m, m) for m in missing)
+            )
+    return ""
+
+
+def _features_query_text(features):
+    """Kitob qidiruvi uchun — har tasvirga o'ziga xos so'rov."""
+    if not isinstance(features, dict):
+        return ""
+    keys = _true_features(features)[:14]
+    pattern = str(features.get("dominant_pattern") or "").strip()
+    inv = features.get("invasion") or ""
+    parts = [k.replace("_", " ") for k in keys]
+    if pattern:
+        parts.insert(0, pattern)
+    if inv and inv != "yo'q":
+        parts.append("stromal invasion")
+    return " ".join(parts)[:400]
+
+
 def _worksheet_user(lab_type, organ_lock=None, kb_block=""):
     m = _lab_meta(lab_type)
     extra = _histology_protocol(organ_lock) if lab_type == "histology" else (
@@ -934,12 +1232,24 @@ def _describe_user(lab_type, organ_lock=None, kb_block=""):
 
 
 def _histology_dx_block(text):
+    """FAQAT «#### TASHXIS» bo'limi.
+
+    «NEGA BOSHQASI EMAS» bo'limida rad etilgan nomlar (masalan «DFSP — storiform
+    YO'Q») qo'yilgan tashxis deb hisoblanmasligi kerak.
+    """
     m = re.search(
-        r"#+\s*(?:aniq\s+)?tashxis\b(.{0,2000}?)(?=\n#+\s|\Z)",
+        r"#+\s*(?:aniq\s+)?tashxis\b[^\n]*\n(.{0,900}?)(?=\n#+\s|\Z)",
         text or "",
         flags=re.I | re.S,
     )
-    return m.group(1) if m else (text or "")[:1200]
+    if m:
+        return m.group(1)
+    m = re.search(
+        r"#+\s*(?:aniq\s+)?tashxis\b(.{0,900}?)(?=\n#+\s|\Z)",
+        text or "",
+        flags=re.I | re.S,
+    )
+    return m.group(1) if m else (text or "")[:300]
 
 
 _MALIGN_LEAD_RE = re.compile(
@@ -1031,9 +1341,11 @@ def _looks_like_weak_generic(text, lab_type, organ_lock=None):
             return True
         named = any(x in low for x in (
             "papilloma", "carcinoma", "karsinom", "adenom", "dcis", "punlmp",
-            "keratosis", "bowen", "bcc", "gleason", "niftp", "pin", "verruca",
+            "keratosis", "keratoz", "bowen", "bcc", "gleason", "niftp", "pin", "verruca",
             "malignite qo'yilmaydi", "malignite quyilmaydi", "yetarli mezon",
             "dermatofibroma", "dfsp", "fibroxantom", "fibrous histiocytoma",
+            "nevus", "melanom", "psoriaz", "lichen", "granulom", "vaskulit",
+            "gemangiom", "spongiotik", "dermatit", "kista", "yetarli emas",
         ))
         if not named:
             return True
@@ -1925,7 +2237,10 @@ def _pil_to_data_url(img):
 
 _ANALYSIS_SYSTEM = (
     "Sen MedLab GISTOLOGIYA kafedrasi raisisan. FAQAT H&E to'qima. Adashishga haqqi YO'Q. "
-    "Tashxis NOMI aniq bo'lsin. Dalilsiz rak/karsinoma YOZMA. "
+    "Tashxis NOMI aniq bo'lsin va TASVIRDAGI belgilardan chiqsin. "
+    "Har xil tasvirga bir xil shablon javob berish — og'ir xato. "
+    "Belgilar yetarli bo'lmasa «Aniq tashxis uchun yetarli emas» deb yoz. "
+    "Dalilsiz rak/karsinoma YOZMA. "
     "HISOBOT FAQAT 4 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS. Jami 1500-3000 belgi. Uzun matn, o'quv muhokamasi, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
     "Rad etma. Faqat MedLab gistologiya."
 )
@@ -1947,6 +2262,8 @@ _SAFE_SYSTEM = (
     "WHO Essential criteria are VISIBLE and invasion is PROVEN; otherwise benign/reactive. "
     "Apply Weedon/WHO/Junqueira METHOD and the retrieved canon as INTERNAL reasoning; "
     "do not paste textbook text and do not narrate your reasoning. "
+    "Base the diagnosis strictly on the listed observed features. Never fall back to the most "
+    "common entity: if the features do not support one, say so in Uzbek and state what is needed. "
     "HISOBOT FAQAT 4 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (ko'rinadigan morfologiya), #### NEGA BOSHQASI EMAS. Jami 1500-3000 belgi. Uzun matn, o'quv muhokamasi, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
     "One organ only. No percentages, no tables, no teaching text. MedLab histology only."
 )
@@ -2310,7 +2627,8 @@ def _needs_rewrite(text, lab_type, organ_lock=None):
     )
 
 
-def _safe_expand(draft, kwargs, image_parts=None, lab_type="histology", organ_lock=None, patient_context=None):
+def _safe_expand(draft, kwargs, image_parts=None, lab_type="histology", organ_lock=None,
+                 patient_context=None, features=None):
     """Uzaytirish: tashxis so'zisiz, filtr rad etmasin."""
     protocol = _histology_protocol(organ_lock, patient_context) if lab_type == "histology" else (
         "Ichki LIS protokoli: qisqa tashxis, uning asosi va ko'ringan fakt. Rad etma."
@@ -2322,6 +2640,7 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="histology", organ_lo
         if kb:
             kb = "\n" + kb + "\n"
     patient = _patient_prompt_prefix(patient_context, lab_type)
+    feats = _features_prompt_block(features) if lab_type == "histology" else ""
     n_img = len(image_parts or [])
     multi = _multi_image_protocol(n_img) if n_img > 1 else ""
     user_text = (
@@ -2329,6 +2648,7 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="histology", organ_lo
         + "\n"
         + (patient + "\n" if patient else "")
         + lock
+        + (feats + "\n" if feats else "")
         + kb
         + multi
         + protocol
@@ -2525,20 +2845,27 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
 
     n_img = len(image_parts)
     organ_lock = None
+    features = None
     if image_parts:
         # Namuna turi tekshiruvi va organ qulfi bir-biriga bog'liq emas — parallel bajariladi
         t0 = time.time()
-        with ThreadPoolExecutor(max_workers=2) as pool:
+        with ThreadPoolExecutor(max_workers=3) as pool:
             gate_f = pool.submit(_gate_specimen_match, image_parts, lab_type)
             lock_f = (
                 pool.submit(_lock_histology_organ, image_parts, patient_context)
                 if lab_type == "histology"
                 else None
             )
+            obs_f = (
+                pool.submit(_observe_histology, image_parts, patient_context)
+                if lab_type == "histology"
+                else None
+            )
             mismatch = gate_f.result()
             organ_lock = lock_f.result() if lock_f is not None else None
+            features = obs_f.result() if obs_f is not None else None
         log.info(
-            "%s: gate+organ qulf %.1fs (parallel)", ZIYRAKAI_DISPLAY_NAME, time.time() - t0
+            "%s: gate+organ+ko'rik %.1fs (parallel)", ZIYRAKAI_DISPLAY_NAME, time.time() - t0
         )
         if mismatch:
             log.warning("%s: specimen mismatch lab=%s — tahlil to'xtatildi", ZIYRAKAI_DISPLAY_NAME, lab_type)
@@ -2546,9 +2873,14 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
 
     kb_block = ""
     if lab_type == "histology":
-        kb_block = histology_kb_prompt_block(organ_lock, patient_context)
+        # Qidiruv tasvirdagi belgilardan quriladi — aks holda har keysga bir xil
+        # parchalar kelib, model bir xil tashxisga tortiladi.
+        kb_block = histology_kb_prompt_block(
+            organ_lock, patient_context, draft=_features_query_text(features) or None
+        )
 
     patient_block = _patient_prompt_prefix(patient_context, lab_type)
+    features_block = _features_prompt_block(features) if lab_type == "histology" else ""
     multi_note = _multi_image_protocol(n_img) if n_img > 1 else ""
 
     # Professor/konsilium so'rovi gpt-4o da tibbiy filtr bilan rad etiladi.
@@ -2556,6 +2888,8 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
     log.info("%s: 1-bosqich ichki morfologiya lab=%s imgs=%s", ZIYRAKAI_DISPLAY_NAME, lab_type, n_img)
     report = ""
     describe_prompt = _describe_user(lab_type, organ_lock, kb_block) + multi_note
+    if features_block:
+        describe_prompt = features_block + "\n" + describe_prompt
     if patient_block:
         describe_prompt = patient_block + "\n\n" + describe_prompt
     if n_img > 1:
@@ -2580,6 +2914,8 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
                 _preview(report),
             )
             ws = _worksheet_user(lab_type, organ_lock, kb_block) + multi_note
+            if features_block:
+                ws = features_block + "\n" + ws
             if patient_block:
                 ws = patient_block + "\n\n" + ws
             report = _chat_complete(
@@ -2611,7 +2947,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
         or len(report) < (MIN_REPORT_CHARS if lab_type == "histology" else 5000)
     ):
         log.info("%s: 2-bosqich uzaytirish (%s belgi) lab=%s", ZIYRAKAI_DISPLAY_NAME, len(report), lab_type)
-        expanded = _safe_expand(report, kwargs, image_parts, lab_type, organ_lock, patient_context)
+        expanded = _safe_expand(report, kwargs, image_parts, lab_type, organ_lock, patient_context, features)
         if _usable(expanded, MIN_REPORT_CHARS) and not _looks_like_refusal(expanded):
             organ_bad = lab_type == "histology" and (
                 _histology_report_organs_conflict(expanded)
@@ -2620,7 +2956,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
             )
             if organ_bad:
                 log.warning("%s: uzaytirishda organ konflikti — qayta qulf bilan", ZIYRAKAI_DISPLAY_NAME)
-                fixed = _safe_expand(expanded, kwargs, image_parts, lab_type, organ_lock, patient_context)
+                fixed = _safe_expand(expanded, kwargs, image_parts, lab_type, organ_lock, patient_context, features)
                 if _usable(fixed, 1200) and not (
                     _histology_report_organs_conflict(fixed)
                     or _histology_report_wrong_organ(fixed, organ_lock)
@@ -2650,6 +2986,22 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
             deeper = _deepen_report(report, deepen_prompt, kwargs, image_parts, lab_type)
             if _usable(deeper, MIN_REPORT_CHARS) and not _looks_like_technician(deeper):
                 report = deeper
+
+    # Tashxis ko'rikdagi belgilarga zid bo'lsa — bir marta qayta yozdiramiz
+    if lab_type == "histology" and features and _usable(report, 400):
+        conflict = _report_contradicts_features(report, features)
+        if conflict:
+            log.warning("%s: tashxis ko'rikka zid — %s", ZIYRAKAI_DISPLAY_NAME, conflict)
+            retry = _safe_expand(
+                report
+                + "\n\n==== NAZORAT: "
+                + conflict
+                + ". Shu tashxisni olib tashla yoki ko'ringan belgilarga mos nom qo'y. "
+                "Belgilar yetarli bo'lmasa «Aniq tashxis uchun yetarli emas» deb yoz. ====",
+                kwargs, image_parts, lab_type, organ_lock, patient_context, features,
+            )
+            if _usable(retry, MIN_REPORT_CHARS) and not _report_contradicts_features(retry, features):
+                report = retry
 
     if _usable(report, 400):
         if lab_type == "histology":
