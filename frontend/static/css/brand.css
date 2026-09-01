@@ -362,6 +362,7 @@ h1, h2, h3, h4,
 
 .right-panel.report-sheet { background: #ffffff !important; }
 
+#resultBody .r-h3,
 #resultBody h4,
 .result-content h4 {
   color: var(--rd-gold-deep);

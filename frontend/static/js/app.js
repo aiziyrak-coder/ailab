@@ -164,8 +164,17 @@ function currentNamunaId() {
   return buildRegistrationId(currentLab, peekSampleSeq());
 }
 
+// Tarixdan ochilgan yozuv ko'rilayotganda uning o'z namuna raqami saqlanadi —
+// aks holda hisobotda boshqa (yangi) raqam chiqib qoladi.
+let _lockedSampleId = '';
+
 function refreshSampleId() {
   const el = document.getElementById('accSample');
+  if (_lockedSampleId) {
+    if (el) el.value = _lockedSampleId;
+    updateResultRegistrationId();
+    return;
+  }
   const next = currentNamunaId();
   if (el) {
     const prev = String(el.value || '');
@@ -684,6 +693,7 @@ function cancelAnalysis() {
 }
 
 function startNewAnalysis() {
+  _lockedSampleId = '';
   _pollGen++;
   _analyzeBusy = false;
   stopAnalyzeTimer();
@@ -2075,7 +2085,11 @@ function isMdTableRow(line) {
   const t = line.trim();
   if (!t.includes('|')) return false;
   if (isMdTableSeparator(t)) return false;
-  const parts = t.split('|').filter(x => x.trim() !== '');
+  // Haqiqiy markdown jadval qatori "|" bilan boshlanadi va tugaydi.
+  // Aks holda oddiy matn ("Organ: teri | Ishonch: yuqori") jadvalga aylanib
+  // ketadi — hisobotdagi tashxis qatori shu sababli buzilgan edi.
+  if (!(t.startsWith('|') && t.endsWith('|'))) return false;
+  const parts = t.slice(1, -1).split('|');
   return parts.length >= 2;
 }
 
@@ -2134,15 +2148,20 @@ function markdownToHtml(text, opts) {
     }
 
     if (isMdTableRow(l)) {
-      const rowLines = [];
-      while (i < lines.length) {
-        const cur = lines[i].trim();
-        if (isMdTableSeparator(cur)) { i++; continue; }
-        if (isMdTableRow(cur)) { rowLines.push(cur); i++; }
-        else break;
+      const next = (lines[i + 1] || '').trim();
+      // Yolg'iz qator jadval emas: keyingi qator ham jadval qatori yoki
+      // ajratuvchi bo'lishi kerak.
+      if (isMdTableSeparator(next) || isMdTableRow(next)) {
+        const rowLines = [];
+        while (i < lines.length) {
+          const cur = lines[i].trim();
+          if (isMdTableSeparator(cur)) { i++; continue; }
+          if (isMdTableRow(cur)) { rowLines.push(cur); i++; }
+          else break;
+        }
+        html += renderMdTable(rowLines);
+        continue;
       }
-      html += renderMdTable(rowLines);
-      continue;
     }
 
     if (l.startsWith('#### ')) {
@@ -2226,45 +2245,41 @@ function _joinReportLines(arr) {
   return arr.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-function _extractPatientTables(lines) {
-  const tableLines = [];
-  let inTable = false;
-  for (const line of lines) {
-    const t = line.trim();
-    if (isMdTableRow(t) || isMdTableSeparator(t)) {
-      tableLines.push(line);
-      inTable = true;
-    } else if (inTable && !t) {
-      tableLines.push('');
-      inTable = false;
+// Bemor nusxasidan chiqariladigan bo'limlar: o'lchov va ichki morfologiya
+// shifokorga kerak, bemorga esa tushunarsiz.
+const PATIENT_SKIP_SECTIONS = ['fakt', 'morfologiya'];
+
+function _reportSections(raw) {
+  const out = [];
+  let cur = {title: '', lines: []};
+  for (const line of String(raw || '').split('\n')) {
+    const m = /^\s*#{1,6}\s*(.+?)\s*$/.exec(line);
+    if (m) {
+      if (cur.title || cur.lines.length) out.push(cur);
+      cur = {title: m[1], lines: []};
     } else {
-      inTable = false;
+      cur.lines.push(line);
     }
   }
-  return _joinReportLines(tableLines);
-}
-
-function _synthesizePatientTable(raw) {
-  const rows = [];
-  const seen = new Set();
-  for (const line of String(raw || '').split('\n')) {
-    let t = line.replace(/^#{1,4}\s+/, '').replace(/^[-•*]\s+/, '').trim();
-    if (!t || t.length > 180) continue;
-    const m = t.match(/^(.{3,70}?)\s*[:—–\-]\s+(.{1,90})$/);
-    if (!m || !/\d/.test(m[2])) continue;
-    const k = m[1].replace(/\*+/g, '').trim();
-    const v = m[2].replace(/\*+/g, '').trim();
-    if (seen.has(k.toLowerCase())) continue;
-    seen.add(k.toLowerCase());
-    rows.push(`| ${k} | ${v} | — | — |`);
-  }
-  if (rows.length < 2) return '';
-  return ['| Ko\'rsatkich | Topilgan | Normal | Baho |', ...rows].join('\n');
+  if (cur.title || cur.lines.length) out.push(cur);
+  return out;
 }
 
 function filterPatientReport(raw) {
-  const lines = String(raw || '').split('\n');
-  return _extractPatientTables(lines) || _synthesizePatientTable(raw) || '';
+  const text = String(raw || '').trim();
+  if (!text) return '';
+  const sections = _reportSections(text);
+  if (sections.length < 2) return text;
+  const kept = [];
+  for (const sec of sections) {
+    const t = (sec.title || '').toLowerCase();
+    if (t && PATIENT_SKIP_SECTIONS.some(k => t.includes(k))) continue;
+    if (sec.title) kept.push('#### ' + sec.title);
+    kept.push(...sec.lines);
+  }
+  const res = kept.join('\n').trim();
+  // Filtr hech qachon hisobotni bo'shatib qo'ymasin
+  return res.length > 120 ? res : text;
 }
 
 function _stampNow() {
@@ -2723,9 +2738,10 @@ async function openHistoryRecord(publicId) {
     facility_type: rec.facility_type,
     lab_type: rec.lab_type,
   });
-  if (rec.sample_id) {
+  _lockedSampleId = rec.sample_id || rec.public_id || '';
+  if (_lockedSampleId) {
     const sid = document.getElementById('accSample');
-    if (sid) sid.value = rec.sample_id;
+    if (sid) sid.value = _lockedSampleId;
   }
   renderResult({
     status: rec.status,
@@ -2734,6 +2750,11 @@ async function openHistoryRecord(publicId) {
     public_id: rec.public_id,
     lab_type: rec.lab_type,
   });
+  if (_lockedSampleId) {
+    const sid = document.getElementById('accSample');
+    if (sid) sid.value = _lockedSampleId;
+    updateResultRegistrationId();
+  }
   toast('Tahlil ochildi: ' + rec.public_id + ' — bemor kartasi to‘ldirildi', 'green');
 }
 
