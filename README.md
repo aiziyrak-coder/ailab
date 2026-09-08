@@ -104,6 +104,54 @@ Indeksdagi manbalar:
 | Атлас диагностических биопсий кожи, Дерматоонкопатология, Цветкова | rus manbalari |
 | Junqueira, Langman, Alberts (MBOC) | umumiy gistologiya kanoni |
 
+**Klinika kutubxonasi** (ustuvor manba — `clinic: True`):
+
+| Manba | Parcha |
+|-------|--------|
+| Дерматология — руководство «до и после» | 11 116 |
+| Книга АТЛАС «до и после» | 4 955 |
+| Монография: экзематозные (спонгиотические) дерматозы | 1 237 |
+| Аногенитальные дерматозы | 631 |
+| Внутренние болезни и кожа | 152 |
+| НАШ АТЛАС | 39 |
+| Дерматоскопия, 10-bob | 19 |
+
+Har tahlilda bu kitoblarga **kafolatlangan kvota** ajratiladi
+(`HISTOLOGY_KB_CLINIC_MIN`, standart 6 parcha): dastur avval shulardan mezon
+oladi, xalqaro kanon (Weedon va b.) tekshiruv uchun qo'shiladi. Kvota mavzuga
+oid so'rovlar (rus morfologiya qatori, namuna joyi, qoralamadagi tashxis
+atamalari) bo'yicha tanlanadi va morfologiya yozilgan parchalar ustun turadi —
+sof klinik tavsif mikroskop tahlilida pastga tushadi (`morph_weights.npz`).
+
+### Bilimlar bazasi bo'limi (`/bilimlar`)
+
+Kutubxonani ko'rish va qidirish uchun alohida sahifa. Platformaga kirgan
+foydalanuvchi bo'lim parolini (`KB_ACCESS_PASSWORD`, `backend/.env`) kiritadi;
+qulf sessiyada saqlanadi, "Bo'limni qulflash" bilan yopiladi.
+
+| Yo'l | Vazifa |
+|------|--------|
+| `GET /bilimlar` | sahifa |
+| `GET /api/kb/status` | qulf holati, indeks hajmi |
+| `POST /api/kb/unlock` | parol tekshiruvi (throttle bilan) |
+| `POST /api/kb/lock` | qulflash |
+| `GET /api/kb/books` | kitoblar, bo'lim nomlari, parcha soni |
+| `POST /api/kb/search` | kutubxona bo'ylab semantik qidiruv |
+
+### Matnli kitoblarni (.doc / .docx / .pdf) o'qitish
+
+Arxivdagi kitoblar avval matnga aylantiriladi, so'ng indeksga qo'shiladi:
+
+```bash
+python scripts/ingest_book_texts.py --text-dir D:/AILab/_kb_text --plan   # hisob-kitob
+python scripts/ingest_book_texts.py --text-dir D:/AILab/_kb_text          # o'qitish
+```
+
+Papka tuzilishi: `<text-dir>/<manba_kodi>/**/*.txt` — manba kodi
+`histology_kb.SOURCES` da ro'yxatdan o'tgan bo'lishi kerak. Takroriy parchalar
+(bir kitob bir necha arxivda) avtomatik tashlanadi, har manba `sha256` bo'yicha
+keshlanadi, mavjud indeksdagi boshqa kitoblarga tegilmaydi.
+
 ### O'qitish (indeks yaratish)
 
 ```bash
@@ -129,7 +177,7 @@ dalillari matnda bo'lishi shart — aks holda hisobot qayta yoziladi.
 
 ### Serverga kitob indeksini yuborish
 
-Indeks (`backend/data/histology_kb/`, ~125 MB) gitga kirmaydi, shuning uchun
+Indeks (`backend/data/histology_kb/`, ~290 MB) gitga kirmaydi, shuning uchun
 `git pull` uni serverga olib bormaydi. Kod deploy qilingandan keyin:
 
 ```bash
