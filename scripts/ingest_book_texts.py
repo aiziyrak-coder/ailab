@@ -95,8 +95,16 @@ def _norm_key(text: str) -> str:
     return hashlib.sha1(t[:600].encode("utf-8")).hexdigest()[:20]
 
 
+MIN_FILE_CHARS = 120  # butun fayl bitta parcha bo'lib qolishi uchun eng kam hajm
+
+
 def collect_source_files(src_dir: Path) -> list[Path]:
-    return sorted(p for p in src_dir.rglob("*.txt") if p.is_file() and p.stat().st_size > 400)
+    """Word vaqtinchalik fayllari (~$...) tashlanadi, qolgani tartib bilan."""
+    return sorted(
+        p
+        for p in src_dir.rglob("*.txt")
+        if p.is_file() and p.stat().st_size > 200 and not p.name.startswith("~$")
+    )
 
 
 def source_sha(files: list[Path]) -> str:
@@ -124,9 +132,14 @@ def build_chunks(source: str, files: list[Path], seen: set[str], stats: dict) ->
                 title = title[: -len(suf)]
         # Sahifa raqami o'rniga hujjat ichidagi ketma-ketlik
         pages = [(i + 1, part) for i, part in enumerate(_split_pages(raw))]
-        for ch in chunk_pages(pages, source):
-            if len(ch["text"]) < MIN_CHUNK_CHARS:
-                continue
+        made = [c for c in chunk_pages(pages, source) if len(c["text"]) >= MIN_CHUNK_CHARS]
+        if not made:
+            # "Липоидный некробиоз", "Узловатая эритема" kabi qisqa izoh fayllari:
+            # chunk_pages ularni tashlaydi, lekin kasallik nomi va tavsifi qimmatli.
+            body = " ".join(raw.split()).strip()
+            if len(body) >= MIN_FILE_CHARS:
+                made = [{"source": source, "page": 1, "text": body}]
+        for ch in made:
             key = _norm_key(ch["text"])
             if key in seen:
                 dup += 1
@@ -177,16 +190,57 @@ def save_cache(source: str, sha: str, chunks, emb):
             f.write(json.dumps(ch, ensure_ascii=False) + "\n")
 
 
+def known_vectors(source: str) -> dict[str, np.ndarray]:
+    """Shu manbaning oldingi kesh fayllaridan matn -> vektor lug'ati.
+
+    Kesh manba bo'yicha emas, PARCHA bo'yicha ishlaydi: kitobga bitta yangi
+    bo'lim qo'shilsa ham qolgan 11 ming parcha qayta embed qilinmaydi.
+    """
+    store: dict[str, np.ndarray] = {}
+    for ch_p in sorted(cache_dir().glob(f"txt_{source}_*.jsonl")):
+        emb_p = ch_p.with_suffix(".npy")
+        if not emb_p.is_file():
+            continue
+        try:
+            emb = np.load(emb_p)
+            rows = [
+                json.loads(line)
+                for line in ch_p.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+        except Exception:
+            continue
+        if emb.ndim != 2 or emb.shape[0] != len(rows):
+            continue
+        for i, row in enumerate(rows):
+            store.setdefault(_text_key(row.get("text") or ""), emb[i])
+    return store
+
+
+def _text_key(text: str) -> str:
+    return hashlib.sha1((text or "").strip().encode("utf-8")).hexdigest()[:24]
+
+
 def embed_chunks(chunks, source: str):
-    texts = [source_prefix(source) + ch["text"] for ch in chunks]
-    parts = []
-    step = 256
-    for i in range(0, len(texts), step):
-        parts.append(embed_texts(texts[i : i + step]))
-        done = min(i + step, len(texts))
-        if done % 2048 < step or done == len(texts):
-            print(f"      embed {done}/{len(texts)}")
-    return np.vstack(parts) if parts else np.zeros((0, 1536), dtype=np.float32)
+    store = known_vectors(source)
+    keys = [_text_key(ch["text"]) for ch in chunks]
+    missing = [i for i, k in enumerate(keys) if k not in store]
+    if store:
+        print(f"      keshdan {len(chunks) - len(missing)}/{len(chunks)} parcha")
+    if missing:
+        texts = [source_prefix(source) + chunks[i]["text"] for i in missing]
+        step = 256
+        done = 0
+        for i in range(0, len(texts), step):
+            vecs = embed_texts(texts[i : i + step])
+            for j, v in enumerate(vecs):
+                store[keys[missing[i + j]]] = np.asarray(v, dtype=np.float32)
+            done = min(i + step, len(texts))
+            if done % 2048 < step or done == len(texts):
+                print(f"      embed {done}/{len(texts)}")
+    if not chunks:
+        return np.zeros((0, 1536), dtype=np.float32)
+    return np.vstack([store[k] for k in keys]).astype(np.float32)
 
 
 def load_index():

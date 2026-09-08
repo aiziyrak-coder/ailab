@@ -108,13 +108,13 @@ Indeksdagi manbalar:
 
 | Manba | Parcha |
 |-------|--------|
-| Дерматология — руководство «до и после» | 10 675 |
-| Книга АТЛАС «до и после» | 4 875 |
+| Дерматология — руководство «до и после» | 10 679 |
+| Книга АТЛАС «до и после» | 4 894 |
 | Монография: экзематозные (спонгиотические) дерматозы | 1 431 |
-| Аногенитальные дерматозы | 624 |
+| Аногенитальные дерматозы | 626 |
 | Изменения кожи при заболеваниях внутренних органов | 421 |
-| НАШ АТЛАС | 104 |
-| Дерматоскопия, 10-bob | 19 |
+| НАШ АТЛАС | 106 |
+| Дерматоскопия, 10-bob | 20 |
 
 Bir xil matn bir necha arxivda uchraydi (masalan "ВНУТРЕННИЕ БОЛЕЗНИ"
 monografiyasi "Дерматология — руководство" ichida ham bor). Takror parcha
@@ -128,6 +128,17 @@ oladi, xalqaro kanon (Weedon va b.) tekshiruv uchun qo'shiladi. Kvota mavzuga
 oid so'rovlar (rus morfologiya qatori, namuna joyi, qoralamadagi tashxis
 atamalari) bo'yicha tanlanadi va morfologiya yozilgan parchalar ustun turadi —
 sof klinik tavsif mikroskop tahlilida pastga tushadi (`morph_weights.npz`).
+
+Ikki qo'shimcha qoida:
+
+- **Modallik.** `modality: "dermatoscopy"` bo'lgan manba (Дерматоскопия bobi)
+  kafolatlangan kvotaga kirmaydi va promptda "DERMATOSKOPIYA — teri yuzasi,
+  mikroskop emas" deb belgilanadi — dermatoskopik belgi gistologik belgi
+  sifatida yozilmasligi uchun.
+- **Takroriy paragraf.** Bir xil matn turli nashrlarda kichik farq bilan
+  qaytariladi va hash bilan tutilmaydi. Tanlangan parchaga kosinus bo'yicha
+  `HISTOLOGY_KB_NEAR_DUP` (standart 0.90) dan yaqin nomzod olinmaydi — aks holda
+  bitta paragrafning olti nusxasi butun kvotani egallab qo'yardi.
 
 ### Bilimlar bazasi bo'limi (`/bilimlar`)
 

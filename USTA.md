@@ -44,7 +44,7 @@ Bemorsiz/rasmsiz tahlil bloklanadi, PDF kutubxonasi yuklanadi, yozuv o'chadi.
 ### 5-bosqich — Bilimlar bazasi (klinika kutubxonasi) ✅
 Klinikaning 7 ta kitob arxivi matnga aylantirildi (.doc → Word COM, .docx → XML,
 .pdf → PyMuPDF), takrorlar tashlandi va vektor indeksga qo'shildi:
-18 149 yangi parcha, jami 35 090. Yangi `/bilimlar` bo'limi (parol bilan),
+18 177 yangi parcha, jami 35 118. Yangi `/bilimlar` bo'limi (parol bilan),
 `/api/kb/*` API va tahlilda klinika kitoblariga kafolatlangan kvota
 (`CLINIC_MIN_HITS`, standart 7 parcha) qo'shildi.
 

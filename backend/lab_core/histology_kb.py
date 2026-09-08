@@ -52,6 +52,14 @@ CHUNK_OVERLAP = 220
 TOP_K = _env_int("HISTOLOGY_KB_TOP_K", 14, 3, 40)
 PER_SOURCE_MAX = _env_int("HISTOLOGY_KB_PER_SOURCE", 3, 1, 10)
 
+# Bir xil paragraf turli nashrlarda kichik farq bilan qaytariladi (hash bilan
+# tutilmaydi). Tanlangan parchaga shu darajada yaqin nomzod olinmaydi.
+try:
+    NEAR_DUP_COS = float(os.environ.get("HISTOLOGY_KB_NEAR_DUP") or 0.90)
+except (TypeError, ValueError):
+    NEAR_DUP_COS = 0.90
+NEAR_DUP_COS = min(max(NEAR_DUP_COS, 0.80), 1.0)
+
 # ─── Manba registri ───────────────────────────────────────────────────────────
 # tier: 1 = tashxis uchun asosiy (dermatopatologiya), 2 = umumiy gistologiya kanoni
 # domain: skin | general | melanoma | vascular
@@ -203,6 +211,9 @@ SOURCES = {
         "domain": "skin",
         "tier": 1,
         "clinic": True,
+        # Dermatoskopiya boshqa modallik: teri yuzasi, gistologik kesma emas.
+        # Kvotaga kirmaydi va promptda alohida belgilanadi.
+        "modality": "dermatoscopy",
         "weight": 0.05,
         "prefix": "Дерматоскопия. ",
     },
@@ -246,6 +257,12 @@ GENERAL_SOURCES = frozenset(k for k, v in SOURCES.items() if v["domain"] == "gen
 
 # Klinika kutubxonasi — "Bilimlar bazasi" bo'limida ko'rsatiladi va tahlilda ustun
 CLINIC_SOURCES = frozenset(k for k, v in SOURCES.items() if v.get("clinic"))
+
+# Kafolatlangan kvota faqat mikroskop mezoni yozilgan manbalarga beriladi —
+# dermatoskopiya klinik kontekst sifatida qoladi, lekin joyni egallamaydi.
+CLINIC_QUOTA_SOURCES = frozenset(
+    k for k in CLINIC_SOURCES if SOURCES[k].get("modality", "histology") == "histology"
+)
 
 # Har tahlilda klinika kitoblariga kafolatlangan joy (organ = teri bo'lganda)
 CLINIC_MIN_HITS = _env_int("HISTOLOGY_KB_CLINIC_MIN", 6, 0, 20)
@@ -444,7 +461,7 @@ def _clinic_mask(chunks):
     if _CLINIC_MASK["mtime"] == mtime and _CLINIC_MASK["arr"] is not None:
         return _CLINIC_MASK["arr"]
     arr = np.fromiter(
-        ((c.get("source") or "") in CLINIC_SOURCES for c in chunks),
+        ((c.get("source") or "") in CLINIC_QUOTA_SOURCES for c in chunks),
         dtype=bool,
         count=len(chunks),
     )
@@ -850,6 +867,7 @@ def retrieve(queries, k=None, organ=None, per_source_max=None, specific_from=Non
     out = []
     seen = set()
     per_source = {}
+    picked_rows = []  # tanlangan parchalar vektori — takroriy paragrafni to'sish
 
     def _limit_for(code):
         """Organga mos manbadan ko'proq parcha olinadi (teri emas → umumiy kanon)."""
@@ -870,7 +888,12 @@ def retrieve(queries, k=None, organ=None, per_source_max=None, specific_from=Non
         key = (code, ch.get("page"), (ch.get("text") or "")[:80])
         if key in seen:
             return False
+        if picked_rows:
+            sim = emb[int(i)] @ emb[picked_rows].T
+            if float(sim.max()) >= NEAR_DUP_COS:
+                return False
         seen.add(key)
+        picked_rows.append(int(i))
         per_source[code] = per_source.get(code, 0) + 1
         item = dict(ch)
         item["score"] = float(best[int(i)])
@@ -935,7 +958,9 @@ def format_prompt_block(hits, organ=None):
             "TARTIB: (KLINIKA KUTUBXONASI) deb belgilangan parchalar — klinikaning o'z "
             "kitoblari. Mezonni BIRINCHI NAVBATDA shulardan ol; (kanon) parchalari "
             "tekshiruv va to'ldirish uchun. Ular bir-biriga zid kelsa, klinika "
-            "kutubxonasining tavsifi rasmga mos kelsa — o'sha ustun."
+            "kutubxonasining tavsifi rasmga mos kelsa — o'sha ustun. "
+            "(DERMATOSKOPIYA) parchalari boshqa usul — teri yuzasi ko'rinishi; "
+            "ularni gistologik belgi sifatida YOZMA, faqat klinik kontekst."
         ),
         "ULARDAN METOD va MEZONNI ol: pattern nomi, Essential belgilar, differensial ajratish.",
         "Kitob sahifasini so'zma-so'z KO'CHIRMA. Hisobot o'zbek tilida, o'z so'zing bilan.",
@@ -961,7 +986,12 @@ def format_prompt_block(hits, organ=None):
         body = re.sub(r"\s+", " ", (h.get("text") or "")).strip()
         if len(body) > 780:
             body = body[:780].rsplit(" ", 1)[0] + "…"
-        tag = "KLINIKA KUTUBXONASI" if h.get("clinic") else "kanon"
+        if source_meta(code).get("modality") == "dermatoscopy":
+            tag = "DERMATOSKOPIYA — teri yuzasi, mikroskop emas"
+        elif h.get("clinic"):
+            tag = "KLINIKA KUTUBXONASI"
+        else:
+            tag = "kanon"
         where = f"{src}"
         if title:
             where += f" — {title}"
