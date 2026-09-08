@@ -2112,9 +2112,18 @@ def _gestalt_block(g):
         lines.append(f"Klinik moslik: {str(g['clinicopathologic_fit']).strip()[:200]}")
     if g.get("what_would_settle_it"):
         lines.append(f"Hal qiluvchi qadam: {str(g['what_would_settle_it']).strip()[:200]}")
+    ent = _dxc.find_entity(str(g.get("diagnosis") or ""))
+    if ent:
+        ess = ", ".join(_dxc.feature_label(k) for k in ent["essential"][:5])
+        exc = ", ".join(_dxc.feature_label(k) for k in ent["excluding"][:6])
+        lines.append(f"Jadval bo'yicha «{ent['name']}» majburiy belgilari: {ess or '—'}")
+        lines.append(f"Uni RAD ETUVCHI belgilar: {exc or '—'}")
     lines.append(
-        "Bu o'qish USTUVOR: yakuniy tashxis shu bo'lsin, faqat ko'rilgan belgilar unga "
-        "aniq zid bo'lsa boshqa nom yozing va nima uchun, ayting."
+        "QOIDA: bu senior o'qish (kichik kattalashtirish + klinik surat) USTUVOR. Boshqa nom "
+        "faqat ikki holatda: (1) yuqoridagi RAD ETUVCHI belgilardan biri kesmada aniq "
+        "ko'rilgan; (2) majburiy belgilarning birortasi ham yo'q. Qo'shimcha tasodifiy "
+        "belgilar (koilotsit, parakeratoz, giperkeratoz va sh.k.) senior o'qishni bekor "
+        "qilmaydi — ular «facts» ga yoziladi."
     )
     return "\n".join(lines) + "\n"
 
@@ -2383,7 +2392,7 @@ def _material_changes(name, changes, ranked):
 
 
 def _finish_record(rec, features, adj, names, verified_changes=None, clinical_text="",
-                   referral_text="", gestalt=None):
+                   referral_text="", gestalt=None, referral_pure=""):
     """Qo'riqchilar + foiz + hisobot matni. Har doim to'liq ishlaydi."""
     from . import dx_record as dxr
 
@@ -2487,13 +2496,49 @@ def _finish_record(rec, features, adj, names, verified_changes=None, clinical_te
             if isinstance(features, dict):
                 features["_gestalt_agrees"] = True
         else:
-            rec.gestalt_agreement = f"zid: umumiy ko'rinish «{gdx}» dedi"
-            rec.confidence_cap = min(rec.confidence_cap or 100, 60)
-            rec.certainty = dxr.CERTAIN_PROVISIONAL
-            rec.notes.append(f"umumiy ko'rinish «{gdx}», qaror «{rec.name}» — kelishmadi")
-            if not any(_same_entity(d.name, gdx) for d in rec.differentials):
+            # Klinika (yo'llanma yoki tana surati) gestalt bilan bir nomga kelganmi?
+            # Ha bo'lsa — ikki mustaqil manba qarorga qarshi; qaror faqat rad etuvchi
+            # belgi bilan g'olib bo'la oladi. 3-keys: gestalt PG, klinika «angioma»,
+            # qaror esa «koilotsit» tufayli Verruca dedi — koilotsit PG ni rad etmaydi.
+            clinic_names = set(_dxc.referral_entities(referral_pure) +
+                               _dxc.clinical_entities((clinical_text or "") + " " + (referral_pure or "")))
+            clinic_backs = ge is not None and ge["name"] in clinic_names
+            gev = _dxc.evaluate(ge, features) if ge is not None else None
+            gestalt_excluded = bool(gev and gev["excluding_present"])
+            strong = str(gestalt.get("confidence") or "").lower() in ("high", "moderate")
+            if clinic_backs and strong and not gestalt_excluded:
+                rec.notes.append(
+                    f"qaror «{rec.name}» senior o'qish «{gdx}» ni rad etuvchi belgisiz bekor qildi; "
+                    "klinika gestaltni qo'llaydi — nom gestaltniki"
+                )
+                rec.differentials = [d for d in rec.differentials if not _same_entity(d.name, gdx)]
                 rec.differentials.insert(0, dxr.Differential(
-                    name=gdx[:80], excluded_by="umumiy ko'rinishda yetakchi edi — belgilar bilan kelishmadi"))
+                    name=rec.name[:80],
+                    excluded_by="ko'rikdagi qo'shimcha belgilar; umumiy ko'rinish va klinika boshqa nomga keldi"))
+                rec.name = ge["name"]
+                rec.malignant = bool(ge["malignant"])
+                keep = [e for e in rec.evidence if not any(
+                    w in e.feature.lower() for w in ("koilotsit", "virus", "parakeratoz", "granulyoz"))]
+                rec.evidence = keep[:4]
+                for f_ in (gestalt.get("decisive_features") or [])[:4]:
+                    t = str(f_).strip()
+                    if t and not any(t[:24].lower() in e.feature.lower() for e in rec.evidence):
+                        rec.evidence.append(dxr.Evidence(feature=t[:90], seen=True,
+                                                         detail="umumiy ko'rinishda (barcha kadrlar)"))
+                rec.gestalt_agreement = "mos"
+                rec.gestalt_bonus = 4
+                rec.certainty = dxr.CERTAIN_PROVISIONAL
+                rec.confidence_cap = min(rec.confidence_cap or 100, 72)
+                if isinstance(features, dict):
+                    features["_gestalt_agrees"] = True
+            else:
+                rec.gestalt_agreement = f"zid: umumiy ko'rinish «{gdx}» dedi"
+                rec.confidence_cap = min(rec.confidence_cap or 100, 60)
+                rec.certainty = dxr.CERTAIN_PROVISIONAL
+                rec.notes.append(f"umumiy ko'rinish «{gdx}», qaror «{rec.name}» — kelishmadi")
+                if not any(_same_entity(d.name, gdx) for d in rec.differentials):
+                    rec.differentials.insert(0, dxr.Differential(
+                        name=gdx[:80], excluded_by="umumiy ko'rinishda yetakchi edi — belgilar bilan kelishmadi"))
     if isinstance(features, dict):
         features["_chosen_name"] = rec.name
         features["_clinical_text"] = clinical_text or ""
@@ -5792,6 +5837,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
                 _rec, features, adj, _names, _changes,
                 clinical_text=clinical_block or "",
                 referral_text=_hypothesis_text(patient_context, gestalt), gestalt=gestalt,
+                referral_pure=_referral_text(patient_context),
             )
             if _text:
                 if isinstance(trace, dict):

@@ -1502,6 +1502,30 @@ class ClinicalReasoningTests(TestCase):
         self.assertGreaterEqual(rec.confidence, 70, rec.confidence_why)
         self.assertNotIn("taxminiy", text)
 
+    def test_clinic_backed_gestalt_outranks_a_checklist_override(self):
+        """Gestalt PG (moderate), klinika «Ангиома?», qaror «Verruca» (koilotsit) —
+        koilotsit PG ni rad etmaydi → nom PG, Verruca differensialda."""
+        from lab_core import dx_record as dxr
+        from lab_core import engine as eng
+
+        f = {"sample_quality": "o'rtacha", "cytology": {},
+             "epidermis": {"acanthosis": True, "papillomatosis": True, "koilocytes": True,
+                           "polypoid_exophytic": True},
+             "dermis": {"vascular_proliferation": True, "papillary_dermal_edema": True}}
+        rec = dxr.from_json({"diagnosis": "Verruca vulgaris", "organ": "teri", "evidence": [
+            {"feature": "Koilotsitlar", "detail": "x"}, {"feature": "Papillomatoz", "detail": "y"},
+            {"feature": "Polipoid ekzofitik tuzilma", "detail": "z"}]})
+        gestalt = {"diagnosis": "Lobular capillary hemangioma (pyogenic granuloma)",
+                   "confidence": "moderate",
+                   "decisive_features": ["Pedunculated polypoid architecture", "Lobular capillaries"]}
+        rec, text = eng._finish_record(
+            rec, f, None, [], [], clinical_text=self.CLIN,
+            referral_text=self.REF + " Piogen granuloma", gestalt=gestalt, referral_pure=self.REF)
+        self.assertIn("Piogen", rec.name)
+        self.assertTrue(any("Verruca" in d.name for d in rec.differentials))
+        self.assertNotIn("Umumiy ko'rinish bilan zid", text)
+        self.assertGreaterEqual(rec.confidence, 55, rec.confidence_why)
+
     def test_after_verification_the_vascular_lesion_wins(self):
         from lab_core import dx_criteria as dxc
 
