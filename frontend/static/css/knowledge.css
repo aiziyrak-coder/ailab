@@ -1,0 +1,436 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Bilimlar bazasi — klinika kutubxonasi bo'limi
+   Ranglar brand.css tokenlaridan (oltin #c09949, fon #f2f6f5) olinadi.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.kb-body { background: var(--rd-mist, #f2f6f5); }
+
+/* .kb-gate/.kb-shell klass display'i [hidden] dan kuchli — qat'iy yashirish */
+.kb-body [hidden] { display: none !important; }
+
+.kb-main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 22px 20px 40px;
+  width: 100%;
+  flex: 1 1 auto;
+}
+
+.kb-loading,
+.kb-empty {
+  color: var(--rd-ink-soft, #5f6664);
+  font-size: 0.9rem;
+  padding: 18px 2px;
+  margin: 0;
+}
+
+/* ─── Qulf ekrani ─────────────────────────────────────────────────────── */
+.kb-gate {
+  display: flex;
+  justify-content: center;
+  padding: 46px 0 60px;
+}
+
+.kb-gate-card {
+  width: min(430px, 100%);
+  background: #fff;
+  border: 1px solid var(--rd-line, #e4e9e8);
+  border-radius: 12px;
+  padding: 34px 30px 28px;
+  text-align: center;
+}
+
+.kb-gate-icon {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: var(--rd-gold-wash, #faf6ec);
+  color: var(--rd-gold-deep, #a8813a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kb-gate-card h1 {
+  font-family: var(--rd-display, "Montserrat", sans-serif);
+  font-size: 1.32rem;
+  margin: 0 0 8px;
+  color: var(--rd-ink, #1a1a1a);
+}
+
+.kb-gate-sub {
+  color: var(--rd-ink-soft, #5f6664);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  margin: 0 0 22px;
+}
+
+.kb-field { text-align: left; margin-bottom: 16px; }
+
+.kb-field label {
+  display: block;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--rd-ink-soft, #5f6664);
+  margin-bottom: 7px;
+}
+
+.kb-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid var(--rd-line, #e4e9e8);
+  border-radius: 6px;
+  font: inherit;
+  letter-spacing: 0.22em;
+  text-align: center;
+  background: #fff;
+  color: var(--rd-ink, #1a1a1a);
+}
+
+.kb-field input:focus {
+  outline: 2px solid var(--rd-gold, #c09949);
+  outline-offset: 0;
+  border-color: var(--rd-gold, #c09949);
+}
+
+.kb-gate-btn { width: 100%; padding: 12px 16px; }
+
+.kb-gate-msg {
+  min-height: 1.2em;
+  margin: 14px 0 0;
+  font-size: 0.85rem;
+  color: #b4442f;
+}
+
+/* ─── Sarlavha va raqamlar ────────────────────────────────────────────── */
+.kb-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.kb-title {
+  font-family: var(--rd-display, "Montserrat", sans-serif);
+  font-size: 1.5rem;
+  margin: 0 0 5px;
+  color: var(--rd-ink, #1a1a1a);
+}
+
+.kb-sub {
+  margin: 0;
+  color: var(--rd-ink-soft, #5f6664);
+  font-size: 0.88rem;
+  max-width: 54ch;
+}
+
+.kb-stats { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.kb-stat {
+  background: #fff;
+  border: 1px solid var(--rd-line, #e4e9e8);
+  border-radius: 8px;
+  padding: 9px 14px;
+  min-width: 92px;
+}
+
+.kb-stat strong {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--rd-gold-deep, #a8813a);
+  line-height: 1.25;
+}
+
+.kb-stat span {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--rd-ink-soft, #5f6664);
+}
+
+/* ─── Qidiruv ─────────────────────────────────────────────────────────── */
+.kb-searchbar { margin: 4px 0 20px; }
+
+.kb-searchbar form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: #fff;
+  border: 1px solid var(--rd-line, #e4e9e8);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.kb-searchbar input[type="search"] {
+  /* style.css global input{width:100%} ni bekor qiladi */
+  width: auto;
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 11px 13px;
+  border: 1px solid var(--rd-line, #e4e9e8);
+  border-radius: 6px;
+  font: inherit;
+  background: #fff;
+  color: var(--rd-ink, #1a1a1a);
+}
+
+.kb-searchbar select {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 11px 12px;
+  border: 1px solid var(--rd-line, #e4e9e8);
+  border-radius: 6px;
+  font: inherit;
+  background: #fff;
+  color: var(--rd-ink, #1a1a1a);
+}
+
+.kb-searchbar input:focus,
+.kb-searchbar select:focus {
+  outline: 2px solid var(--rd-gold, #c09949);
+  outline-offset: 0;
+  border-color: var(--rd-gold, #c09949);
+}
+
+.kb-searchbar button { padding: 11px 22px; }
+
+/* ─── Natijalar ───────────────────────────────────────────────────────── */
+.kb-results { margin-bottom: 26px; }
+
+.kb-results-head {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: var(--rd-ink-soft, #5f6664);
+  margin-bottom: 10px;
+}
+
+.kb-hit {
+  background: #fff;
+  border: 1px solid var(--rd-line, #e4e9e8);
+  border-left: 3px solid var(--rd-line, #e4e9e8);
+  border-radius: 8px;
+  padding: 13px 15px;
+  margin-bottom: 9px;
+}
+
+.kb-hit--clinic { border-left-color: var(--rd-gold, #c09949); }
+
+.kb-hit-src {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--rd-gold-deep, #a8813a);
+  margin-bottom: 7px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kb-hit-text {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.62;
+  color: var(--rd-ink, #1a1a1a);
+  white-space: pre-wrap;
+}
+
+/* ─── Kitoblar ────────────────────────────────────────────────────────── */
+.kb-section-title {
+  font-family: var(--rd-display, "Montserrat", sans-serif);
+  font-size: 0.82rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rd-ink-soft, #5f6664);
+  margin: 30px 0 4px;
+}
+
+.kb-section-note {
+  margin: 0 0 14px;
+  font-size: 0.83rem;
+  color: var(--rd-ink-soft, #5f6664);
+}
+
+.kb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(258px, 1fr));
+  gap: 12px;
+}
+
+.kb-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--rd-line, #e4e9e8);
+  border-radius: 10px;
+  padding: 16px 16px 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.kb-card:hover,
+.kb-card:focus-visible {
+  border-color: var(--rd-gold, #c09949);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.kb-card--clinic { border-top: 3px solid var(--rd-gold, #c09949); }
+
+.kb-card h3 {
+  font-family: var(--rd-display, "Montserrat", sans-serif);
+  font-size: 0.95rem;
+  line-height: 1.4;
+  margin: 0 0 12px;
+  color: var(--rd-ink, #1a1a1a);
+  padding-right: 86px;
+}
+
+.kb-badge {
+  display: inline-block;
+  background: var(--rd-gold-wash, #faf6ec);
+  color: var(--rd-gold-deep, #a8813a);
+  border: 1px solid var(--rd-gold-soft, #e8dcc2);
+  border-radius: 20px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+}
+
+.kb-card > .kb-badge { position: absolute; top: 14px; right: 14px; }
+
+.kb-card-facts {
+  display: flex;
+  gap: 16px;
+  margin: 0 0 11px;
+}
+
+.kb-card-facts div { margin: 0; }
+
+.kb-card-facts dt {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--rd-ink-soft, #5f6664);
+  margin: 0;
+}
+
+.kb-card-facts dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--rd-ink, #1a1a1a);
+}
+
+.kb-card-more {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--rd-gold-deep, #a8813a);
+}
+
+/* ─── Kitob tafsiloti ─────────────────────────────────────────────────── */
+.kb-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 26, 26, 0.42);
+  z-index: 90;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.kb-overlay.hidden { display: none; }
+
+.kb-drawer {
+  width: min(540px, 100%);
+  height: 100%;
+  background: #fff;
+  border-left: 1px solid var(--rd-line, #e4e9e8);
+  display: flex;
+  flex-direction: column;
+}
+
+.kb-drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid var(--rd-line, #e4e9e8);
+}
+
+.kb-drawer-head h2 {
+  font-family: var(--rd-display, "Montserrat", sans-serif);
+  font-size: 1.05rem;
+  margin: 0 0 5px;
+  color: var(--rd-ink, #1a1a1a);
+}
+
+.kb-drawer-sub {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--rd-ink-soft, #5f6664);
+}
+
+.kb-drawer-body {
+  overflow-y: auto;
+  padding: 8px 20px 26px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.kb-toc {
+  list-style: none;
+  counter-reset: kbtoc;
+  margin: 0;
+  padding: 0;
+}
+
+.kb-toc li {
+  counter-increment: kbtoc;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--rd-line, #e4e9e8);
+  font-size: 0.86rem;
+}
+
+.kb-toc li::before {
+  content: counter(kbtoc);
+  flex: 0 0 auto;
+  min-width: 24px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--rd-gold-deep, #a8813a);
+}
+
+.kb-toc li span { flex: 1 1 auto; color: var(--rd-ink, #1a1a1a); }
+
+.kb-toc li em {
+  flex: 0 0 auto;
+  font-style: normal;
+  font-size: 0.72rem;
+  color: var(--rd-ink-soft, #5f6664);
+}
+
+/* ─── Telefon ─────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .kb-main { padding: 16px 13px 32px; }
+  .kb-head { align-items: flex-start; }
+  .kb-title { font-size: 1.25rem; }
+  .kb-stats { gap: 8px; }
+  .kb-stat { flex: 1 1 calc(50% - 4px); min-width: 0; }
+  .kb-searchbar button { flex: 1 1 100%; }
+  .kb-grid { grid-template-columns: 1fr; }
+  .kb-drawer { width: 100%; }
+  .kb-gate { padding: 24px 0 40px; }
+  .kb-gate-card { padding: 28px 20px 24px; }
+}

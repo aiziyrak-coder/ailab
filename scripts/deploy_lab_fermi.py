@@ -134,6 +134,7 @@ Path(".env").write_text(
         "OPENAI_API_KEY=",
         "OPENAI_MODEL_ID=gpt-4o",
         "OPENAI_ROUTER_MODEL=gpt-4o-mini",
+        "KB_ACCESS_PASSWORD=19980912",
     ]) + "\n"
 )
 print("env_created")
@@ -150,6 +151,8 @@ repls = {{
     "CSRF_TRUSTED_ORIGINS=": "CSRF_TRUSTED_ORIGINS=https://lab.fermi.uz,http://lab.fermi.uz",
     "OPENAI_ROUTER_MODEL=": "OPENAI_ROUTER_MODEL=gpt-4o-mini",
 }}
+# Bilimlar bazasi paroli faqat yo'q bo'lsa qo'shiladi (serverda o'zgartirilsa saqlanadi)
+adds = {{"KB_ACCESS_PASSWORD=": "KB_ACCESS_PASSWORD=19980912"}}
 lines = []
 seen = set()
 for line in t.splitlines():
@@ -164,6 +167,9 @@ for line in t.splitlines():
         lines.append(line)
 for prefix, new in repls.items():
     if prefix not in seen:
+        lines.append(new)
+for prefix, new in adds.items():
+    if not any(l.startswith(prefix) for l in lines):
         lines.append(new)
 p.write_text("\n".join(lines) + "\n", encoding="utf-8")
 print("env_updated")

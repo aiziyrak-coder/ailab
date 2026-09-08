@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import auth_views, views
+from . import auth_views, kb_views, views
 
 urlpatterns = [
     path("login", auth_views.LoginPageView.as_view(), name="login-page"),
@@ -25,6 +25,12 @@ urlpatterns = [
     path("api/analyses/<str:public_id>", views.AnalysisDetailView.as_view(), name="api-analysis-detail"),
     path("api/patients/lookup", views.PatientLookupView.as_view(), name="api-patients-lookup"),
     path("api/referral/parse", views.ReferralParseView.as_view(), name="api-referral-parse"),
+    path("bilimlar", kb_views.KnowledgeBasePageView.as_view(), name="knowledge-page"),
+    path("api/kb/status", kb_views.KbStatusView.as_view(), name="api-kb-status"),
+    path("api/kb/unlock", kb_views.KbUnlockView.as_view(), name="api-kb-unlock"),
+    path("api/kb/lock", kb_views.KbLockView.as_view(), name="api-kb-lock"),
+    path("api/kb/books", kb_views.KbBooksView.as_view(), name="api-kb-books"),
+    path("api/kb/search", kb_views.KbSearchView.as_view(), name="api-kb-search"),
     path("api/capture", views.CaptureView.as_view(), name="api-capture"),
     path("api/status", views.StatusView.as_view(), name="api-status"),
 ]

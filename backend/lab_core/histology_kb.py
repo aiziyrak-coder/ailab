@@ -147,6 +147,65 @@ SOURCES = {
         "weight": 0.04,
         "prefix": "Дерматология клинико-морфологическая. ",
     },
+    # ─── Klinika kutubxonasi (Bilimlar bazasi) ────────────────────────────────
+    # Bu manbalar klinikaning o'z kitoblari — tahlilda BIRINCHI NAVBATDA
+    # shulardan mezon olinadi (clinic=True → kvota va bonus ustunligi).
+    "derm_guide_ru": {
+        "label": "Дерматология — руководство «до и после» (klinika kutubxonasi)",
+        "domain": "skin",
+        "tier": 1,
+        "clinic": True,
+        "weight": 0.14,
+        "prefix": "Дерматология руководство клинико-морфологическое. ",
+    },
+    "atlas_book_ru": {
+        "label": "Книга АТЛАС «до и после» (klinika kutubxonasi)",
+        "domain": "skin",
+        "tier": 1,
+        "clinic": True,
+        "weight": 0.13,
+        "prefix": "Атлас дерматологии клинический и морфологический. ",
+    },
+    "nash_atlas_ru": {
+        "label": "НАШ АТЛАС (klinika kutubxonasi)",
+        "domain": "skin",
+        "tier": 1,
+        "clinic": True,
+        "weight": 0.13,
+        "prefix": "Наш атлас дерматологии. ",
+    },
+    "eczema_mono_ru": {
+        "label": "Монография: экзематозные (спонгиотические) дерматозы (klinika kutubxonasi)",
+        "domain": "skin",
+        "tier": 1,
+        "clinic": True,
+        "weight": 0.13,
+        "prefix": "Экзематозные спонгиотические дерматозы монография. ",
+    },
+    "anogenital_ru": {
+        "label": "Аногенитальные дерматозы (klinika kutubxonasi)",
+        "domain": "skin",
+        "tier": 1,
+        "clinic": True,
+        "weight": 0.13,
+        "prefix": "Аногенитальные дерматозы. ",
+    },
+    "internal_skin_ru": {
+        "label": "Внутренние болезни и кожа (klinika kutubxonasi)",
+        "domain": "skin",
+        "tier": 1,
+        "clinic": True,
+        "weight": 0.11,
+        "prefix": "Внутренние болезни кожные проявления. ",
+    },
+    "dermatoscopy_ru": {
+        "label": "Дерматоскопия, 10-bob (klinika kutubxonasi)",
+        "domain": "skin",
+        "tier": 1,
+        "clinic": True,
+        "weight": 0.11,
+        "prefix": "Дерматоскопия. ",
+    },
     "junqueira": {
         "label": "Junqueira Basic Histology (to'qima tipi mezoni)",
         "domain": "general",
@@ -184,6 +243,16 @@ SKIN_SOURCES = frozenset(
     k for k, v in SOURCES.items() if v["domain"] in ("skin", "vascular", "melanoma")
 )
 GENERAL_SOURCES = frozenset(k for k, v in SOURCES.items() if v["domain"] == "general")
+
+# Klinika kutubxonasi — "Bilimlar bazasi" bo'limida ko'rsatiladi va tahlilda ustun
+CLINIC_SOURCES = frozenset(k for k, v in SOURCES.items() if v.get("clinic"))
+
+# Har tahlilda klinika kitoblariga kafolatlangan joy (organ = teri bo'lganda)
+CLINIC_MIN_HITS = _env_int("HISTOLOGY_KB_CLINIC_MIN", 7, 0, 20)
+
+
+def is_clinic_source(code):
+    return code in CLINIC_SOURCES
 
 
 def source_meta(code):
@@ -357,7 +426,26 @@ def index_stats():
         "dim": int(emb.shape[1]),
         "sources": srcs,
         "skin_chunks": sum(v for k, v in srcs.items() if k in SKIN_SOURCES),
+        "clinic_chunks": sum(v for k, v in srcs.items() if k in CLINIC_SOURCES),
     }
+
+
+_CLINIC_FLAG = {"mtime": None, "value": False}
+
+
+def index_has_clinic():
+    """Indeksda klinika kutubxonasi bormi (kvota shu asosda qo'llanadi)."""
+    if not index_ready():
+        return False
+    emb_p, chunks_p, _ = _paths()
+    mtime = max(os.path.getmtime(emb_p), os.path.getmtime(chunks_p))
+    if _CLINIC_FLAG["mtime"] != mtime:
+        _, chunks = _load_index()
+        _CLINIC_FLAG["value"] = any(
+            (c.get("source") or "") in CLINIC_SOURCES for c in (chunks or [])
+        )
+        _CLINIC_FLAG["mtime"] = mtime
+    return _CLINIC_FLAG["value"]
 
 
 def _openai_client():
@@ -531,6 +619,13 @@ def _query_parts(organ_lock, patient_context=None, draft=None):
             f"skin biopsy {reason} architectural pattern cellular atypia invasion "
             "benign versus malignant immunohistochemistry CD34 S100 SOX10 Melan-A p63"
         )
+        # Klinika kutubxonasi rus tilida — rus so'rovi o'sha kitoblarga aniq tushadi
+        parts.append(
+            "гистологическое исследование биоптата кожи: эпидермис, дерма, акантоз, "
+            "гиперкератоз, паракератоз, спонгиоз, лихеноидная реакция, воспалительный "
+            "инфильтрат, атипия клеток, патоморфология, дифференциальный диагноз, "
+            f"критерии диагноза {reason}"
+        )
     else:
         parts.append(
             f"{base} tissue architecture nucleus chromatin basement membrane "
@@ -546,13 +641,13 @@ def _query_parts(organ_lock, patient_context=None, draft=None):
     for term in _dx_terms_from_draft(draft):
         parts.append(f"{term} histopathology diagnostic criteria differential")
 
-    if draft and len(parts) < 6:
+    if draft and len(parts) < (8 if is_skin else 6):
         low = re.sub(r"\s+", " ", draft[:2500])
         m = re.search(r"aniq\s+tashxis(.{0,1000})", low, flags=re.I)
         hint = m.group(0) if m else low[:600]
         parts.append(f"{base} {hint} WHO criteria differential")
 
-    return parts[:6]
+    return parts[: 8 if is_skin else 6]
 
 
 def _source_bonus(code, organ):
@@ -563,6 +658,9 @@ def _source_bonus(code, organ):
         if meta["domain"] in ("skin", "vascular", "melanoma"):
             return w
         return -0.05 if code == "mboc" else -0.02
+    # Teri bo'lmagan organda ham klinika kitoblari umumiy kanondan pastga tushmaydi
+    if meta.get("clinic"):
+        return 0.0
     # Teri bo'lmagan organ: umumiy gistologiya kanoni ustun
     if meta["domain"] == "general":
         return 0.05 if code == "junqueira" else 0.02
@@ -598,7 +696,7 @@ def retrieve(queries, k=None, organ=None, per_source_max=None):
     ranked = best + bonus
 
     # Nomzodlar (k dan ko'proq — kvota uchun)
-    cand = max(k * 6, 60)
+    cand = max(k * 10, 120)
     cand = min(cand, ranked.shape[0])
     idx = np.argpartition(-ranked, cand - 1)[:cand]
     idx = idx[np.argsort(-ranked[idx])]
@@ -606,29 +704,50 @@ def retrieve(queries, k=None, organ=None, per_source_max=None):
     out = []
     seen = set()
     per_source = {}
+
     def _limit_for(code):
         """Organga mos manbadan ko'proq parcha olinadi (teri emas → umumiy kanon)."""
-        dom = source_meta(code)["domain"]
+        meta = source_meta(code)
+        dom = meta["domain"]
+        if meta.get("clinic"):
+            # Klinika kitoblari — birinchi navbatdagi manba, kvotasi kengroq
+            return per_source_max + 3
         if organ == "teri":
             return per_source_max + 2 if dom in ("skin", "vascular", "melanoma") else per_source_max
         return per_source_max + 2 if dom == "general" else per_source_max
 
-    for i in idx:
+    def _take(i):
         ch = chunks[int(i)]
         code = ch.get("source") or "histology"
         if per_source.get(code, 0) >= _limit_for(code):
-            continue
+            return False
         key = (code, ch.get("page"), (ch.get("text") or "")[:80])
         if key in seen:
-            continue
+            return False
         seen.add(key)
         per_source[code] = per_source.get(code, 0) + 1
         item = dict(ch)
         item["score"] = float(best[int(i)])
         item["ranked"] = float(ranked[int(i)])
+        item["clinic"] = bool(source_meta(code).get("clinic"))
         out.append(item)
+        return True
+
+    # 1-bosqich: klinika kutubxonasiga kafolatlangan joy — dastur avvalo
+    # o'z kitoblaridan mezon oladi, so'ng xalqaro kanon bilan tekshiradi.
+    clinic_target = min(CLINIC_MIN_HITS, max(0, k - 3))
+    if clinic_target and index_has_clinic():
+        for i in idx:
+            if len(out) >= clinic_target:
+                break
+            if (chunks[int(i)].get("source") or "") in CLINIC_SOURCES:
+                _take(i)
+
+    # 2-bosqich: qolgan joylar — eng yuqori ballli parchalar (har qanday manba)
+    for i in idx:
         if len(out) >= k:
             break
+        _take(i)
     return out
 
 
@@ -639,13 +758,22 @@ def format_prompt_block(hits, organ=None):
     lines = [
         "#### ICHKI KANON — KITOB MEZONLARI (har tahlilda majburiy qo'llaniladi)",
         (
-            "Quyidagi parchalar LIS vektor indeksidan: Weedon Skin Pathology, Weedon Essentials, "
+            "Quyidagi parchalar Bilimlar bazasi vektor indeksidan. Klinika kutubxonasi: "
+            "Дерматология — руководство «до и после», Книга АТЛАС, НАШ АТЛАС, экзематозные "
+            "дерматозы monografiyasi, аногенитальные дерматозы, внутренние болезни, "
+            "дерматоскопия. Xalqaro kanon: Weedon Skin Pathology, Weedon Essentials, "
             "Diagnosis by First Impression, Dermatopathology Vademecum, The Basics, Color Atlas, "
             "Pathology of Vascular Skin Lesions, Genetics of Melanoma, Атлас диагностических "
             "биопсий кожи, Дерматоонкопатология, Цветкова + Junqueira/Langman/Alberts."
             if skin
             else "Quyidagi parchalar LIS o'quv indeksidan (Junqueira, Langman, Alberts/MBOC "
             "va dermatopatologiya kitoblari)."
+        ),
+        (
+            "TARTIB: (KLINIKA KUTUBXONASI) deb belgilangan parchalar — klinikaning o'z "
+            "kitoblari. Mezonni BIRINCHI NAVBATDA shulardan ol; (kanon) parchalari "
+            "tekshiruv va to'ldirish uchun. Ular bir-biriga zid kelsa, klinika "
+            "kutubxonasining tavsifi rasmga mos kelsa — o'sha ustun."
         ),
         "ULARDAN METOD va MEZONNI ol: pattern nomi, Essential belgilar, differensial ajratish.",
         "Kitob sahifasini so'zma-so'z KO'CHIRMA. Hisobot o'zbek tilida, o'z so'zing bilan.",
@@ -661,13 +789,21 @@ def format_prompt_block(hits, organ=None):
     # Teri — asosiy yo'nalish: kitob mezonlariga ko'proq joy ajratiladi
     budget = int(MAX_PROMPT_CHARS * 1.4) if skin else MAX_PROMPT_CHARS
     used = 0
-    for n, h in enumerate(hits, start=1):
-        src = source_label(h.get("source") or "")
+    # Klinika kutubxonasi avval — model birinchi navbatda shu mezonlarni ko'radi
+    ordered = [h for h in hits if h.get("clinic")] + [h for h in hits if not h.get("clinic")]
+    for n, h in enumerate(ordered, start=1):
+        code = h.get("source") or ""
+        src = source_label(code)
         page = h.get("page") or "?"
+        title = (h.get("title") or "").strip()
         body = re.sub(r"\s+", " ", (h.get("text") or "")).strip()
         if len(body) > 780:
             body = body[:780].rsplit(" ", 1)[0] + "…"
-        block = f"[{n}] {src}, sahifa {page}: {body}"
+        tag = "KLINIKA KUTUBXONASI" if h.get("clinic") else "kanon"
+        where = f"{src}"
+        if title:
+            where += f" — {title}"
+        block = f"[{n}] ({tag}) {where}, sahifa {page}: {body}"
         if used + len(block) > budget:
             break
         lines.append(block)
@@ -717,3 +853,124 @@ def warm_index(background=True):
     t = threading.Thread(target=_load, name="kb-warmup", daemon=True)
     t.start()
     return t
+
+
+# ─── Bilimlar bazasi bo'limi uchun (ko'rish va qidiruv) ───────────────────────
+_LIB_CACHE = {"mtime": None, "data": None}
+
+
+def library_overview():
+    """Indeksdagi kitoblar ro'yxati: manba, sarlavhalar, parcha soni.
+
+    Natija indeks o'zgarmaguncha keshlanadi (35 ming parchani har so'rovda
+    qayta sanamaslik uchun).
+    """
+    if not index_ready():
+        return {"ready": False, "books": [], "chunks": 0}
+    emb_p, chunks_p, _ = _paths()
+    mtime = max(os.path.getmtime(emb_p), os.path.getmtime(chunks_p))
+    if _LIB_CACHE["mtime"] == mtime and _LIB_CACHE["data"] is not None:
+        return _LIB_CACHE["data"]
+
+    _, chunks = _load_index()
+    if not chunks:
+        return {"ready": False, "books": [], "chunks": 0}
+
+    agg = {}
+    for c in chunks:
+        code = c.get("source") or "histology"
+        row = agg.setdefault(code, {"chunks": 0, "chars": 0, "titles": {}})
+        row["chunks"] += 1
+        row["chars"] += len(c.get("text") or "")
+        t = (c.get("title") or "").strip()
+        if t:
+            row["titles"][t] = row["titles"].get(t, 0) + 1
+
+    books = []
+    for code, row in agg.items():
+        meta = source_meta(code)
+        titles = sorted(row["titles"].items(), key=lambda x: -x[1])
+        books.append(
+            {
+                "code": code,
+                "label": meta["label"],
+                "domain": meta["domain"],
+                "clinic": bool(meta.get("clinic")),
+                "chunks": row["chunks"],
+                "chars": row["chars"],
+                "files": len(titles),
+                "titles": [{"title": t, "chunks": n} for t, n in titles[:60]],
+            }
+        )
+    books.sort(key=lambda b: (not b["clinic"], -b["chunks"]))
+
+    data = {
+        "ready": True,
+        "chunks": sum(b["chunks"] for b in books),
+        "clinic_chunks": sum(b["chunks"] for b in books if b["clinic"]),
+        "books": books,
+        "updated": _index_updated(),
+    }
+    with _lock:
+        _LIB_CACHE["mtime"] = mtime
+        _LIB_CACHE["data"] = data
+    return data
+
+
+def _index_updated():
+    _, _, meta_p = _paths()
+    try:
+        with open(meta_p, "r", encoding="utf-8") as f:
+            return (json.load(f) or {}).get("created_utc") or ""
+    except Exception:
+        return ""
+
+
+def search_library(query, k=12, source=None, clinic_only=False):
+    """Bilimlar bazasi bo'limidagi matnli qidiruv (semantik)."""
+    query = (query or "").strip()
+    if not query or not index_ready():
+        return []
+    emb, chunks = _load_index()
+    if emb is None:
+        return []
+    try:
+        qv = embed_queries([query])
+    except Exception as e:
+        log.warning("histology_kb: qidiruv embed xato: %s", e)
+        return []
+
+    scores = (emb @ qv.T).max(axis=1)
+    mask = None
+    if source:
+        want = {source} if isinstance(source, str) else set(source)
+        mask = np.array([(c.get("source") or "") in want for c in chunks])
+    elif clinic_only:
+        mask = np.array([(c.get("source") or "") in CLINIC_SOURCES for c in chunks])
+    if mask is not None:
+        if not mask.any():
+            return []
+        scores = np.where(mask, scores, -1.0)
+
+    k = max(1, min(int(k or 12), 50))
+    top = np.argpartition(-scores, min(k, len(scores) - 1))[:k]
+    top = top[np.argsort(-scores[top])]
+    out = []
+    for i in top:
+        i = int(i)
+        if scores[i] <= 0:
+            continue
+        c = chunks[i]
+        code = c.get("source") or "histology"
+        out.append(
+            {
+                "source": code,
+                "label": source_label(code),
+                "clinic": bool(source_meta(code).get("clinic")),
+                "title": c.get("title") or "",
+                "page": c.get("page"),
+                "score": round(float(scores[i]), 4),
+                "text": (c.get("text") or "").strip(),
+            }
+        )
+    return out

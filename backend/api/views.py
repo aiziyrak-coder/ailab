@@ -340,6 +340,7 @@ class HealthView(APIView):
                 "ready": bool(kb.get("ready")),
                 "chunks": kb.get("chunks") or 0,
                 "skin_chunks": kb.get("skin_chunks") or 0,
+                "clinic_chunks": kb.get("clinic_chunks") or 0,
                 "books": len(kb.get("sources") or {}),
             },
         }

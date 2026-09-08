@@ -41,7 +41,14 @@ almashtirish, mikroskop hisobi, ustuvorlik, tarix ochilishi.
 ### 4-bosqich — tahlil oqimi va validatsiya ✅
 Bemorsiz/rasmsiz tahlil bloklanadi, PDF kutubxonasi yuklanadi, yozuv o'chadi.
 
-### 5-bosqich — qolgan sohalar  <- HOZIR SHU YERDA
+### 5-bosqich — Bilimlar bazasi (klinika kutubxonasi) ✅
+Klinikaning 7 ta kitob arxivi matnga aylantirildi (.doc → Word COM, .docx → XML,
+.pdf → PyMuPDF), takrorlar tashlandi va vektor indeksga qo'shildi:
+18 149 yangi parcha, jami 35 090. Yangi `/bilimlar` bo'limi (parol bilan),
+`/api/kb/*` API va tahlilda klinika kitoblariga kafolatlangan kvota
+(`CLINIC_MIN_HITS`, standart 7 parcha) qo'shildi.
+
+### 6-bosqich — qolgan sohalar  <- HOZIR SHU YERDA
 Sinaladi: haqiqiy rasm bilan to'liq tahlil oqimi (ko'rik → kitob → hisobot),
 kamera/telefon rejimi, chop etish maketi, ko'p foydalanuvchi holati, backend
 chekka holatlari (bir vaqtda ikki tahlil, sessiya tugashi, katta fayl).
