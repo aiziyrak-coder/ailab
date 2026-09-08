@@ -3518,11 +3518,62 @@ def _router_model():
     return (os.environ.get("OPENAI_ROUTER_MODEL") or OPENAI_MODEL_ID).strip() or OPENAI_MODEL_ID
 
 
+# ─── Model parametrlari mosligi ──────────────────────────────────────────────
+# gpt-4o `max_tokens`, `temperature`, `top_p` ni oladi; yangi avlod modellari
+# esa `max_completion_tokens` kutadi va temperature/top_p/seed ni rad etadi.
+# Har model uchun to'g'ri uslub bir marta aniqlanib, keyin keshdan olinadi —
+# aks holda har chaqiruvda bitta ortiqcha 400 javob bo'lardi.
+_PARAM_STYLE = {}
+_PARAM_LOCK = threading.Lock()
+
+_LEGACY_ONLY = ("temperature", "top_p", "seed", "presence_penalty", "frequency_penalty")
+
+
+def _adapt_kwargs(kwargs, style):
+    """`style`: 'legacy' (gpt-4o) yoki 'modern' (max_completion_tokens)."""
+    out = dict(kwargs or {})
+    if style == "legacy":
+        if "max_completion_tokens" in out:
+            out["max_tokens"] = out.pop("max_completion_tokens")
+        return out
+    # modern
+    if "max_tokens" in out:
+        out["max_completion_tokens"] = out.pop("max_tokens")
+    for k in _LEGACY_ONLY:
+        out.pop(k, None)
+    return out
+
+
+def _param_style(model_id):
+    with _PARAM_LOCK:
+        return _PARAM_STYLE.get(model_id)
+
+
+def _remember_style(model_id, style):
+    with _PARAM_LOCK:
+        _PARAM_STYLE[model_id] = style
+
+
+def _is_param_error(exc):
+    msg = str(exc).lower()
+    return any(
+        m in msg
+        for m in (
+            "max_tokens",
+            "max_completion_tokens",
+            "unsupported parameter",
+            "unsupported value",
+            "not supported with this model",
+        )
+    )
+
+
 def _chat_complete(messages, kwargs, model=None):
     max_retries = max(1, int(os.environ.get("OPENAI_MAX_RETRIES", "3")))
     base_delay = float(os.environ.get("OPENAI_RETRY_DELAY_SEC", "2"))
-    call_kwargs = dict(kwargs or {})
     model_id = (model or OPENAI_MODEL_ID).strip() or OPENAI_MODEL_ID
+    style = _param_style(model_id)
+    call_kwargs = _adapt_kwargs(kwargs, style or "legacy")
     for attempt in range(max_retries):
         try:
             resp = openai_client.chat.completions.create(
@@ -3530,6 +3581,8 @@ def _chat_complete(messages, kwargs, model=None):
                 messages=messages,
                 **call_kwargs,
             )
+            if style is None:
+                _remember_style(model_id, "legacy")
             choice = (resp.choices or [None])[0]
             if choice is None:
                 return "%s javobi bo‘sh." % ZIYRAKAI_DISPLAY_NAME
@@ -3553,6 +3606,16 @@ def _chat_complete(messages, kwargs, model=None):
                 "Keyinroq qayta urinib ko'ring."
             ) % (ZIYRAKAI_DISPLAY_NAME, fr)
         except Exception as e:
+            if style is None and _is_param_error(e):
+                # Yangi avlod modeli — boshqa parametr nomlari bilan qayta urinamiz
+                _remember_style(model_id, "modern")
+                style = "modern"
+                call_kwargs = _adapt_kwargs(kwargs, "modern")
+                log.info(
+                    "%s: %s uchun yangi parametr uslubi qo'llanildi",
+                    ZIYRAKAI_DISPLAY_NAME, model_id,
+                )
+                continue
             err_s = str(e).lower()
             if "seed" in err_s and "seed" in call_kwargs:
                 call_kwargs.pop("seed", None)

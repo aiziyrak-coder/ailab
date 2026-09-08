@@ -132,7 +132,7 @@ Path(".env").write_text(
         "DJANGO_SECURE_SSL_REDIRECT=0",
         "DJANGO_ADMIN_ENABLED=0",
         "OPENAI_API_KEY=",
-        "OPENAI_MODEL_ID=gpt-4o",
+        "OPENAI_MODEL_ID=gpt-5.6-sol",
         "OPENAI_ROUTER_MODEL=gpt-4o-mini",
         "KB_ACCESS_PASSWORD=19980912",
     ]) + "\n"
@@ -150,6 +150,7 @@ repls = {{
     "CORS_ALLOWED_ORIGINS=": "CORS_ALLOWED_ORIGINS=https://lab.fermi.uz",
     "CSRF_TRUSTED_ORIGINS=": "CSRF_TRUSTED_ORIGINS=https://lab.fermi.uz,http://lab.fermi.uz",
     "OPENAI_ROUTER_MODEL=": "OPENAI_ROUTER_MODEL=gpt-4o-mini",
+    "OPENAI_MODEL_ID=": "OPENAI_MODEL_ID=gpt-5.6-sol",
 }}
 # Bilimlar bazasi paroli faqat yo'q bo'lsa qo'shiladi (serverda o'zgartirilsa saqlanadi)
 adds = {{"KB_ACCESS_PASSWORD=": "KB_ACCESS_PASSWORD=19980912"}}

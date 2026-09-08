@@ -144,6 +144,28 @@ Ikki qo'shimcha qoida:
   `HISTOLOGY_KB_NEAR_DUP` (standart 0.90) dan yaqin nomzod olinmaydi — aks holda
   bitta paragrafning olti nusxasi butun kvotani egallab qo'yardi.
 
+### Model tanlash
+
+Tahlil modeli `OPENAI_MODEL_ID` (backend/.env) bilan belgilanadi. Haqiqiy
+keysda o'lchangan natija — bir xil uchta kesmadan ko'rik nechta morfologik
+belgi ajratdi:
+
+| Model | Vaqt | Belgi |
+|-------|------|-------|
+| gpt-4o | 9s | 2 |
+| gpt-4.1 | 8s | 4 |
+| gpt-5.4 | 10s | 5 |
+| **gpt-5.6-sol** | 38s | **8** |
+| gpt-5.6-luna | 20s | 5 |
+| gpt-5.5 | 34s | 0 (rad etdi) |
+
+Ko'rik butun tahlilning asosi — undan kam dalil chiqsa, hisobot ham bo'sh
+bo'ladi. Shuning uchun standart model `gpt-5.6-sol`.
+
+Yangi avlod modellari `max_tokens` o'rniga `max_completion_tokens` kutadi va
+`temperature`/`top_p` ni rad etadi. `_chat_complete` buni birinchi chaqiruvda
+aniqlab, model bo'yicha eslab qoladi — sozlash shart emas.
+
 ### Bilimlar bazasi bo'limi (`/bilimlar`)
 
 Kutubxonani ko'rish va qidirish uchun alohida sahifa. Platformaga kirgan
