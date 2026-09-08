@@ -183,7 +183,7 @@ ICHKI FIKRLASH (bu qismni hisobotga YOZMA — faqat o'zing uchun):
 5) Muqobillar va ular nima uchun mos emasligi.
 6) Malignite huquqi bor-yo'qligini QONUN bo'yicha hal qil.
 
-HISOBOTGA esa faqat yakuniy 6 bo'lim tushadi: TASHXIS, NEGA SHU TASHXIS,
+HISOBOTGA esa faqat yakuniy 3 bo'lim tushadi: TASHXIS, NEGA SHU TASHXIS,
 FAKT. Fikrlash jarayonini bayon qilma — natijani yoz.
 Qisqa, aniq, shifokor tilida. Uzun matn — xato.
 Agar H&E to'qima EMAS bo'lsa: «bu gistologiya kesmasi emas» deb to'xta.
@@ -216,7 +216,7 @@ LAB_IDENTITY = {
         ),
         "dx": (
             "Asosiy mahsulot: ANIQ TASHXIS + nega shu tashxis + ko'ringan fakt. "
-            "Hisobot 6 bo'limdan iborat, 2000-4500 belgi. "
+            "Hisobot 3 bo'limdan iborat, 2500-4500 belgi. "
             "Uzun bayon, savol-javob, foizli vitrina, jadval TAQIQLANADI. "
             "Dalilsiz malignite asosiy tashxis qilinmaydi."
         ),
@@ -276,7 +276,7 @@ def _analysis_system(lab_type):
     voices = _board_voices(lab_type)
     tail = (
         "ADASHISH HUQUQI YO'Q. "
-        "HISOBOT FAQAT 6 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, "
+        "HISOBOT FAQAT 3 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, "
         "#### FAKT (o'lchangan morfologiya). "
         "Jami 2000-4500 belgi. Savol-javob, profilaktika, davolash rejasi, "
         "professor bo'limlari, jadval, ehtimollik foizi YOZILMAYDI. "
@@ -357,7 +357,7 @@ Buyrak raki FAQAT glomerula yoki buyrak naychasi KO'RINSA.
 QONUN 5. #### TASHXIS bo'limida majburiy: biologiya, «Ishonch: …»,
 «Malignite qo'yish huquqi: HA yoki YO'Q». Ehtimollik foizi yozilmaydi.
 Huquqi YO'Q bo'lsa tashxis nomi benign/reaktiv bo'ladi, xavfli muqobil esa
-«NEGA BOSHQASI EMAS» bo'limida rad etiladi.
+«NEGA SHU TASHXIS» bo'limi ichida rad etiladi.
 """
 
 _HISTOLOGY_WHO_STRICT = """
@@ -406,7 +406,7 @@ tashxis, uning mezonlari, o'lchangan fakt, rad etilgan muqobillar va tasdiqlash 
 Suvli matn, o'quv muhokamasi, umumiy nasihat — hisobot yaroqsiz.
 Butun hisobot 2000–4500 belgi. Har qator ma'lumot tashisin; bo'sh jumla yozma.
 
-Hisobotda FAQAT shu 6 bo'lim, shu tartibda:
+Hisobotda FAQAT shu 3 bo'lim, shu tartibda:
 
 #### TASHXIS
 1-qator: <WHO/Weedon bo'yicha to'liq nom + variant/turi> — <benign | reaktiv | in situ | invaziv>
@@ -993,6 +993,63 @@ def _parse_observation(raw):
     return data if isinstance(data, dict) else None
 
 
+# ─── Kesma va klinik suratni ajratish ────────────────────────────────────────
+# Laborant bir keysga yo'llanma varaqasi, bemor tanasining suratlari va mikroskop
+# kadrlarini birga yuklaydi. Ilgari ko'rik butun to'plamdan teng oraliqda tanlar
+# edi — natijada 43 rasmdan ko'rikka klinik suratlar tushib, morfologik belgilar
+# soni 2 taga tushib qolgan. Bundan tashqari tana suratlari model filtrini
+# ishga tushirib, "I'm sorry, I can't assist" javobiga sabab bo'lardi.
+#
+# H&E kesmasi rangi bo'yicha ajralib turadi: gematoksilin (binafsha yadro) va
+# eozin (pushti sitoplazma) — piksellar magenta-binafsha yo'lakda; teri surati
+# esa to'q sariq tonda. Bu farq bepul va aniq (44 ta haqiqiy rasmda sinalgan:
+# kesmalar 0.63–1.00, klinik suratlar 0.00).
+SLIDE_SCORE_MIN = 0.35
+
+
+def _slide_score(img):
+    """0..1 — tasvir H&E gistologik kesmaga qanchalik o'xshaydi."""
+    try:
+        small = img.convert("RGB")
+        small.thumbnail((96, 96))
+        hsv = small.convert("HSV")
+        px = list(hsv.getdata())
+    except Exception:
+        return 0.0
+    if not px:
+        return 0.0
+    purple = skin = strong = 0
+    for h, sat, val in px:
+        if sat < 45 or val < 35:
+            continue  # oq fon va soya hisobga olinmaydi
+        strong += 1
+        if 175 <= h <= 245:
+            purple += 1
+        elif h <= 30 or h >= 250:
+            skin += 1
+    if strong < 40:
+        return 0.0
+    return max(0.0, min(1.0, purple / strong - skin / strong))
+
+
+def _order_slides_first(pairs):
+    """[(part, score)] → kesmalar oldinda, har guruh ichida asl tartib saqlanadi."""
+    slides = [p for p, sc in pairs if sc >= SLIDE_SCORE_MIN]
+    others = [p for p, sc in pairs if sc < SLIDE_SCORE_MIN]
+    return slides, others
+
+
+def _pick_images(pairs, k):
+    """k ta rasm: avval kesmalardan teng oraliqda, yetmasa qolganidan to'ldiriladi."""
+    slides, others = _order_slides_first(pairs)
+    if not slides:
+        return _spread_pick([p for p, _ in pairs], k)
+    picked = _spread_pick(slides, k)
+    if len(picked) < k and others:
+        picked = picked + _spread_pick(others, k - len(picked))
+    return picked
+
+
 def _spread_pick(image_parts, k):
     """Ko'p rasmdan teng oraliqda k tasini tanlash (birinchi va oxirgisi kiradi).
 
@@ -1241,9 +1298,10 @@ def _features_prompt_block(features):
     lines.append(
         "QOIDA: tashxis FAQAT «KO'RINGAN» belgilarga tayanadi. «KO'RINMAGAN» belgini "
         "talab qiladigan tashxisni QO'YMA. Agar ko'ringan belgilar biror aniq nozologiyaga "
-        "yetarli bo'lmasa — «Aniq tashxis uchun yetarli emas» deb yoz va nima kerakligini ayt. "
+        "yetarli bo'lmasa — eng ehtimolli NOMNI yoz, «Ishonch: past» qo'y va "
+        "nima kerakligini ayt. Nomsiz javob TAQIQLANADI. "
         "Yuqoridagi sonlar va darajalar «FAKT» bo'limiga ko'chiriladi; «Baholab bo'lmadi» "
-        "qatorlari «BAHOLANMAGAN» bo'limiga tushadi."
+        "qatorlari FAKT bo'limida «baholab bo'lmadi» deb belgilanadi."
     )
     return "\n".join(lines) + "\n"
 
@@ -1304,7 +1362,7 @@ def _worksheet_user(lab_type, organ_lock=None, kb_block=""):
         f"{m['forbid']}\n\n"
         + lock
         + kb
-        + "Jadval YOZMA. Baho 1-5 ISHLATMA. Faqat 6 bo'lim: TASHXIS, NEGA SHU TASHXIS, "
+        + "Jadval YOZMA. Baho 1-5 ISHLATMA. Faqat 3 bo'lim: TASHXIS, NEGA SHU TASHXIS, "
         "FAKT.\n"
         f"Ichkarida tekshiriladigan maydonlar: {m['count']}.\n"
         + extra
@@ -1342,7 +1400,7 @@ def _describe_user(lab_type, organ_lock=None, kb_block=""):
 def _histology_dx_block(text):
     """FAQAT «#### TASHXIS» bo'limi.
 
-    «NEGA BOSHQASI EMAS» bo'limida rad etilgan nomlar (masalan «DFSP — storiform
+    Asos bo'limida rad etilgan nomlar (masalan «DFSP — storiform
     YO'Q») qo'yilgan tashxis deb hisoblanmasligi kerak.
     """
     m = re.search(
@@ -1585,6 +1643,14 @@ _MARGIN_MEASURED_RE = re.compile(
 _MARGIN_UNASSESSED_RE = re.compile(r"chekka[^\n]*?(baholanmadi|baholanmagan|baholab bo'lmaydi)", re.I)
 _WORD_RE = re.compile(r"[a-zа-яo'‘’\w]{4,}", re.I)
 
+# Asosda "aniqlik" belgisi: son, o'lchov birligi yoki morfologik joylashuv
+_SPECIFIC_RE = re.compile(
+    r"\d|\bmm\b|\u00b5m|\bmkm\b|\bhpf\b|%|qatlam|chekka|yuzasi|chuqur|"
+    r"sath|zona|tizma|dasta|uya|papillyar|retikulyar|bazal|shox|donador|"
+    r"tikan|grenz|perivaskulyar|lentasimon|diffuz|fokal|o'choq",
+    re.I,
+)
+
 
 def _tautology_lines(section):
     """«X — KO'RINDI: X mavjud» qatorlari — yangi ma'lumot bermaydi."""
@@ -1601,9 +1667,13 @@ def _tautology_lines(section):
             continue
         extra = tail_words - name_words - {
             "mavjud", "bor", "ko'rinadi", "kuzatiladi", "aniqlandi", "korinadi",
-            "hujayra", "hujayralar", "belgi", "belgilar",
+            "kuzatilmadi", "topilmadi", "hujayra", "hujayralar", "belgi",
+            "belgilar", "tasvirlarda", "tasvirda",
         }
-        if len(extra) <= 1 and len(tail_words) <= 6:
+        # Asos qatori aniq bo'lishi kerak: yo son/o'lchov, yo joylashuv atamasi,
+        # yo kamida 4 ta yangi mazmunli so'z. Aks holda u belgi nomining
+        # boshqacha aytilishi — shifokorga hech narsa bermaydi.
+        if len(extra) < 4 and not _SPECIFIC_RE.search(tail):
             bad.append(line[:110])
     return bad
 
@@ -2718,9 +2788,9 @@ _ANALYSIS_SYSTEM = (
     "Sen MedLab GISTOLOGIYA kafedrasi raisisan. FAQAT H&E to'qima. Adashishga haqqi YO'Q. "
     "Tashxis NOMI aniq bo'lsin va TASVIRDAGI belgilardan chiqsin. "
     "Har xil tasvirga bir xil shablon javob berish — og'ir xato. "
-    "Belgilar yetarli bo'lmasa «Aniq tashxis uchun yetarli emas» deb yoz. "
+    "Belgilar kam bo'lsa ham TASHXIS NOMINI yoz va «Ishonch: past» qo'y — «yetarli emas» degan javob TAQIQLANADI. "
     "Dalilsiz rak/karsinoma YOZMA. "
-    "HISOBOT FAQAT 6 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (o'lchangan morfologiya), #### NEGA BOSHQASI EMAS, #### TASDIQLASH, #### BAHOLANMAGAN. Jami 2000-4500 belgi. Har qator sonli yoki aniq atamali bo'lsin. Uzun muhokama, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
+    "HISOBOT FAQAT 3 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (o'lchangan morfologiya). Jami 2500-4500 belgi. Har qator sonli yoki aniq atamali bo'lsin. Uzun muhokama, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
     "Rad etma. Faqat MedLab gistologiya."
 )
 
@@ -2728,7 +2798,7 @@ _WORKSHEET_SYSTEM = (
     "Sen MedLab gistologiya hisobotini to'ldirasan (LIS). Adashishga haqqi YO'Q. "
     "WHO/Weedon NOMINI aniq yoz. Dalilsiz malignite qo'yma - avval benign/reaktiv. "
     "FAQAT gistologiya. O'zbek tili. "
-    "HISOBOT FAQAT 6 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (o'lchangan morfologiya), #### NEGA BOSHQASI EMAS, #### TASDIQLASH, #### BAHOLANMAGAN. Jami 2000-4500 belgi. Har qator sonli yoki aniq atamali bo'lsin. Uzun muhokama, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
+    "HISOBOT FAQAT 3 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (o'lchangan morfologiya). Jami 2500-4500 belgi. Har qator sonli yoki aniq atamali bo'lsin. Uzun muhokama, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
     "Rad etma. Faqat MedLab gistologiya."
 )
 
@@ -2743,7 +2813,7 @@ _SAFE_SYSTEM = (
     "do not paste textbook text and do not narrate your reasoning. "
     "Base the diagnosis strictly on the listed observed features. Never fall back to the most "
     "common entity: if the features do not support one, say so in Uzbek and state what is needed. "
-    "HISOBOT FAQAT 6 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (o'lchangan morfologiya), #### NEGA BOSHQASI EMAS, #### TASDIQLASH, #### BAHOLANMAGAN. Jami 2000-4500 belgi. Har qator sonli yoki aniq atamali bo'lsin. Uzun muhokama, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
+    "HISOBOT FAQAT 3 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (o'lchangan morfologiya). Jami 2500-4500 belgi. Har qator sonli yoki aniq atamali bo'lsin. Uzun muhokama, savol-javob, profilaktika, davolash rejasi, professor bo'limlari, jadval, ehtimollik foizi - TAQIQLANADI. "
     "One organ only. No percentages, no tables, no teaching text. MedLab histology only."
 )
 
@@ -2766,13 +2836,13 @@ _SHALLOW_MARKERS = (
 _EXPAND_DEEP_USER = (
     "Quyida ICHKI qoralama berilgan. Original rasmlarni qayta ko'rib, YAKUNIY qisqa "
     "hisobotni yoz: #### TASHXIS, #### NEGA SHU TASHXIS, #### FAKT (ko'rinadigan morfologiya), "
-    "#### NEGA BOSHQASI EMAS, #### TASDIQLASH, #### BAHOLANMAGAN. Jami 2000-4500 belgi. "
+    "Jami 2500-4500 belgi. "
     "Muhokama, o'quv matni, foiz, jadval yozma. O'zbek tili. Yulduzcha ** yo'q.\n\n"
 )
 
 _RETRY_DEEP_USER = (
     "Oldingi matn talabga mos emas. Qayta yoz: aniq tashxis, uning sababi va ko'ringan fakt. "
-    "Faqat 6 bo'lim, 2000-4500 belgi. Ortiqcha gap, savol-javob, foiz, jadval - o'chir. "
+    "Faqat 3 bo'lim, 2500-4500 belgi. Ortiqcha gap, savol-javob, foiz, jadval - o'chir. "
     "Rad etma.\n\n"
     "==== OLDINGI MATN ====\n"
 )
@@ -3039,7 +3109,7 @@ def _vision_user(prompt, image_parts):
             f"==== SINTEZ ({n} ta tasvir) ====\n"
             f"Yuqoridagi {n} ta TASVIRNING HAMMASINI inobatga ol. "
             "Faqat birinchi yoki oxirgi rasmga tayanma. "
-            "Bitta yagona TASHXIS va bitta hisobot (6 bo'lim). Maydonlar orasida "
+            "Bitta yagona TASHXIS va bitta hisobot (3 bo'lim). Maydonlar orasida "
             "farq bo'lsa, eng og'ir topilma hisobga olinadi. Alohida «rasmlar sintezi» "
             "bo'limi yozilmaydi."
         ),
@@ -3139,9 +3209,8 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="histology", organ_lo
         + "\n\n==== ICHKI QORALAMA (shu asosda YAKUNIY QISQA hisobotni yoz) ====\n"
         + (draft or "")[:8000]
         + "\n==== TUGADI ====\n"
-        "BIR organ. Hisobot FAQAT 6 bo'lim: #### TASHXIS, #### NEGA SHU TASHXIS, "
-        "#### FAKT (o'lchangan morfologiya), #### NEGA BOSHQASI EMAS, #### TASDIQLASH, "
-        "#### BAHOLANMAGAN. Jami 2000-4500 belgi, 6500 dan oshmasin. "
+        "BIR organ. Hisobot FAQAT 3 bo'lim: #### TASHXIS, #### NEGA SHU TASHXIS, "
+        "#### FAKT (o'lchangan morfologiya). Jami 2500-4500 belgi, 6500 dan oshmasin. "
         "Savol-javob, profilaktika, davolash, professor bo'limlari, jadval, foiz — YO'Q. "
         + (f"Barcha {n_img} ta rasmni sintez qil; faqat 1-rasmga tayanma. " if n_img > 1 else "")
         + "Har mezon qatori: <mezon> — KO'RINDI: <bir jumlalik dalil>. "
@@ -3408,9 +3477,7 @@ def _recovery_report(features, organ_lock, patient_context, kwargs, image_parts=
         "keyin: Organ/qatlam, Ishonch: yuqori/o'rta/past\n"
         "#### NEGA SHU TASHXIS — 3-6 qator: <belgi> — KO'RINDI: <izoh>\n"
         "#### FAKT (o'lchangan morfologiya) — 5-8 qator, sonlar bilan\n"
-        "#### NEGA BOSHQASI EMAS — 2-3 qator, ajratuvchi belgi bilan\n"
-        "#### TASDIQLASH — kerakli IHC yoki qo'shimcha kesma\n"
-        "#### BAHOLANMAGAN — shu kesmada baholab bo'lmagan narsalar\n"
+        "(muqobillar va tasdiqlash yo'li NEGA SHU TASHXIS ichida yoziladi)\n"
         "Ro'yxatda yo'q belgini yozma."
     )
     picked = _spread_pick(image_parts or [], 4)
@@ -3464,14 +3531,21 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
 
     t_start = time.time()
     full_prompt = "\n\n".join(item for item in content_list if isinstance(item, str))
+    _pils = [item for item in content_list if isinstance(item, Image.Image)]
     image_parts = [
         {
             "type": "image_url",
             "image_url": {"url": _pil_to_data_url(item), "detail": "high"},
         }
-        for item in content_list
-        if isinstance(item, Image.Image)
+        for item in _pils
     ]
+    # Har rasm uchun "kesmami?" bahosi — tanlash shu bo'yicha ustuvorlashadi
+    _scored = list(zip(image_parts, [_slide_score(im) for im in _pils]))
+    _n_slides = sum(1 for _, sc in _scored if sc >= SLIDE_SCORE_MIN)
+    # Ko'rik, namuna turi va organ qulfi FAQAT kesmalarga qaraydi — tana
+    # suratlari morfologik belgilarni suyultirib yuborardi. Kesma bo'lmasa
+    # butun to'plam ishlatiladi (rejim o'zgarmaydi).
+    _vision_parts = [p for p, sc in _scored if sc >= SLIDE_SCORE_MIN] or image_parts
     kwargs = _openai_generation_kwargs()
     if lab_type == "histology":
         kwargs["temperature"] = 0.0
@@ -3483,24 +3557,29 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
     organ_lock = None
     features = None
     # Hisobot bosqichiga butun to'plamdan teng oraliqdagi namuna boradi
-    report_parts = _spread_pick(image_parts, _report_max_images()) if image_parts else []
-    if len(report_parts) < n_img:
+    report_parts = _pick_images(_scored, _report_max_images()) if image_parts else []
+    if image_parts:
         log.info(
-            "%s: hisobot uchun %s rasmdan %s tasi tanlandi",
-            ZIYRAKAI_DISPLAY_NAME, n_img, len(report_parts),
+            "%s: hisobot uchun %s rasmdan %s tasi tanlandi (kesma: %s/%s)",
+            ZIYRAKAI_DISPLAY_NAME, n_img, len(report_parts), _n_slides, n_img,
         )
+        if not _n_slides and lab_type == "histology":
+            log.warning(
+                "%s: to'plamda H&E kesmasi topilmadi — klinik suratlar bilan ishlanmoqda",
+                ZIYRAKAI_DISPLAY_NAME,
+            )
     if image_parts:
         # Namuna turi tekshiruvi va organ qulfi bir-biriga bog'liq emas — parallel bajariladi
         t0 = time.time()
         with ThreadPoolExecutor(max_workers=3) as pool:
-            gate_f = pool.submit(_gate_specimen_match, image_parts, lab_type)
+            gate_f = pool.submit(_gate_specimen_match, _vision_parts, lab_type)
             lock_f = (
-                pool.submit(_lock_histology_organ, image_parts, patient_context)
+                pool.submit(_lock_histology_organ, _vision_parts, patient_context)
                 if lab_type == "histology"
                 else None
             )
             obs_f = (
-                pool.submit(_observe_histology, image_parts, patient_context)
+                pool.submit(_observe_histology, _vision_parts, patient_context)
                 if lab_type == "histology"
                 else None
             )
