@@ -1121,6 +1121,135 @@ def _observe_max_images():
     return max(2, min(v, 16))
 
 
+# ─── Ko'p bosqichli ko'rik va natijalarni birlashtirish ──────────────────────
+# Bitta chaqiruvda 8 ta kadr berilganda model 60 ta belgidan atigi 3-4 tasini
+# belgilardi: diqqat tarqaladi va u ehtiyotkorlik bilan hammasini "false"
+# qoldiradi. Kadrlarni kichik guruhlarga bo'lib alohida ko'rish har guruhda
+# chuqurroq qarashga majbur qiladi, so'ng natijalar birlashtiriladi.
+#
+# Birlashtirish qoidasi — patologik mantiq:
+#   · mantiqiy belgi: bitta maydonda ko'rinsa, u BOR (topilma yo'qolmaydi)
+#   · daraja (pleomorfizm, mitoz, invaziya): eng yuqorisi olinadi
+#   · chekka: xavfsizlik tomonga — "tegib turadi" ustun
+#   · "baholab bo'lmadi": faqat HAMMA guruhda baholanmagan bo'lsa qoladi
+
+_SCALES = {
+    "pleomorphism": ["yo'q", "yengil", "o'rta", "kuchli"],
+    "mitoses_10hpf": ["0", "1-2", "3-10", ">10"],
+    "nuclear_grade": ["1", "2", "3"],
+    "invasion": ["yo'q", "shubhali", "bor"],
+    "density": ["yo'q", "yengil", "o'rta", "zich"],
+}
+_QUALITY_ORDER = ["past", "o'rtacha", "yaxshi"]
+
+
+def _norm_scale_value(v):
+    return str(v or "").strip().lower().replace("\u2018", "'").replace("\u2019", "'")
+
+
+def _pick_strongest(key, values):
+    scale = _SCALES.get(key)
+    vals = [_norm_scale_value(v) for v in values if _norm_scale_value(v) not in ("", "noaniq")]
+    if not vals:
+        return None
+    if not scale:
+        return vals[0]
+    best, rank = None, -1
+    for v in vals:
+        if v in scale and scale.index(v) > rank:
+            rank, best = scale.index(v), v
+    return best or vals[0]
+
+
+def _merge_observations(parts):
+    """Bir necha ko'rik natijasini bitta belgilar to'plamiga yig'ish."""
+    parts = [p for p in parts if isinstance(p, dict)]
+    if not parts:
+        return None
+    if len(parts) == 1:
+        return parts[0]
+
+    out = {}
+    keys = set()
+    for p in parts:
+        keys.update(p.keys())
+
+    for key in keys:
+        vals = [p.get(key) for p in parts if key in p]
+        sample = next((v for v in vals if v is not None), None)
+
+        if isinstance(sample, dict):
+            merged = {}
+            subkeys = set()
+            for v in vals:
+                if isinstance(v, dict):
+                    subkeys.update(v.keys())
+            for sk in subkeys:
+                svals = [v.get(sk) for v in vals if isinstance(v, dict) and sk in v]
+                if any(isinstance(x, bool) for x in svals):
+                    merged[sk] = any(x is True for x in svals)
+                else:
+                    merged[sk] = _pick_strongest(sk, svals) or next(
+                        (x for x in svals if x not in (None, "")), None
+                    )
+            # Chekka: xavfsizlik tomonga
+            if key == "margins" and "involved" in merged:
+                inv = [v.get("involved") for v in vals if isinstance(v, dict)]
+                if any(_norm_scale_value(x) == "tegib turadi" for x in inv):
+                    merged["involved"] = "tegib turadi"
+            out[key] = merged
+        elif any(isinstance(v, bool) for v in vals):
+            out[key] = any(v is True for v in vals)
+        elif isinstance(sample, list):
+            seen, joined = set(), []
+            for v in vals:
+                for item in v or []:
+                    t = str(item).strip()
+                    if t and t.lower() not in seen:
+                        seen.add(t.lower())
+                        joined.append(t)
+            if key == "not_assessable_uz":
+                # faqat hamma guruhda uchraganini qoldiramiz
+                common = None
+                for v in vals:
+                    cur = {str(x).strip().lower() for x in (v or [])}
+                    common = cur if common is None else (common & cur)
+                joined = [x for x in joined if x.lower() in (common or set())]
+            out[key] = joined[:8]
+        elif key == "sample_quality":
+            ranked = [
+                _norm_scale_value(v) for v in vals
+                if _norm_scale_value(v) in _QUALITY_ORDER
+            ]
+            out[key] = (
+                max(ranked, key=_QUALITY_ORDER.index) if ranked else (sample or "noaniq")
+            )
+        elif key == "dominant_pattern":
+            out[key] = max(
+                (str(v) for v in vals if v), key=len, default=sample
+            )
+        else:
+            out[key] = _pick_strongest(key, vals) or sample
+    return out
+
+
+def _observe_groups():
+    """Ko'rik necha guruhga bo'linadi."""
+    try:
+        v = int(os.environ.get("HISTOLOGY_OBSERVE_PASSES", "3"))
+    except ValueError:
+        v = 3
+    return max(1, min(v, 5))
+
+
+def _split_groups(parts, n):
+    """Kadrlarni n ta guruhga navbat bilan taqsimlash (har guruhda turli chuqurlik)."""
+    groups = [[] for _ in range(n)]
+    for i, p in enumerate(parts):
+        groups[i % n].append(p)
+    return [g for g in groups if g]
+
+
 def _observe_histology(image_parts, patient_context=None):
     """Tasvirdagi belgilarni tashxis nomisiz yig'ish — har keys uchun o'ziga xos."""
     if not image_parts or not _observe_enabled():
@@ -1141,16 +1270,42 @@ def _observe_histology(image_parts, patient_context=None):
             "Remember: NO diagnosis names anywhere."
         )
         picked = _spread_pick(image_parts, _observe_max_images())
-        raw = _chat_complete(
-            [
-                {"role": "system", "content": _HISTOLOGY_OBSERVE_SYSTEM},
-                {"role": "user", "content": _vision_user(user, picked)},
-            ],
-            {"max_tokens": 2000, "temperature": 0.0, "top_p": 0.1},
-        )
-        data = _parse_observation(raw)
+        groups = _split_groups(picked, _observe_groups()) or [picked]
+
+        def _one(group):
+            try:
+                raw = _chat_complete(
+                    [
+                        {"role": "system", "content": _HISTOLOGY_OBSERVE_SYSTEM},
+                        {"role": "user", "content": _vision_user(user, group)},
+                    ],
+                    {"max_tokens": 2000, "temperature": 0.0, "top_p": 0.1},
+                )
+            except Exception as e:
+                log.warning("%s: ko'rik guruhi xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
+                return None
+            return _parse_observation(raw)
+
+        if len(groups) == 1:
+            results = [_one(groups[0])]
+        else:
+            with ThreadPoolExecutor(max_workers=min(4, len(groups))) as pool:
+                results = list(pool.map(_one, groups))
+        results = [r for r in results if r]
+        if not results:
+            log.warning("%s: ko'rik JSON o'qilmadi", ZIYRAKAI_DISPLAY_NAME)
+            return None
+        data = _merge_observations(results)
+        if data is not None and len(results) > 1:
+            # Barqarorlik tekshiruvi uchun guruhlar alohida saqlanadi
+            data["_groups"] = results
+        if len(results) > 1:
+            counts = [len(_true_features(r)) for r in results]
+            log.info(
+                "%s: ko'rik %s guruh — belgilar %s → birlashgan %s",
+                ZIYRAKAI_DISPLAY_NAME, len(results), counts, len(_true_features(data)),
+            )
         if not data:
-            log.warning("%s: ko'rik JSON o'qilmadi: %r", ZIYRAKAI_DISPLAY_NAME, _preview(raw))
             return None
         log.info(
             "%s: ko'rik pattern=%r invaziya=%s sifat=%s belgilar=%s",
@@ -1839,6 +1994,122 @@ def _coherence_pass(text, kwargs, features=None, lab_type="histology"):
         "%s: ziddiyat %s → %s ga tushdi", ZIYRAKAI_DISPLAY_NAME, len(issues), len(left)
     )
     return out
+
+
+# ─── Tashxis barqarorligi ────────────────────────────────────────────────────
+# Bir xil kesmada dastur uch marta uch xil nom bergani kuzatildi (seboreik
+# keratoz / trichoepithelioma / dermatofibroma). Bu — dalil kamligi belgisi:
+# tizim bo'shliqni ishonarli ko'ringan nom bilan to'ldiryapti. Buni yashirish
+# xavfli, shuning uchun o'lchanadi va hisobotda ochiq aytiladi.
+#
+# Usul: har bir mustaqil ko'rik guruhi bo'yicha ALOHIDA nom so'raladi (arzon
+# matnli chaqiruv), so'ng nomlar solishtiriladi. Kelishmovchilik bo'lsa —
+# hisobotga ogohlantirish qatori qo'shiladi.
+
+_DX_NAME_SYSTEM = (
+    "You are a dermatopathologist. Given ONLY a list of observed morphological "
+    "features, name the single most likely histopathological entity. "
+    "Answer with the entity name alone — no explanation, no punctuation, "
+    "max 6 words. If the features fit no entity, answer exactly: NOANIQ."
+)
+
+
+def _normalize_dx_name(name):
+    t = re.sub(r"[^a-zа-яё\s]", " ", str(name or "").lower())
+    t = re.sub(r"\s+", " ", t).strip()
+    for w in ("teri", "kozhi", "skin", "benign", "malign", "variant", "tur", "klassik"):
+        t = t.replace(w, " ")
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def _stability_enabled():
+    v = (os.environ.get("HISTOLOGY_STABILITY_CHECK") or "1").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
+def _dx_stability(features, kwargs=None):
+    """[(nom, ...)] → (barqarormi, nomlar ro'yxati). Guruh bo'lmasa (None, [])."""
+    if not _stability_enabled() or not isinstance(features, dict):
+        return None, []
+    groups = features.get("_groups") or []
+    if len(groups) < 2:
+        return None, []
+    names = []
+    for g in groups:
+        block = _features_prompt_block(g)
+        if not block:
+            continue
+        try:
+            out = _chat_complete(
+                [
+                    {"role": "system", "content": _DX_NAME_SYSTEM},
+                    {"role": "user", "content": block[:4000]},
+                ],
+                {"max_tokens": 40, "temperature": 0.0},
+                model=_router_model(),
+            )
+        except Exception as e:
+            log.warning("%s: barqarorlik chaqiruvi xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
+            continue
+        name = (out or "").strip().splitlines()[0][:60] if out else ""
+        if name and not _looks_like_refusal(name):
+            names.append(name)
+    if len(names) < 2:
+        return None, names
+    norm = [_normalize_dx_name(n) for n in names]
+    top = max(set(norm), key=norm.count)
+    agree = norm.count(top)
+    stable = agree >= max(2, (len(norm) + 1) // 2)
+    log.info(
+        "%s: barqarorlik %s/%s — %s",
+        ZIYRAKAI_DISPLAY_NAME, agree, len(norm), " | ".join(names),
+    )
+    return stable, names
+
+
+def _add_stability_note(text, stable, names):
+    """Tashxis barqaror bo'lmasa — hisobotga ochiq ogohlantirish.
+
+    Xavfsizlik qoidasi: maydonlar bir-biriga zid xulosa berayotgan bo'lsa,
+    xavfli o'sma DA'VO QILINMAYDI. Rakni noto'g'ri qo'yish — eng og'ir xato,
+    va bunday holatda "malignite qo'yish huquqi" har doim YO'Q bo'ladi.
+    """
+    if stable is not False or not text:
+        return text
+    uniq = []
+    for n in names:
+        if _normalize_dx_name(n) not in [_normalize_dx_name(u) for u in uniq]:
+            uniq.append(n)
+    note = (
+        "DIQQAT — tashxis barqaror emas: shu kesmaning turli maydonlaridan "
+        "har xil xulosa chiqdi (" + ", ".join(uniq[:3]) + "). "
+        "Dalil bir tashxisga yetarli emas; patolog ko'rigi va qo'shimcha "
+        "kesma/IHC shart."
+    )
+
+    dx_block = _histology_dx_block(text)
+    if _MALIGN_LEAD_RE.search(dx_block or ""):
+        note += (
+            " Xavfli o'sma bu hisobot asosida TASDIQLANMAYDI — nom faqat "
+            "ehtimol sifatida qaraladi va davolash qarori patolog xulosasidan "
+            "keyin qabul qilinadi."
+        )
+        # Malignite qo'yish huquqi majburan YO'Q
+        text = re.sub(
+            r"(Malignite qo'yish huquqi:\s*)(HA|BOR|HA\b)",
+            r"\1YO'Q",
+            text,
+            flags=re.I,
+        )
+
+    lines = text.splitlines()
+    out, done = [], False
+    for line in lines:
+        out.append(line)
+        if not done and re.match(r"^\s*#+\s*(?:aniq\s+)?tashxis\b", line, flags=re.I):
+            out.append(note)
+            done = True
+    return "\n".join(out) if done else note + "\n\n" + text
 
 
 def _apply_evidence_rules(text, features, lab_type="histology"):
@@ -3892,6 +4163,19 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
     # shuning uchun tekshiruv aynan shundan keyin turadi.
     if lab_type == "histology" and not from_recovery and _usable(report, MIN_REPORT_CHARS):
         report = _coherence_pass(report, kwargs, features, lab_type)
+
+    # Tashxis barqarorligi eng oxirida tekshiriladi: mustaqil maydonlar bir xil
+    # nomga olib keladimi? Ogohlantirish shundan keyin qo'shiladi, aks holda
+    # mantiq tuzatuvchisi uni qayta yozishda tashlab yuborardi.
+    if lab_type == "histology" and features and _usable(report, 400):
+        _stable, _names = _dx_stability(features, kwargs)
+        if _stable is False:
+            log.warning(
+                "%s: tashxis barqaror emas — ogohlantirish qo'shildi: %s",
+                ZIYRAKAI_DISPLAY_NAME, " | ".join(_names[:3]),
+            )
+            report = _cap_confidence(report, "past")
+            report = _add_stability_note(report, _stable, _names)
 
     if _usable(report, 400):
         if lab_type == "histology":
