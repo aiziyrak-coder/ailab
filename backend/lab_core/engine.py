@@ -184,7 +184,7 @@ ICHKI FIKRLASH (bu qismni hisobotga YOZMA — faqat o'zing uchun):
 6) Malignite huquqi bor-yo'qligini QONUN bo'yicha hal qil.
 
 HISOBOTGA esa faqat yakuniy 6 bo'lim tushadi: TASHXIS, NEGA SHU TASHXIS,
-FAKT, NEGA BOSHQASI EMAS. Fikrlash jarayonini bayon qilma — natijani yoz.
+FAKT. Fikrlash jarayonini bayon qilma — natijani yoz.
 Qisqa, aniq, shifokor tilida. Uzun matn — xato.
 Agar H&E to'qima EMAS bo'lsa: «bu gistologiya kesmasi emas» deb to'xta.
 """
@@ -277,8 +277,7 @@ def _analysis_system(lab_type):
     tail = (
         "ADASHISH HUQUQI YO'Q. "
         "HISOBOT FAQAT 6 BO'LIM: #### TASHXIS, #### NEGA SHU TASHXIS, "
-        "#### FAKT (o'lchangan morfologiya), #### NEGA BOSHQASI EMAS, "
-        "#### TASDIQLASH, #### BAHOLANMAGAN. "
+        "#### FAKT (o'lchangan morfologiya). "
         "Jami 2000-4500 belgi. Savol-javob, profilaktika, davolash rejasi, "
         "professor bo'limlari, jadval, ehtimollik foizi YOZILMAYDI. "
     )
@@ -444,27 +443,6 @@ horn cyst, koilotsit, pagetoid tarqalish...). Ko'rinmagan mezonni YOZMA.
 - Chekka (rezeksiya) holati: erkin / tegib turadi / baholab bo'lmaydi
 "ko'p", "oz" yolg'iz yetarli emas — taxminiy son yoki daraja yoz.
 
-#### NEGA BOSHQASI EMAS
-3–4 qator. Har qator: <muqobil tashxis> — <qaysi AJRATUVCHI belgi yo'q/boshqacha>.
-Eng xavfli muqobil (karsinoma, melanoma, sarkoma, DFSP) BIRINCHI rad etiladi.
-"Mos emas" yolg'iz yetarli emas — ajratuvchi belgini ayt.
-
-#### TASDIQLASH
-2–4 qator, faqat tashxisni HAL QILADIGANI:
-- IHC paneli: aniq markerlar + kutilayotgan natija (masalan «CD34 diffuz musbat → DFSP;
-  FXIIIa musbat, CD34 manfiy → dermatofibroma»)
-- Qo'shimcha kesma / chuqurroq daraja / maxsus bo'yoq — nima uchun
-- Klinik ma'lumot — aniq nima so'raladi (kasallik muddati, o'lcham, joy, o'sish tezligi)
-Tashxis ishonchi «yuqori» va qo'shimcha tekshiruv shart bo'lmasa: «Qo'shimcha tekshiruv shart emas».
-Davolash rejasi, profilaktika, kuzatuv jadvali YOZILMAYDI.
-
-#### BAHOLANMAGAN
-1–3 qator: shu kesmada baholab BO'LMAGAN narsalar va sababi
-(masalan «Chekka baholanmadi — kesma yo'nalishi ko'rinmaydi»,
-«Chuqur qism yo'q — invaziya to'liq istisno qilinmaydi»,
-«Immunobo'yoq yo'q — hujayra kelib chiqishi morfologiya bo'yicha»).
-Hech narsa qolmagan bo'lsa: «Baholashga to'siq yo'q».
-Bu bo'lim — xavfsizlik uchun: nazardan qochgan narsa ochiq aytiladi.
 
 TAQIQLANGAN (yozilsa hisobot yaroqsiz):
 «Savol:», klinik fikrlash bo'limi, profilaktika, davolash rejasi, kuzatuv rejasi,
@@ -571,9 +549,8 @@ Dalilsiz "urotel"/"renal"/"silindrik" deb yozma — nima KO'RINISHINI yoz.
 
 ICHKI TEKSHIRUV (hisobotga yozilmaydi): yetakchi organ + dalil; pattern;
 yadro grade, mitoz, invaziya; WHO Essential mezonlar; muqobillar.
-HISOBOT esa faqat 6 bo'lim: #### TASHXIS, #### NEGA SHU TASHXIS,
-#### FAKT (o'lchangan morfologiya), #### NEGA BOSHQASI EMAS,
-#### TASDIQLASH, #### BAHOLANMAGAN.
+HISOBOT esa faqat 3 bo'lim: #### TASHXIS, #### NEGA SHU TASHXIS,
+#### FAKT (o'lchangan morfologiya).
 Jami 2000–4500 belgi. Rad etma. Ko'rinmagan narsani uydirma.
 """
 
@@ -1328,7 +1305,7 @@ def _worksheet_user(lab_type, organ_lock=None, kb_block=""):
         + lock
         + kb
         + "Jadval YOZMA. Baho 1-5 ISHLATMA. Faqat 6 bo'lim: TASHXIS, NEGA SHU TASHXIS, "
-        "FAKT, NEGA BOSHQASI EMAS.\n"
+        "FAKT.\n"
         f"Ichkarida tekshiriladigan maydonlar: {m['count']}.\n"
         + extra
         + "\nYulduzcha ** yo'q. Rad etma."
@@ -1454,6 +1431,9 @@ def _histology_melanoma_overcall(text):
 MIN_FEATURES_FOR_ENTITY = 4      # shundan kam belgi — aniq nozologiya qo'yilmaydi
 MIN_FEATURES_FOR_HIGH = 8        # «Ishonch: yuqori» uchun kerak bo'lgan belgi soni
 
+# Eski matn: dalil kam bo'lganda tashxis nomi shu bilan almashtirilardi.
+# Endi nom saqlanadi (_mark_provisional), bu satr faqat eski hisobotlarni
+# tanib olish uchun qoldirilgan.
 _INSUFFICIENT_DX = "Aniq tashxis uchun yetarli emas"
 
 
@@ -1480,20 +1460,18 @@ def _cap_confidence(text, max_level):
     return re.sub(r"Ishonch:\s*([A-Za-z'‘’o]+)", fix, text or "", flags=re.I)
 
 
-def _force_insufficient(text, features, reason):
-    """Tashxis nomini «yetarli emas» ga almashtirish (dalil yo'q yoki zid).
+def _mark_provisional(text, features, reason):
+    """Dalil kam bo'lsa tashxis NOMINI saqlab, uni taxminiy deb belgilash.
 
-    #### TASHXIS sarlavhasidan keyingi birinchi mazmunli qator — tashxis nomi;
-    o'sha qator almashtiriladi, qolgan bo'limlar (fakt, differensial, tasdiqlash,
-    baholanmagan) shundayligicha qoladi.
+    Ilgari bu funksiya nomni butunlay «Aniq tashxis uchun yetarli emas» ga
+    almashtirardi. Shifokorga bu foydasiz: hisobotda hech qanday nom qolmasdi.
+    Endi nom o'z joyida qoladi, yoniga «(taxminiy)» qo'shiladi, ishonch «past»
+    ga tushiriladi va sabab ko'rsatiladi — ya'ni o'qigan odam nima deb
+    o'ylanayotganini ham, nega ishonch pastligini ham biladi.
     """
     if not text:
         return text
-    pattern = _strip_atypia_claim(
-        _truncate_field((features or {}).get("dominant_pattern"), 90)
-    )
-    head = _INSUFFICIENT_DX + (f" — tavsifiy ko'rinish: {pattern}" if pattern else "")
-    reason_line = f"Sabab: {reason}"
+    reason_line = f"Taxminiy — sabab: {reason}"
 
     lines = (text or "").splitlines()
     out = []
@@ -1507,21 +1485,20 @@ def _force_insufficient(text, features, reason):
             if not line.strip():
                 out.append(line)
                 continue
-            # Tashxis nomi shu qator — almashtiriladi
-            out.append(head)
+            name = line.strip()
+            low = name.lower()
+            if "taxminiy" not in low:
+                name = name.rstrip(" .") + " — taxminiy"
+            out.append(name)
             out.append(reason_line)
             state = "done"
             continue
         out.append(line)
 
-    if state == "done":
-        joined = "\n".join(out)
-    else:
-        joined = "#### TASHXIS\n" + head + "\n" + reason_line + "\n\n" + (text or "")
-
+    joined = "\n".join(out) if state == "done" else (text or "")
     joined = _cap_confidence(joined, "past")
     if "Malignite qo'yish huquqi" not in joined:
-        joined = joined.replace(head, head + "\nMalignite qo'yish huquqi: YO'Q", 1)
+        joined = joined.replace(reason_line, "Malignite qo'yish huquqi: YO'Q\n" + reason_line, 1)
     return joined
 
 
@@ -1587,6 +1564,13 @@ _TEST_STEP_RE = re.compile(
     r"klinik\s+ma'lumot\s+so'ra",
     re.I,
 )
+# "Aniq tashxis uchun yetarli emas", "aniqlanmadi", "noaniq jarayon" — bular
+# tashxis nomi emas; shifokorga foydasi yo'q.
+_NO_NAME_RE = re.compile(
+    r"yetarli\s+emas|aniqlanmadi|aniqlab\s+bo'lmadi|noaniq\s+jarayon|"
+    r"tashxis\s+qo'yib\s+bo'lmaydi|nomsiz",
+    re.I,
+)
 _NO_ATYPIA_RE = re.compile(r"atipiyasiz|atipiya\s+yo'q|atipik\s+emas|atipiya:\s*yo'q", re.I)
 # "pleomorfizm o'rta" ham, "o'rta pleomorfizm" ham uchraydi
 _PLEO_STRONG_RE = re.compile(
@@ -1631,20 +1615,19 @@ def _find_contradictions(text, features=None):
     tashxis = _report_section(text, "tashxis")
     nega = _report_section(text, "nega")
     fakt = _report_section(text, "fakt")
-    tasdiq = _report_section(text, "tasdiq")
-    baho = _report_section(text, "baholanmagan")
     out = []
 
-    if _NO_EXTRA_TEST_RE.search(tasdiq) and _TEST_STEP_RE.search(tasdiq):
+    # Tashxis o'rnida nom bo'lishi shart — "aniqlanmadi" javob emas
+    if _NO_NAME_RE.search(tashxis):
         out.append(
-            "TASDIQLASH bo'limida ham aniq tekshiruv taklif qilingan, ham "
-            "«qo'shimcha tekshiruv shart emas» deyilgan — bittasini tanlang."
+            "TASHXIS bo'limida kasallik nomi yo'q — «yetarli emas / aniqlanmadi» "
+            "o'rniga eng ehtimolli nomni yozib, «Ishonch: past» qo'ying."
         )
 
-    if _MARGIN_MEASURED_RE.search(fakt) and _MARGIN_UNASSESSED_RE.search(baho):
+    if len([l for l in nega.splitlines() if l.strip()]) < 4:
         out.append(
-            "FAKT da chekka o'lchangan, BAHOLANMAGAN da esa «chekka baholanmadi» "
-            "deyilgan — ikkisi bir vaqtda to'g'ri bo'lolmaydi."
+            "NEGA SHU TASHXIS bo'limi juda qisqa — kamida 4 ta mezon "
+            "ko'rilgan dalil bilan yozilishi kerak."
         )
 
     no_atypia = _NO_ATYPIA_RE.search(tashxis) or _NO_ATYPIA_RE.search(nega)
@@ -1670,12 +1653,6 @@ def _find_contradictions(text, features=None):
             "yo'q: " + "; ".join(taut[:3])
         )
 
-    low_dx = tashxis.lower()
-    if ("yetarli emas" in low_dx) and tasdiq and not _TEST_STEP_RE.search(tasdiq):
-        out.append(
-            "Tashxis «yetarli emas» deb yopilgan, lekin TASDIQLASH da aniq "
-            "keyingi qadam ko'rsatilmagan."
-        )
     return out
 
 
@@ -1691,8 +1668,10 @@ _COHERENCE_SYSTEM = (
     "olib tashlang yoki o'lchovga moslang). Tashxis NOMINI o'zgartirmang.\n"
     "— Belgi nomini takrorlamang: har bir asos qayerda, qanday, qancha "
     "ekanini aytsin.\n"
-    "— TASDIQLASH da yo aniq qadamlar, yo «shart emas» — ikkalasi emas.\n"
-    "— O'sha 6 bo'lim, o'sha til (o'zbek), 2000–4500 belgi.\n"
+    "— TASHXIS o'rnida albatta kasallik NOMI tursin; «yetarli emas» yozmang, "
+    "dalil kam bo'lsa nomni qoldirib «Ishonch: past» qiling.\n"
+    "— O'sha 3 bo'lim (TASHXIS, NEGA SHU TASHXIS, FAKT), o'zbek tili, "
+    "2500–4500 belgi.\n"
     "— Faqat yakuniy hisobotni qaytaring, izohsiz."
 )
 
@@ -1766,18 +1745,18 @@ def _apply_evidence_rules(text, features, lab_type="histology"):
     quality = str(features.get("sample_quality") or "noaniq")
     text = _cap_confidence(text, max_level)
     low_dx = _histology_dx_block(text).lower()
-    already = _INSUFFICIENT_DX.lower() in low_dx or "yetarli emas" in low_dx
+    already = "taxminiy" in low_dx
     if n < MIN_FEATURES_FOR_ENTITY and not already:
         log.warning(
-            "%s: dalil kam (%s ta belgi, sifat=%s) — aniq tashxis o'rniga «yetarli emas»",
+            "%s: dalil kam (%s ta belgi, sifat=%s) — tashxis taxminiy deb belgilanadi",
             ZIYRAKAI_DISPLAY_NAME, n, quality,
         )
-        return _force_insufficient(
+        return _mark_provisional(
             text,
             features,
-            f"tasvirdan faqat {n} ta ishonchli morfologik belgi olindi "
-            f"(namuna sifati: {quality}). Aniq nozologiya uchun yetarli emas — "
-            "10× umumiy ko'rinish va 40× hujayra tafsiloti aniq fokusda kerak.",
+            f"tasvirdan {n} ta ishonchli morfologik belgi olindi "
+            f"(namuna sifati: {quality}). Tasdiqlash uchun 10× umumiy ko'rinish "
+            "va 40× hujayra tafsiloti aniq fokusda kerak.",
         )
     return text
 
@@ -1856,43 +1835,50 @@ def _looks_like_wrong_blood_smear(text, lab_type):
 
 OUTPUT_FORMAT_HISTOLOGY_UZ = """
 ---
-CHIQISH (qat'iy): faqat 6 bo'lim, jami 2000–4500 belgi.
+CHIQISH (qat'iy): faqat 3 bo'lim, jami 2500–4500 belgi.
 #### TASHXIS
 #### NEGA SHU TASHXIS
 #### FAKT (o'lchangan morfologiya)
-#### NEGA BOSHQASI EMAS
-#### TASDIQLASH
-#### BAHOLANMAGAN
+Boshqa bo'lim (differensial ro'yxati, tasdiqlash rejasi, baholanmagan ro'yxati)
+ALOHIDA SARLAVHA bilan YOZILMAYDI.
 Yulduzcha ** yo'q. Jadval yo'q. Ehtimollik foizi yo'q. Boshqa sarlavha yo'q.
 Har qator ma'lumot tashisin: son, daraja yoki aniq morfologik atama bo'lsin.
 
-MANTIQ QOIDALARI — hisobot o'z ichida zid bo'lmasin (buzilsa hisobot qaytariladi):
-1) TAKROR YO'Q. «NEGA SHU TASHXIS» da belgi nomini qaytarma. Noto'g'ri:
-   «Duksimon hujayralar — KO'RINDI: duksimon hujayralar mavjud».
-   To'g'ri: «Duksimon hujayralar — KO'RINDI: dermada bir-biriga parallel
-   dastalar, yadrolar cho'ziq, sitoplazma eozinofil, kollagen orasiga kirgan».
-   Ya'ni QAYERDA, QANDAY joylashgan, QANCHA — yangi ma'lumot bo'lsin.
-2) TASDIQLASH bo'limi YOKI aniq qadamlar ro'yxati, YOKI «qo'shimcha tekshiruv
-   shart emas» — ikkalasi birga YOZILMAYDI. Qadam yozsang, «shart emas» dema.
-3) FAKT da o'lchagan narsani BAHOLANMAGAN ga yozma. Chekkani FAKT da
-   «tegib turadi» desang, BAHOLANMAGAN da «chekka baholanmadi» deb yozma —
-   bittasini tanla.
-4) ATIPIYA izchil bo'lsin. Tashxis qatorida «atipiyasiz» desang, FAKT da
-   pleomorfizm «o'rta/kuchli» yoki mitoz 2/10HPF dan ko'p bo'lmasin. Aksincha
-   ham: pleomorfizm va mitoz bo'lsa, «atipiyasiz» dema.
-5) BAHOLANMAGAN da sabab TASVIRGA oid bo'lsin («kadrga tushmagan»,
-   «fokusdan chiqqan», «kesma yo'nalishi ko'rinmaydi»), topilma haqidagi
-   xulosa bo'lmasin.
-6) Tashxis «yetarli emas» bo'lsa ham, TASDIQLASH da nima qilish kerakligi
-   ANIQ yozilsin (qaysi bo'yash, qaysi kattalashtirish, qaysi qo'shimcha kesma).
-7) «NEGA BOSHQASI EMAS» da har bir muqobil FAKT dagi o'lchov bilan rad etilsin.
-   Noto'g'ri: «Melanoma — pagetoid tarqalish yo'q».
-   To'g'ri: «Melanoma — epidermisda melanotsitar uya ham, pagetoid ko'tarilish
-   ham ko'rinmadi; hujayralar faqat dermada, S100 talab qilinmaydi».
-   Ya'ni qaysi KO'RILGAN belgi bu tashxisni rad etayotganini ayting.
-8) TASHXIS qatorida bitta nom bo'lsin. «A yoki B» deb qoldirmang: agar
-   ajratib bo'lmasa, ustun variantni yozing va TASDIQLASH da ajratish
-   yo'lini ko'rsating.
+ASOSIY QOIDA — TASHXIS NOMI ALBATTA BO'LSIN:
+Birinchi qatorda kasallikning ANIQ NOMI turadi (masalan «Verruca vulgaris»,
+«Dermatofibroma», «Psoriaz», «Bazal hujayrali karsinoma, nodulyar tur»).
+«Aniq tashxis uchun yetarli emas», «aniqlanmadi», «noaniq jarayon» kabi
+javob TASHXIS o'rniga YOZILMAYDI. Dalil kam bo'lsa — eng ehtimolli nomni
+yozing va shu qatordagi «Ishonch:» ni past/o'rta qilib qo'ying. Ya'ni nom
+har doim bor, ishonch darajasi esa dalilga qarab o'zgaradi.
+Faqat bitta istisno: kadrda to'qima umuman bo'lmasa (bo'sh shisha, artefakt).
+
+TASHXIS bo'limi (3–5 qator):
+1-qator — tashxis nomi (va bo'lsa varianti/darajasi).
+2-qator — Organ/qatlam: … | Ishonch: past/o'rta/yuqori | Malignite qo'yish huquqi: BOR/YO'Q
+3-qator — bir jumlada: bu qanday jarayon (xavfsiz/chegaraviy/xavfli) va nima
+qilish kerakligi (kuzatuv, kesib olish, IHC bilan tasdiqlash).
+
+NEGA SHU TASHXIS bo'limi — HISOBOTNING ASOSIY QISMI (6–10 qator, batafsil):
+— Har qator bitta mezon: «<mezon nomi> — <QAYERDA, QANDAY, QANCHA ko'rindi>».
+  Noto'g'ri: «Psoriaziform giperplaziya — KO'RINDI: akantoz va giperkeratoz mavjud».
+  To'g'ri: «Psoriaziform giperplaziya — epidermis bir tekis qalinlashgan, rete
+  tizmalari cho'zilgan va uchlari yo'g'onlashgan, sopralapillyar plastinka
+  yupqalashgan, shox qatlam 3–4 barobar qalin».
+— Kamida 4 ta mezon KO'RILGAN dalil bilan bo'lsin.
+— Oxirgi 2–3 qatorda muqobillar shu yerda rad etilsin, alohida sarlavhasiz:
+  «Bunga o'xshash <muqobil> emas, chunki <qaysi KO'RILGAN belgi mos kelmayapti>».
+  Eng xavfli muqobil (karsinoma, melanoma, sarkoma) birinchi rad etilsin.
+— Kerak bo'lsa oxirida bitta qator: «Tasdiqlash uchun: <IHC/bo'yoq/kesma>» —
+  faqat tashxisni hal qiladigani, alohida sarlavhasiz.
+
+MANTIQ QOIDALARI — hisobot o'z ichida zid bo'lmasin:
+1) TAKROR YO'Q: mezon nomini izohda qaytarma, yangi ma'lumot ber.
+2) ATIPIYA izchil bo'lsin. «Atipiyasiz» desang, FAKT da pleomorfizm
+   «o'rta/kuchli» yoki mitoz 2/10HPF dan ko'p bo'lmasin va aksincha.
+3) Malignite qo'yish huquqi YO'Q bo'lsa, tashxis nomi xavfli o'sma
+   bo'lmasin — xavfsiz yoki chegaraviy nom tanlang.
+4) Davolash rejasi, dori, profilaktika, kuzatuv jadvali YOZILMAYDI.
 """
 
 
@@ -2924,10 +2910,7 @@ def _missing_diagnosis_sections(text, lab_type=None):
         has_dx = "tashxis" in low
         has_why = ("nega shu tashxis" in low) or ("nega bu tashxis" in low)
         has_fact = ("fakt" in low) or ("morfologiya" in low)
-        has_diff = ("nega boshqasi emas" in low) or ("differensial" in low)
-        has_next = ("tasdiqlash" in low) or ("ihc" in low) or ("immuno" in low)
-        has_gaps = ("baholanmagan" in low) or ("baholab bo'lmadi" in low) or ("to'siq yo'q" in low)
-        return not (has_dx and has_why and has_fact and has_diff and has_next and has_gaps)
+        return not (has_dx and has_why and has_fact)
     has_dx = ("aniq tashxis" in low) or ("ishchi morfologik taassurot" in low and "yetakchi" in low)
     has_who = ("who mezon" in low) or ("essential" in low)
     has_detail = (
@@ -3223,12 +3206,12 @@ def _expert_review(draft, kwargs, image_parts=None, lab_type="histology",
         "1) Tashxis nomi belgilarga mos keladimi? Variant/daraja ko'rsatilganmi?\n"
         "2) Har bir mezon qatorida KO'RINGAN dalil bormi? Uydirma mezon yo'qmi?\n"
         "3) FAKT bo'limida sonlar bormi: mitoz/10HPF, qalinlik, chuqurlik, chekka?\n"
-        "4) Har bir muqobil AJRATUVCHI belgi bilan rad etilganmi? Eng xavflisi birinchi turibdimi?\n"
-        "5) TASDIQLASH bo'limida aniq IHC/kesma/klinik so'rov bormi (kutilayotgan natija bilan)?\n"
-        "6) BAHOLANMAGAN bo'limida chekka, chuqurlik, artefakt kabi cheklovlar aytilganmi?\n"
+        "4) Muqobillar NEGA SHU TASHXIS ichida ajratuvchi belgi bilan rad etilganmi?\n"
+        "5) Tashxis o'rnida NOM turibdimi? «Yetarli emas / aniqlanmadi» yozilmaganmi?\n"
+        "6) Ishonch darajasi dalilga mos keladimi?\n"
         "7) Malignite qo'yish huquqi qoidasi buzilmaganmi?\n"
         + (f"8) Barcha {n_img} ta maydon hisobga olinganmi?\n" if n_img > 1 else "")
-        + "\nFAQAT yakuniy hisobotni qaytar (6 bo'lim, 2000-4500 belgi). Izoh yozma."
+        + "\nFAQAT yakuniy hisobotni qaytar (3 bo'lim, 2500-4500 belgi). Izoh yozma."
     )
     content = _vision_user(user_text, image_parts) if image_parts else user_text
     review_kwargs = dict(kwargs or {})
@@ -3667,16 +3650,17 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
                 + "\n\n==== NAZORAT: "
                 + conflict
                 + ". Shu tashxisni olib tashla yoki ko'ringan belgilarga mos nom qo'y. "
-                "Belgilar yetarli bo'lmasa «Aniq tashxis uchun yetarli emas» deb yoz. ====",
+                "Belgilar yetarli bo'lmasa ham NOM yoz — eng ehtimolli tashxisni "
+                "qo'y va ishonchni «past» qil. ====",
                 kwargs, report_parts, lab_type, organ_lock, patient_context, features,
             )
             if _usable(retry, MIN_REPORT_CHARS) and not _report_contradicts_features(retry, features):
                 report = retry
             else:
                 # Tuzatib bo'lmadi — asossiz nomni chiqarish mumkin emas
-                log.warning("%s: zid tashxis tuzatilmadi — «yetarli emas» ga tushirildi",
+                log.warning("%s: zid tashxis tuzatilmadi — taxminiy deb belgilandi",
                             ZIYRAKAI_DISPLAY_NAME)
-                report = _force_insufficient(report, features, conflict)
+                report = _mark_provisional(report, features, conflict)
 
     # Yakuniy imzo tekshiruvi: mezon, sonlar, differensial, tasdiqlash, cheklovlar
     if lab_type == "histology" and not from_recovery and _usable(report, MIN_REPORT_CHARS):

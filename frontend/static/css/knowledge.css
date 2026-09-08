@@ -6,7 +6,7 @@
 .kb-body { background: var(--rd-mist, #f2f6f5); }
 
 /* .kb-gate/.kb-shell klass display'i [hidden] dan kuchli — qat'iy yashirish */
-.kb-body [hidden] { display: none !important; }
+.kb-page [hidden] { display: none !important; }
 
 .kb-main {
   max-width: 1180px;
@@ -433,4 +433,57 @@
   .kb-drawer { width: 100%; }
   .kb-gate { padding: 24px 0 40px; }
   .kb-gate-card { padding: 28px 20px 24px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Sahifa oqimi: tahlil ilovasi qat'iy balandlikdagi ish stansiyasi
+   (body{overflow:hidden}, .app-root{height:100vh}), lekin kutubxona oddiy
+   uzun sahifa. O'sha qoidalar bu yerda aylanishni butunlay to'sib qo'ygan edi —
+   1835px kontent 950px oynada kesilib qolardi.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.kb-page,
+.kb-page body {
+  /* overflow-y:auto qo'yilsa body o'zi aylantirgich bo'lib qoladi va
+     window.scrollTo ishlamaydi — hujjat odatdagidek aylansin */
+  height: auto !important;
+  min-height: 100%;
+  overflow: visible !important;
+}
+
+.kb-page .app-root {
+  height: auto !important;
+  max-height: none !important;
+  min-height: 100vh;
+  overflow: visible !important;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sarlavha oddiy oqimda: sticky qilinganda uzun sahifada ba'zi brauzerlarda
+   noto'g'ri joyda chiziladi — kutubxona uchun zarur emas. */
+.kb-page .header {
+  position: static;
+  background: #ffffff;
+}
+
+/* To'liq kenglik — 1180px quti o'rniga ekran bo'yicha */
+.kb-main {
+  max-width: none;
+  padding: 26px 32px 48px;
+}
+
+.kb-grid {
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 16px;
+}
+
+.kb-card { padding: 18px 20px 15px; }
+
+.kb-searchbar form { padding: 12px; gap: 10px; }
+
+.kb-hit { padding: 16px 18px; margin-bottom: 11px; }
+
+@media (min-width: 1500px) {
+  .kb-main { padding: 30px 48px 56px; }
+  .kb-grid { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
 }

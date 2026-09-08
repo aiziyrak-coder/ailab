@@ -911,3 +911,94 @@ h1, h2, h3 {
   color: #9a5b1f !important;
   border-color: #f0dcc4 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BEMALOL JOYLASHUV — lab-pro.css da chap paneldagi maydonlar 24px balandlik
+   va 0.7rem shrift bilan siqib qo'yilgan edi. Ish stansiyasi zich bo'lishi
+   kerak, lekin bemor kartasi har kuni to'ldiriladigan forma — u o'qilishi va
+   bosilishi qulay bo'lsin.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 901px) {
+  :root {
+    --col-left: clamp(330px, 26vw, 450px);
+    --col-right: clamp(400px, 34vw, 580px);
+  }
+
+  .left-panel .acc-form {
+    gap: 13px 12px !important;
+    padding-top: 10px !important;
+  }
+
+  .left-panel .acc-form input,
+  .left-panel .acc-form select {
+    height: 38px !important;
+    min-height: 38px !important;
+    font-size: 0.88rem !important;
+    padding: 0 12px !important;
+    border-radius: 8px !important;
+  }
+
+  .left-panel .acc-form label > span {
+    font-size: 0.68rem !important;
+    margin-bottom: 5px;
+  }
+
+  .left-panel .card-title { font-size: 0.68rem !important; }
+
+  .left-panel .lab-select {
+    height: 40px !important;
+    min-height: 40px !important;
+    font-size: 0.88rem !important;
+  }
+
+  .left-panel .src-tab {
+    padding: 10px 12px !important;
+    font-size: 0.82rem !important;
+  }
+
+  .left-panel .prio,
+  .left-panel .case-pill {
+    padding: 5px 11px !important;
+    font-size: 0.66rem !important;
+  }
+
+  .left-panel .analyze-card .btn-ziyrakai,
+  .left-panel .btn {
+    min-height: 42px !important;
+    height: 42px !important;
+    font-size: 0.88rem !important;
+  }
+
+  .left-panel .btn-pair .btn {
+    min-height: 38px !important;
+    height: 38px !important;
+  }
+
+  .left-panel .upload-zone { padding: 24px 16px !important; }
+}
+
+/* ─── Rang muvozanati ──────────────────────────────────────────────────────
+   Fon yashil-kulrang (#f2f6f5) edi va oltin bilan birga loyqa ko'rinardi.
+   Iliqroq neytral oltinga yaxshiroq yarashadi; katta oltin yuzalar esa
+   yumshatiladi — oltin urg'u bo'lib qolsin, fon bo'lmasin.
+   ──────────────────────────────────────────────────────────────────────── */
+:root {
+  --rd-mist: #f6f5f2;
+  --rd-mist-2: #faf9f7;
+  --rd-line: #e7e4de;
+  --rd-gold-wash: #fbf8f1;
+  --rd-gold-soft: #ecdfc4;
+  --rd-ink-soft: #63615c;
+}
+
+.left-panel .referral-row {
+  background: var(--rd-gold-wash);
+  border-color: var(--rd-gold-soft);
+}
+
+/* Bosqich ko'rsatkichi: to'la oltin doira o'rniga yengil urg'u */
+.wb-flow li.on {
+  background: var(--rd-gold-wash) !important;
+  color: var(--rd-gold-deep) !important;
+  border-color: var(--rd-gold) !important;
+}

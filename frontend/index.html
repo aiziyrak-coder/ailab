@@ -11,10 +11,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" href="/static/img/favicon.png" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=r8">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=r8">
-  <link rel="stylesheet" href="/static/css/mobile.css?v=r8">
-  <link rel="stylesheet" href="/static/css/brand.css?v=r8">
+  <link rel="stylesheet" href="/static/css/style.css?v=r11">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=r11">
+  <link rel="stylesheet" href="/static/css/mobile.css?v=r11">
+  <link rel="stylesheet" href="/static/css/brand.css?v=r11">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -272,34 +272,6 @@
         </div>
       </div>
 
-      <div class="card micro-card">
-        <div class="micro-grid micro-grid-3">
-          <div class="micro-field">
-            <label for="microOcularSel">Okulyar</label>
-            <select id="microOcularSel" class="micro-select" onchange="onMicroChange()">
-              <option value="10×" selected>10×</option>
-              <option value="5×">5×</option>
-              <option value="15×">15×</option>
-              <option value="20×">20×</option>
-            </select>
-          </div>
-          <div class="micro-field">
-            <label for="microObjSel">Obyektiv</label>
-            <select id="microObjSel" class="micro-select" onchange="onMicroChange()">
-              <option value="40×">40×</option>
-              <option value="4×">4×</option>
-              <option value="10×">10×</option>
-              <option value="20×">20×</option>
-              <option value="100× (immersion)" selected>100× (moy)</option>
-            </select>
-          </div>
-          <div class="micro-field micro-total-mini" id="microTotalBanner">
-            <span class="micro-total-label">Umumiy</span>
-            <span class="micro-total-value" id="microTotalBadge">1000×</span>
-          </div>
-        </div>
-      </div>
-
       <div class="analyze-card" id="analyzeCard">
         <button class="btn btn-ziyrakai" id="analyzeBtn" onclick="analyze()" disabled>
           Tahlil boshlash
@@ -323,13 +295,6 @@
             <em id="slideStain">Giemsa / Romanovskiy</em>
             <strong id="slideMag">1000×</strong>
           </span>
-        </div>
-        <div class="obj-turret" id="objTurret" title="Obyektiv">
-          <span data-obj="4">4×</span>
-          <span data-obj="10">10×</span>
-          <span data-obj="20">20×</span>
-          <span data-obj="40">40×</span>
-          <span data-obj="100" class="on">100×</span>
         </div>
       </div>
       <div class="media-box" id="mediaBox">
@@ -568,8 +533,8 @@
 <div id="toast"></div>
 <script src="/static/js/uz_localities.js?v=off59"></script>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=r8"></script>
-<script src="/static/js/ux.js?v=r8"></script>
-<script src="/static/js/referral.js?v=r8"></script>
+<script src="/static/js/app.js?v=r11"></script>
+<script src="/static/js/ux.js?v=r11"></script>
+<script src="/static/js/referral.js?v=r11"></script>
 </body>
 </html>

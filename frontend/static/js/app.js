@@ -839,6 +839,8 @@ function computeMicroscopeTotalDisplay() {
 }
 
 function getMicroscopePayload() {
+  // Okulyar/obyektiv qo'lda kiritilmaydi — kattalashtirishni dastur tasvirdan
+  // o'zi baholaydi (ko'rik bosqichidagi "magnification" maydoni).
   const ocular = getOcularStr();
   const objective = getObjectiveStr();
   const badge = document.getElementById('microTotalBadge');
@@ -855,21 +857,17 @@ function appendMicroscopeToFormData(fd) {
 }
 
 function onMicroChange() {
-  const bStr = getObjectiveStr();
-  const badge = document.getElementById('microTotalBadge');
+  // Sozlamalar olib tashlangan: ko'rsatkichlar bo'sh qoladi, kattalashtirishni
+  // tahlil natijasi bildiradi.
   const totalStr = computeMicroscopeTotalDisplay();
+  const badge = document.getElementById('microTotalBadge');
   if (badge) badge.textContent = totalStr || '—';
   const hudMag = document.getElementById('hudMag');
-  if (hudMag) hudMag.textContent = totalStr || '—';
+  if (hudMag) hudMag.textContent = totalStr || 'avto';
   const slideMag = document.getElementById('slideMag');
-  if (slideMag) slideMag.textContent = totalStr || '—';
-
-  const objN = parseMagNum(bStr);
-  document.querySelectorAll('#objTurret [data-obj]').forEach(el => {
-    el.classList.toggle('on', Number(el.getAttribute('data-obj')) === objN);
-  });
+  if (slideMag) slideMag.textContent = totalStr || 'avto';
   const oil = document.getElementById('stOil');
-  if (oil) oil.classList.toggle('hidden', !/100/.test(bStr || ''));
+  if (oil) oil.classList.add('hidden');
 }
 
 function buildPrintMicroscopeHtml() {

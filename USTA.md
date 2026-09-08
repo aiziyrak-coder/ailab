@@ -64,7 +64,23 @@ Klinikaning 7 ta kitob arxivi matnga aylantirildi (.doc → Word COM, .docx → 
   vs mitoz/pleomorfizm, takroriy asos, qadamlar ko'rsatilmagan «yetarli emas».
   Sinov: foydalanuvchi yuborgan hisobotda 5 ta ziddiyat → 0 ga tushdi.
 
-### 7-bosqich — qolgan sohalar  <- HOZIR SHU YERDA
+### 7-bosqich — kutubxona sahifasi, joylashuv, hisobot tuzilishi ✅
+- **`/bilimlar` aylanmasdi**: sahifa tahlil ilovasining qat'iy maketini meros
+  qilib olardi (`body{overflow:hidden}`, `.app-root{height:100vh}`) — 1871px
+  kontent 950px oynada kesilib qolardi. `.kb-page` sinfi orqali sahifaga xos
+  oqim berildi, kenglik 1180px qutidan ekran bo'yicha (1585px) kengaytirildi.
+- **Chap panel siqilgan edi**: maydonlar 24px balandlik, 0.7rem shrift bilan.
+  Endi 38px / 0.88rem, ustun 330–450px.
+- **Ranglar**: fon yashil-kulrangdan iliq neytralga (#f6f5f2), katta oltin
+  yuzalar yumshatildi — oltin urg'u bo'lib qoldi.
+- **Mikroskop sozlamalari olib tashlandi** (okulyar/obyektiv/turret):
+  kattalashtirishni ko'rik bosqichi tasvirdan o'zi baholaydi.
+- **Hisobot 6 bo'limdan 3 ga tushdi**: TASHXIS, NEGA SHU TASHXIS (batafsil,
+  muqobillar shu yerda rad etiladi), FAKT. Tashxis o'rnida endi har doim NOM
+  turadi — dalil kam bo'lsa nom saqlanib «taxminiy» deb belgilanadi va ishonch
+  «past» qilinadi (`_mark_provisional`), ilgari nom butunlay o'chirilardi.
+
+### 8-bosqich — qolgan sohalar  <- HOZIR SHU YERDA
 Sinaladi: haqiqiy rasm bilan to'liq tahlil oqimi (ko'rik → kitob → hisobot),
 kamera/telefon rejimi, chop etish maketi, ko'p foydalanuvchi holati, backend
 chekka holatlari (bir vaqtda ikki tahlil, sessiya tugashi, katta fayl).
