@@ -140,6 +140,16 @@ def _record_to_analysis_payload(rec):
     }
 
 
+def _case_archive_stats():
+    """Keys arxivi holati — o'chirilgan bo'lsa ham xato bermaydi."""
+    try:
+        from lab_core import case_archive
+
+        return case_archive.stats()
+    except Exception:
+        return {"enabled": False, "cases": 0}
+
+
 def _analysis_snapshot_for(request):
     with eng.analysis_lock:
         snap = eng.latest_analysis.copy()
@@ -361,6 +371,7 @@ class HealthView(APIView):
                 "books": len(kb.get("sources") or {}),
             },
             "atlas": atlas,
+            "case_archive": _case_archive_stats(),
         }
         st = status.HTTP_200_OK if overall else status.HTTP_503_SERVICE_UNAVAILABLE
         return Response(payload, status=st)

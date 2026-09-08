@@ -2,6 +2,7 @@
 MedLab AI — API va xavfsizlik asoslari (regressiya testlari).
 """
 import json
+import os
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
@@ -962,3 +963,72 @@ class EvidenceCeilingTests(TestCase):
         self.assertEqual(picked[0]["image_url"]["url"], "0")
         self.assertEqual(picked[-1]["image_url"]["url"], "25")
         self.assertEqual(eng._spread_pick(parts[:5], 8), parts[:5])
+
+
+class CaseArchiveTests(TestCase):
+    """Keys arxivi — xato tashxislarni keyin ko'rib chiqish uchun.
+
+    Bemor materiali bo'lgani uchun arxiv ixtiyoriy va bemorni shaxsan
+    aniqlaydigan maydonlar unga tushmaydi.
+    """
+
+    def setUp(self):
+        import tempfile
+
+        self.dir = tempfile.mkdtemp()
+        self._old = dict(os.environ)
+        os.environ["CASE_ARCHIVE_DIR"] = self.dir
+
+    def tearDown(self):
+        import shutil
+
+        os.environ.clear()
+        os.environ.update(self._old)
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def _img(self):
+        from PIL import Image
+
+        return Image.new("RGB", (32, 32), (200, 150, 190))
+
+    def test_disabled_by_default_writes_nothing(self):
+        from lab_core import case_archive
+
+        os.environ.pop("CASE_ARCHIVE", None)
+        self.assertFalse(case_archive.enabled())
+        self.assertEqual(case_archive.save([self._img()], "hisobot"), "")
+        self.assertEqual(os.listdir(self.dir), [])
+
+    def test_enabled_stores_images_report_and_observation(self):
+        from lab_core import case_archive
+
+        os.environ["CASE_ARCHIVE"] = "1"
+        root = case_archive.save(
+            [self._img()], "#### TASHXIS\nYAKUNIY XULOSA: Psoriaz\n",
+            {"sample_quality": "yaxshi"}, {"name": "Psoriaz", "confidence": 71},
+            {"sample_id": "40FSH7OPHIST0005", "patient_name": "Aliyev A.",
+             "ward": "3-palata", "specimen_site": "tirsak"},
+        )
+        self.assertTrue(root and os.path.isdir(root))
+        names = sorted(os.listdir(root))
+        self.assertIn("kesma_01.jpg", names)
+        self.assertIn("hisobot.md", names)
+        self.assertIn("korik.json", names)
+
+        meta = json.loads(open(os.path.join(root, "keys.json"), encoding="utf-8").read())
+        self.assertEqual(meta["tashxis"]["confidence"], 71)
+        self.assertEqual(meta["kontekst"]["specimen_site"], "tirsak")
+        # Bemorni shaxsan aniqlaydigan maydonlar saqlanmaydi
+        for gone in ("patient_name", "ward"):
+            self.assertNotIn(gone, meta["kontekst"], gone)
+        self.assertNotIn("Aliyev", json.dumps(meta, ensure_ascii=False))
+
+    def test_expired_months_are_pruned(self):
+        from lab_core import case_archive
+
+        os.environ["CASE_ARCHIVE"] = "1"
+        os.environ["CASE_ARCHIVE_DAYS"] = "30"
+        old = os.path.join(self.dir, "2019-01", "eski")
+        os.makedirs(old)
+        case_archive.save([self._img()], "hisobot")
+        self.assertFalse(os.path.exists(os.path.join(self.dir, "2019-01")))

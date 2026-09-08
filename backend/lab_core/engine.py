@@ -4910,7 +4910,8 @@ def _recovery_report(features, organ_lock, patient_context, kwargs, image_parts=
 
 
 def _openai_generate(content_list, lab_type="histology", patient_context=None,
-                     ref_parts=None, ref_block=""):
+                     ref_parts=None, ref_block="", trace=None):
+    """trace berilsa — ko'rik va tashxis yozuvi unga qo'yiladi (arxiv uchun)."""
     if openai_client is None:
         raise RuntimeError(
             "%s sozlanmagan: xizmat kaliti o'rnatilmagan — administrator .env faylida "
@@ -5045,6 +5046,9 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
                 )
             _rec, _text = _finish_record(_rec, features, adj, _names)
             if _text:
+                if isinstance(trace, dict):
+                    trace["features"] = features
+                    trace["record"] = _rec.to_dict()
                 log.info(
                     "%s: hisobot tayyor (tuzilgan) imgs=%s belgi=%s %.1fs",
                     ZIYRAKAI_DISPLAY_NAME, n_img, len(_text), time.time() - t_start,
@@ -5467,10 +5471,23 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None,
         else:
             content = [prompt, imgs[0]]
 
+        trace = {}
         text = _openai_generate(
-            content, lab_type, patient_context, atlas_parts, atlas_block
+            content, lab_type, patient_context, atlas_parts, atlas_block, trace
         )
         lines = [l.strip() for l in text.split('\n') if l.strip()]
+
+        # Keysni saqlash — xato tashxisni keyin ko'rib chiqish va algoritm
+        # yaxshilangach qayta ishga tushirish uchun. Ixtiyoriy (CASE_ARCHIVE=1).
+        try:
+            from . import case_archive
+
+            case_archive.save(
+                imgs, text, trace.get("features"), trace.get("record"),
+                patient_context, clinical_images, lab_type,
+            )
+        except Exception as e:
+            log.warning("%s: keys arxivi: %s", ZIYRAKAI_DISPLAY_NAME, e)
 
         _publish_analysis({
             "text": text, "lines": lines,
