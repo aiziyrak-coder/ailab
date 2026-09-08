@@ -108,13 +108,19 @@ Indeksdagi manbalar:
 
 | Manba | Parcha |
 |-------|--------|
-| Дерматология — руководство «до и после» | 11 116 |
-| Книга АТЛАС «до и после» | 4 955 |
-| Монография: экзематозные (спонгиотические) дерматозы | 1 237 |
-| Аногенитальные дерматозы | 631 |
-| Внутренние болезни и кожа | 152 |
-| НАШ АТЛАС | 39 |
+| Дерматология — руководство «до и после» | 10 675 |
+| Книга АТЛАС «до и после» | 4 875 |
+| Монография: экзематозные (спонгиотические) дерматозы | 1 431 |
+| Аногенитальные дерматозы | 624 |
+| Изменения кожи при заболеваниях внутренних органов | 421 |
+| НАШ АТЛАС | 104 |
 | Дерматоскопия, 10-bob | 19 |
+
+Bir xil matn bir necha arxivda uchraydi (masalan "ВНУТРЕННИЕ БОЛЕЗНИ"
+monografiyasi "Дерматология — руководство" ichida ham bor). Takror parcha
+BIRINCHI ko'rilgan manbaga yoziladi, shuning uchun `ingest_book_texts.py` da
+`PRIORITY_ORDER` bor: alohida monografiyalar yig'ma to'plamlardan oldin
+qayta ishlanadi — aks holda kitob o'z nomi ostida deyarli bo'sh ko'rinadi.
 
 Har tahlilda bu kitoblarga **kafolatlangan kvota** ajratiladi
 (`HISTOLOGY_KB_CLINIC_MIN`, standart 6 parcha): dastur avval shulardan mezon

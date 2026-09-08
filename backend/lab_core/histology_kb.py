@@ -191,7 +191,7 @@ SOURCES = {
         "prefix": "Аногенитальные дерматозы. ",
     },
     "internal_skin_ru": {
-        "label": "Внутренние болезни и кожа (klinika kutubxonasi)",
+        "label": "Изменения кожи при заболеваниях внутренних органов (klinika kutubxonasi)",
         "domain": "skin",
         "tier": 1,
         "clinic": True,

@@ -64,6 +64,25 @@ from lab_core.histology_kb import (  # noqa: E402
 
 MIN_CHUNK_CHARS = 280
 
+# Takrorni tashlash tartibi: bir xil matn bir necha arxivda uchraydi
+# (masalan "ВНУТРЕННИЕ БОЛЕЗНИ" monografiyasi "Дерматология — руководство"
+# ichida ham bor). Parcha BIRINCHI ko'rilgan manbaga yoziladi, shuning uchun
+# alohida monografiyalar yig'ma to'plamlardan oldin turadi — aks holda kitob
+# o'z nomi ostida deyarli bo'sh ko'rinadi.
+PRIORITY_ORDER = [
+    "internal_skin_ru",
+    "eczema_mono_ru",
+    "anogenital_ru",
+    "dermatoscopy_ru",
+    "nash_atlas_ru",
+    "atlas_book_ru",
+    "derm_guide_ru",
+]
+
+
+def _order_key(name):
+    return (PRIORITY_ORDER.index(name) if name in PRIORITY_ORDER else len(PRIORITY_ORDER), name)
+
 
 def cache_dir() -> Path:
     d = Path(kb_dir()) / "cache"
@@ -195,7 +214,7 @@ def main():
         print(f"Papka yo'q: {base}")
         return 2
 
-    dirs = sorted(p for p in base.iterdir() if p.is_dir())
+    dirs = sorted((p for p in base.iterdir() if p.is_dir()), key=lambda p: _order_key(p.name))
     if args.only:
         dirs = [p for p in dirs if p.name in set(args.only)]
 
