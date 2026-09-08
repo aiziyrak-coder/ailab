@@ -106,15 +106,15 @@ Indeksdagi manbalar:
 
 **Klinika kutubxonasi** (ustuvor manba — `clinic: True`):
 
-| Manba | Parcha |
-|-------|--------|
-| Дерматология — руководство «до и после» | 10 679 |
-| Книга АТЛАС «до и после» | 4 894 |
-| Монография: экзематозные (спонгиотические) дерматозы | 1 431 |
-| Аногенитальные дерматозы | 626 |
-| Изменения кожи при заболеваниях внутренних органов | 421 |
-| НАШ АТЛАС | 106 |
-| Дерматоскопия, 10-bob | 20 |
+| Kitob | Parcha | Bo'lim |
+|-------|--------|--------|
+| Дерматология — руководство «до и после» | 10 574 | 396 |
+| Книга АТЛАС «до и после» | 4 951 | 283 |
+| Монография: экзематозные (спонгиотические) дерматозы | 1 386 | 48 |
+| Аногенитальные дерматозы | 590 | 48 |
+| Изменения кожи при заболеваниях внутренних органов | 421 | 29 |
+| НАШ АТЛАС | 106 | 71 |
+| Дерматоскопия, 10-bob | 20 | 19 |
 
 Bir xil matn bir necha arxivda uchraydi (masalan "ВНУТРЕННИЕ БОЛЕЗНИ"
 monografiyasi "Дерматология — руководство" ichida ham bor). Takror parcha
@@ -163,6 +163,11 @@ Arxivdagi kitoblar avval matnga aylantiriladi, so'ng indeksga qo'shiladi:
 python scripts/ingest_book_texts.py --text-dir D:/AILab/_kb_text --plan   # hisob-kitob
 python scripts/ingest_book_texts.py --text-dir D:/AILab/_kb_text          # o'qitish
 ```
+
+Matn bob sarlavhalari (`Глава N.`, bosh harfli qatorlar) bo'yicha bo'linadi:
+parcha bir bobdan ikkinchisiga oshmaydi, va bob nomi kutubxonada ham, hisobot
+iqtibosida ham ko'rinadi ("Новая книга" o'rniga "Глава 9. ПЛОСКИЙ ЛИХЕН").
+Mundarija, adabiyot ro'yxati, qisqartmalar kabi bo'limlar indeksga kirmaydi.
 
 Papka tuzilishi: `<text-dir>/<manba_kodi>/**/*.txt` — manba kodi
 `histology_kb.SOURCES` da ro'yxatdan o'tgan bo'lishi kerak. Takroriy parchalar

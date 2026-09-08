@@ -98,6 +98,97 @@ def _norm_key(text: str) -> str:
 MIN_FILE_CHARS = 120  # butun fayl bitta parcha bo'lib qolishi uchun eng kam hajm
 
 
+# ─── Bob sarlavhalari ─────────────────────────────────────────────────────────
+# Fayl nomlari ("Новая книга", "Клиническая дерматология 1") mavzuni bildirmaydi.
+# Bob nomi matnning o'zidan olinadi — u kutubxonada ham, hisobot iqtibosida ham
+# ko'rinadi, va parcha bir bobdan ikkinchisiga oshib ketmaydi.
+_CHAPTER = re.compile(r"^\s*(глава|раздел)\s+(\d+)\s*[.:—-]*\s*(.*)$", re.I)
+_CYR_UPPER = re.compile(r"^[А-ЯЁ][А-ЯЁ\s\-,()«»0-9.]{4,79}$")
+_DOT_LEADER = re.compile(r"[.\u2026]{2,}")
+_TRAIL_PAGE = re.compile(r"[\s.\u2026]*\d{1,4}$")
+MIN_SECTION_CHARS = 400
+# Sarlavha ostidagi matn shundan katta bo'lsa, u bob ajratgichi emas (masalan
+# "ЗАБОЛЕВАЕИЯ" bitta so'z 2,3 mln belgini yutib yuborardi) — fayl nomi ishlatiladi.
+MAX_SECTION_CHARS = 100_000
+
+# Tashxis mezoni bo'lmagan bo'limlar — indeksga kirmaydi (adabiyot ro'yxati
+# tahlil paytida "kitob mezoni" bo'lib chiqib qolardi).
+SKIP_SECTION_WORDS = (
+    "список литератур", "литература", "оглавление", "содержание",
+    "указатель", "список сокращен", "сокращения", "аббревиатур",
+    "предисловие", "коллектив авторов", "список авторов",
+)
+
+
+def _is_skippable_section(title: str) -> bool:
+    t = (title or "").strip().lower()
+    if not t or len(t) > 60:
+        return False
+    return any(w in t for w in SKIP_SECTION_WORDS)
+
+
+def _clean_title(text: str) -> str:
+    """Mundarija qatoridan nuqtalar va sahifa raqamini olib tashlash."""
+    t = _DOT_LEADER.sub(" ", text or "").strip()
+    t = _TRAIL_PAGE.sub("", t).strip(" .:—-")
+    return " ".join(t.split())[:90]
+
+
+def _is_upper_heading(line: str) -> bool:
+    if not _CYR_UPPER.match(line):
+        return False
+    letters = [c for c in line if c.isalpha()]
+    return len(letters) >= 5 and sum(1 for c in letters if c.isupper()) / len(letters) > 0.85
+
+
+def split_sections(raw: str):
+    """Matnni bob sarlavhalari bo'yicha bo'lish → [(sarlavha|None, matn)]."""
+    lines = raw.split("\n")
+    marks = []
+    for i, ln in enumerate(lines):
+        t = ln.strip()
+        if not t or len(t) > 110:
+            continue
+        m = _CHAPTER.match(t)
+        if m:
+            rest = _clean_title(m.group(3))
+            if not rest:
+                for nxt in lines[i + 1 : i + 4]:
+                    if nxt.strip():
+                        rest = _clean_title(nxt)
+                        break
+            marks.append((i, ("%s %s. %s" % (m.group(1).capitalize(), m.group(2), rest)).strip(" .")))
+        elif _is_upper_heading(t):
+            marks.append((i, _clean_title(t)))
+    if not marks:
+        return [(None, raw)]
+
+    bounds = [m[0] for m in marks] + [len(lines)]
+    parts = []
+    head = "\n".join(lines[: bounds[0]]).strip()
+    if head:
+        parts.append((None, head))
+    for k, (idx, title) in enumerate(marks):
+        parts.append((title, "\n".join(lines[idx : bounds[k + 1]]).strip()))
+
+    # Kolontitul har sahifada takrorlanadi — ketma-ket bir xil sarlavhalar birlashadi
+    merged = []
+    for title, body in parts:
+        if merged and merged[-1][0] == title:
+            merged[-1] = (title, merged[-1][1] + "\n" + body)
+        else:
+            merged.append((title, body))
+
+    # Juda kichik bo'lak oldingisiga qo'shiladi (adashgan bosh harfli qator)
+    out = []
+    for title, body in merged:
+        if out and len(body) < MIN_SECTION_CHARS:
+            out[-1] = (out[-1][0], out[-1][1] + "\n" + body)
+        else:
+            out.append((title, body))
+    return [(t, b) for t, b in out if b.strip()]
+
+
 def collect_source_files(src_dir: Path) -> list[Path]:
     """Word vaqtinchalik fayllari (~$...) tashlanadi, qolgani tartib bilan."""
     return sorted(
@@ -131,21 +222,34 @@ def build_chunks(source: str, files: list[Path], seen: set[str], stats: dict) ->
             if title.lower().endswith(suf):
                 title = title[: -len(suf)]
         # Sahifa raqami o'rniga hujjat ichidagi ketma-ketlik
-        pages = [(i + 1, part) for i, part in enumerate(_split_pages(raw))]
-        made = [c for c in chunk_pages(pages, source) if len(c["text"]) >= MIN_CHUNK_CHARS]
+        made = []
+        for section, body in split_sections(raw):
+            if _is_skippable_section(section):
+                continue
+            if section and len(body) > MAX_SECTION_CHARS:
+                section = None
+            pages = [(i + 1, part) for i, part in enumerate(_split_pages(body))]
+            for ch in chunk_pages(pages, source):
+                if len(ch["text"]) < MIN_CHUNK_CHARS:
+                    continue
+                ch["title"] = section or title
+                ch["file"] = title
+                made.append(ch)
         if not made:
             # "Липоидный некробиоз", "Узловатая эритема" kabi qisqa izoh fayllari:
             # chunk_pages ularni tashlaydi, lekin kasallik nomi va tavsifi qimmatli.
             body = " ".join(raw.split()).strip()
             if len(body) >= MIN_FILE_CHARS:
-                made = [{"source": source, "page": 1, "text": body}]
+                made = [{
+                    "source": source, "page": 1, "text": body,
+                    "title": title, "file": title,
+                }]
         for ch in made:
             key = _norm_key(ch["text"])
             if key in seen:
                 dup += 1
                 continue
             seen.add(key)
-            ch["title"] = title
             out.append(ch)
     stats[source] = {"files": len(files), "chunks": len(out), "duplicates": dup}
     return out
@@ -167,18 +271,6 @@ def _split_pages(raw: str, size: int = 3000) -> list[str]:
     if buf:
         parts.append("\n".join(buf))
     return parts
-
-
-def load_cache(source: str, sha: str):
-    emb_p = cache_dir() / f"txt_{source}_{sha}.npy"
-    ch_p = cache_dir() / f"txt_{source}_{sha}.jsonl"
-    if not (emb_p.is_file() and ch_p.is_file()):
-        return None, None
-    emb = np.load(emb_p)
-    chunks = [json.loads(l) for l in ch_p.read_text(encoding="utf-8").splitlines() if l.strip()]
-    if emb.ndim != 2 or emb.shape[0] != len(chunks):
-        return None, None
-    return emb, chunks
 
 
 def save_cache(source: str, sha: str, chunks, emb):
@@ -305,15 +397,9 @@ def main():
     for source, files, chunks in plan:
         if not chunks:
             continue
-        sha = source_sha(files)
-        emb, cached = load_cache(source, sha)
-        if emb is not None and len(cached) == len(chunks):
-            print(f"  {source}: keshdan ({len(cached)} parcha)")
-            embedded.append((source, cached, emb))
-            continue
-        print(f"  {source}: embedding ({len(chunks)} parcha)…")
+        print(f"  {source}: {len(chunks)} parcha…")
         emb = embed_chunks(chunks, source)
-        save_cache(source, sha, chunks, emb)
+        save_cache(source, source_sha(files), chunks, emb)
         embedded.append((source, chunks, emb))
 
     old_chunks, old_emb = load_index()
