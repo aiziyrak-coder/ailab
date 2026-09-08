@@ -1032,3 +1032,170 @@ class CaseArchiveTests(TestCase):
         os.makedirs(old)
         case_archive.save([self._img()], "hisobot")
         self.assertFalse(os.path.exists(os.path.join(self.dir, "2019-01")))
+
+
+class CriteriaTableTests(TestCase):
+    """Professor mezon jadvali — deterministik hakamlik va qo'riqchi."""
+
+    @staticmethod
+    def _feats(**groups):
+        f = {"sample_quality": "yaxshi", "cytology": {}, "inflammation": {}}
+        for g, keys in groups.items():
+            if isinstance(keys, dict):
+                f.setdefault(g, {}).update(keys)
+            else:
+                f[g] = {k: True for k in keys}
+        return f
+
+    def test_classic_pictures_rank_their_diagnosis_first(self):
+        from lab_core import dx_criteria as dxc
+
+        cases = {
+            "Psoriasis": self._feats(epidermis=["regular_elongated_rete", "parakeratosis",
+                                                "munro_microabscess", "suprapapillary_thinning"]),
+            "Lichen planus": self._feats(junction=["band_like_infiltrate", "vacuolar_change",
+                                                   "civatte_bodies"], epidermis=["sawtooth_rete"]),
+            "Bazal hujayrali": self._feats(epidermis=["basaloid_proliferation"],
+                                           junction=["peripheral_palisading", "clefting_retraction"]),
+            "Melanoma": self._feats(junction=["pagetoid_spread", "asymmetric_melanocytic_growth",
+                                              "single_melanocyte_proliferation"],
+                                    cytology={"pleomorphism": "kuchli", "deep_mitoses": True}),
+            "Verruca": self._feats(epidermis=["koilocytes", "papillomatosis", "hyperkeratosis"]),
+            "Sarkoidoz": self._feats(dermis=["naked_granulomas", "granuloma"]),
+            "Leykotsitoklastik": self._feats(dermis=["vasculitis", "leukocytoclasia",
+                                                     "fibrinoid_vessel_necrosis"]),
+            "Pemphigus vulgaris": self._feats(epidermis=["acantholysis", "intraepidermal_vesicle"]),
+        }
+        for expect, f in cases.items():
+            top = dxc.rank_candidates(f, 1)
+            self.assertTrue(top, expect)
+            self.assertIn(expect.lower()[:6], top[0]["name"].lower(), f"{expect} -> {top[0]['name']}")
+
+    def test_no_features_means_no_candidates(self):
+        from lab_core import dx_criteria as dxc
+
+        self.assertEqual(dxc.rank_candidates(self._feats()), [])
+
+    def test_excluding_feature_blocks_the_name(self):
+        from lab_core import dx_criteria as dxc
+
+        bcc = self._feats(epidermis=["basaloid_proliferation"],
+                          junction=["peripheral_palisading", "clefting_retraction"])
+        ev = dxc.check_name("Seboreik keratoz", bcc)
+        self.assertIn("peripheral_palisading", ev["excluding_present"])
+        ev = dxc.check_name("Melanoma", self._feats(epidermis=["koilocytes", "papillomatosis"]))
+        self.assertEqual(ev["essential_hits"], 0)
+
+    def test_names_are_recognised_across_languages(self):
+        from lab_core import dx_criteria as dxc
+
+        for name in ("Псориаз обыкновенный", "Psoriasis vulgaris", "psoriaz, klassik"):
+            self.assertEqual(dxc.find_entity(name)["name"], "Psoriasis vulgaris", name)
+        for name in ("Базалиома нодулярная", "bazal hujayrali karsinoma", "BCC"):
+            self.assertIn("Bazal", dxc.find_entity(name)["name"], name)
+        self.assertIsNone(dxc.find_entity("umuman notanish nom"))
+
+    def test_guard_downgrades_an_unsupported_name_via_criteria(self):
+        from lab_core import dx_record as dxr
+        from lab_core import engine as eng
+
+        # Ko'rikda BCC belgilari, model esa «seboreik keratoz» dedi
+        f = self._feats(epidermis=["basaloid_proliferation"],
+                        junction=["peripheral_palisading", "clefting_retraction"])
+        rec = dxr.from_json({"diagnosis": "Seboreik keratoz", "evidence": [
+            {"feature": "bazaloid", "detail": "x"}, {"feature": "palisad", "detail": "y"}]})
+        rec, text = eng._finish_record(rec, f, None, [])
+        self.assertEqual(rec.certainty, dxr.CERTAIN_PROVISIONAL)
+        self.assertLessEqual(rec.confidence, 50)
+        self.assertTrue(any("rad etuvchi" in n for n in rec.notes), rec.notes)
+        self.assertIn("taxminiy", text)
+
+
+class StructuredPipelineMockTests(TestCase):
+    """Qaror bosqichi — soxta model bilan uchidan-uchigacha."""
+
+    FEATURES = {
+        "sample_quality": "yaxshi",
+        "dominant_pattern": "psoriasiform",
+        "epidermis": {"regular_elongated_rete": True, "parakeratosis": True,
+                      "munro_microabscess": True, "acanthosis": True},
+        "dermis": {"dilated_tortuous_capillaries": True},
+        "cytology": {}, "inflammation": {"type": "neytrofil"},
+    }
+
+    def _with_model(self, reply):
+        from lab_core import engine as eng
+
+        calls = []
+
+        def fake(messages, kwargs, model=None):
+            calls.append(messages)
+            return reply
+
+        old = eng._chat_complete
+        eng._chat_complete = fake
+        # Rasm bilan — rad etilganda «matn qisqartirilgan, rasmsiz» urinish bo'lsin
+        img = [{"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,/9j/", "detail": "high"}}]
+        try:
+            rec = eng._decide_diagnosis(self.FEATURES, None, "", {"temperature": 0.0},
+                                        image_parts=img)
+        finally:
+            eng._chat_complete = old
+        return rec, calls
+
+    def test_decision_json_becomes_a_record_and_a_report(self):
+        from lab_core import engine as eng
+
+        reply = json.dumps({
+            "diagnosis": "Psoriasis vulgaris", "malignant": False, "organ": "teri",
+            "layer": "epidermis", "grade": "qo'llanilmaydi",
+            "evidence": [{"feature": "Munro mikroabsessi", "detail": "parakeratozda 3 ta to'plam"}],
+            "differentials": [{"name": "Ekzema", "excluded_by": "spongioz yo'q"}],
+            "facts": ["Mitoz: 0/10 HPF"],
+        })
+        rec, calls = self._with_model(reply)
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec.name, "Psoriasis vulgaris")
+        # Qaror so'rovida mezon jadvali va belgilar bloki bor
+        user = json.dumps(calls[0][1]["content"], ensure_ascii=False)
+        self.assertIn("MEZON JADVALI", user)
+        self.assertIn("Psoriasis vulgaris", user)
+        rec, text = eng._finish_record(rec, self.FEATURES, None, ["Psoriasis"] * 3)
+        self.assertTrue(text.startswith("#### TASHXIS"))
+        self.assertIn("YAKUNIY XULOSA: Psoriasis vulgaris", text)
+        self.assertGreaterEqual(rec.confidence, 60)
+
+    def test_garbage_reply_yields_none_so_the_old_path_runs(self):
+        rec, _ = self._with_model("Kechirasiz, bu rasmda hech narsa ko'rmadim.")
+        self.assertIsNone(rec)
+
+    def test_refusal_is_retried_then_gives_up_cleanly(self):
+        rec, calls = self._with_model("I'm sorry, I can't assist with that.")
+        self.assertIsNone(rec)
+        self.assertGreaterEqual(len(calls), 2)   # yengilroq urinish bo'ldi
+
+
+class LexicalFallbackTests(TestCase):
+    """Embedding tushganda kitoblar so'zma-so'z qidiruv bilan yetib boradi."""
+
+    CHUNKS = [
+        {"source": "weedon", "page": 1, "text": "Psoriasis shows regular acanthosis, parakeratosis "
+                                                  "and Munro microabscesses with suprapapillary thinning."},
+        {"source": "weedon", "page": 2, "text": "Basal cell carcinoma: basaloid islands, peripheral "
+                                                  "palisading and retraction clefts."},
+        {"source": "derm_guide_ru", "page": 3, "text": "Псориаз: паракератоз, микроабсцессы Мунро, "
+                                                        "равномерный акантоз, истончение над сосочками."},
+        {"source": "derm_guide_ru", "page": 4, "text": "Базалиома: палисад по периферии, ретракция."},
+    ] * 2
+
+    def test_tfidf_ranks_the_right_chunks(self):
+        from lab_core import histology_kb as kb
+
+        vec, mat = kb._build_lexical(self.CHUNKS)
+        self.assertIsNotNone(vec)
+        sc = kb._lexical_scores(vec, mat, ["psoriasis Munro microabscess parakeratosis",
+                                           "псориаз микроабсцессы Мунро"])
+        top = sorted(range(len(self.CHUNKS)), key=lambda i: -sc[i])[:2]
+        for i in top:
+            t = self.CHUNKS[i]["text"].lower()
+            self.assertTrue("psoriasis" in t or "псориаз" in t, t)

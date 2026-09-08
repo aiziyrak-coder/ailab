@@ -942,43 +942,12 @@ _HISTOLOGY_OBSERVE_SYSTEM = (
     "is discernible."
 )
 
-_OBSERVE_SCHEMA = (
-    '{"not_tissue": false, "sample_quality": "yaxshi|o\'rtacha|past", '
-    '"magnification": "kichik|o\'rta|yuqori", '
-    '"layers_present": {"epidermis": false, "dermis": false, "subcutis": false, "adnexa": false}, '
-    '"epidermis": {"acanthosis": false, "hyperkeratosis": false, "parakeratosis": false, '
-    '"papillomatosis": false, "horn_cysts": false, "basaloid_proliferation": false, '
-    '"spongiosis": false, "koilocytes": false, "full_thickness_atypia": false, "ulceration": false, '
-    '"basal_pigment": false}, '
-    '"junction": {"interface_damage": false, "band_like_infiltrate": false, '
-    '"melanocyte_nests": false, "single_melanocyte_proliferation": false, "pagetoid_spread": false, '
-    '"clefting_retraction": false, "peripheral_palisading": false}, '
-    '"dermis": {"tumour_nodule": false, "spindle_cells": false, "storiform_pattern": false, '
-    '"collagen_trapping": false, "grenz_zone": false, "granuloma": false, "vasculitis": false, '
-    '"vascular_proliferation": false, "dense_lymphoid_infiltrate": false, "plasma_cells": false, '
-    '"eosinophils": false, "neutrophils": false, "mucin": false, "desmoplasia": false, '
-    '"necrosis": false, "solar_elastosis": false, "hemosiderin": false, "fibrosis": false}, '
-    '"glandular": {"glands_present": false, "cribriform": false, "papillary_fronds": false, '
-    '"fibrovascular_cores": false, "goblet_cells": false, "colloid": false, "myoepithelial_layer": false}, '
-    '"cytology": {"pleomorphism": "yo\'q|yengil|o\'rta|kuchli", "nuclear_grade": "1|2|3|noaniq", '
-    '"mitoses_10hpf": "0|1-2|3-10|>10|noaniq", "atypical_mitoses": false, "prominent_nucleoli": false, '
-    '"clear_cytoplasm": false, "keratin_pearls": false, "maturation_with_depth": false}, '
-    '"invasion": "yo\'q|shubhali|bor", '
-    '"invasion_evidence_uz": "bir jumla — nimaga asoslanib", '
-    '"depth": {"deepest_level": "epidermis|papillyar derma|retikulyar derma|gipoderma|noaniq", '
-    '"thickness_mm": "taxminiy son yoki noaniq", "ulceration": false}, '
-    '"margins": {"assessable": false, "involved": "erkin|tegib turadi|noaniq"}, '
-    '"special": {"perineural": false, "lymphovascular": false, "adnexal_involvement": false, '
-    '"pigment_incontinence": false, "foreign_material": false, "organisms_suspected": false, '
-    '"crush_or_cautery_artifact": false}, '
-    '"symmetry": "simmetrik|assimetrik|noaniq", '
-    '"border": "itaruvchi|infiltrativ|noaniq", '
-    '"inflammation": {"type": "yo\'q|limfotsitar|neytrofil|granulomatoz|aralash", '
-    '"density": "yo\'q|yengil|o\'rta|zich", "distribution": "perivaskulyar|lentasimon|diffuz|yo\'q"}, '
-    '"not_assessable_uz": ["baholab bo\'lmagan narsalar va sababi — 0-3 ta"], '
-    '"dominant_pattern": "one short English phrase for the architectural pattern", '
-    '"observations_uz": ["4-8 ta qisqa o\'zbekcha jumla — faqat KO\'RINGAN narsa, tashxis nomisiz"]}'
-)
+# Ko'rik shakli endi mezon jadvali bilan BIR manbadan quriladi — belgilar
+# ro'yxati, o'zbekcha nomlari va tashxis mezonlari bir-biridan ajralib
+# ketmasin. Ro'yxat yallig'lanish va infeksion dermatozlar bilan kengaytirildi.
+from lab_core import dx_criteria as _dxc  # noqa: E402
+
+_OBSERVE_SCHEMA = _dxc.observe_schema_json()
 
 
 def _observe_enabled():
@@ -1290,7 +1259,7 @@ def _observe_histology(image_parts, patient_context=None):
                         {"role": "system", "content": _HISTOLOGY_OBSERVE_SYSTEM},
                         {"role": "user", "content": _vision_user(user, group)},
                     ],
-                    {"max_tokens": 2000, "temperature": 0.0, "top_p": 0.1},
+                    {"max_tokens": 3500, "temperature": 0.0, "top_p": 0.1},
                 )
             except Exception as e:
                 log.warning("%s: ko'rik guruhi xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
@@ -1389,6 +1358,8 @@ _FEATURE_UZ = {
     "organisms_suspected": "mikroorganizm shubhasi",
     "crush_or_cautery_artifact": "ezilish / kuydirish artefakti",
 }
+# Kengaytirilgan belgilar nomi — mezon jadvali bilan bir manbadan
+_FEATURE_UZ.update(_dxc.FEATURE_UZ)
 
 # Tashxis "langari": nom qo'yilsa, quyidagi SPETSIFIK belgilardan KAMIDA BITTASI
 # ko'rikda topilgan bo'lishi shart. Nospetsifik belgilar (akantoz, giperkeratoz)
@@ -1451,7 +1422,7 @@ def _true_features(features):
     out = []
     if not isinstance(features, dict):
         return out
-    for group in ("epidermis", "junction", "dermis", "glandular", "cytology"):
+    for group in ("epidermis", "junction", "dermis", "glandular", "cytology", "special"):
         sub = features.get(group)
         if isinstance(sub, dict):
             for k, v in sub.items():
@@ -1934,6 +1905,9 @@ def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
         return None
 
     blocks = [feats]
+    crit = _dxc.criteria_block(features)
+    if crit:
+        blocks.append(crit)
     if adj:
         blocks.append(_adjudication_block(adj))
     if kb_block:
@@ -1980,6 +1954,8 @@ def _finish_record(rec, features, adj, names):
     pct, why = _confidence_percent(features, adj, names)
     if rec.certainty == dxr.CERTAIN_DESCRIPTIVE:
         pct = min(pct, 40)          # tavsifiy nom — nozologiya emas
+    if rec.confidence_cap:
+        pct = min(pct, rec.confidence_cap)   # mezon qo'riqchisi qo'ygan shift
     dxr.set_confidence(rec, pct, why)
     for note in rec.notes:
         log.info("%s: qo'riqchi — %s", ZIYRAKAI_DISPLAY_NAME, note)
@@ -2685,6 +2661,11 @@ def _candidate_blocked(name, features):
     solishtirsin.
     """
     if not name or not isinstance(features, dict):
+        return ""
+    ev = _dxc.check_name(name, features)
+    if ev is not None:
+        if ev["essential_hits"] == 0 and ev["essential_total"]:
+            return ", ".join(_dxc.feature_label(s) for s in ev["essential_absent"][:3])
         return ""
     low = str(name).lower()
     for key, required in _DX_REQUIRED_FEATURES.items():
@@ -5028,6 +5009,8 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
     if lab_type == "histology" and isinstance(features, dict):
         cands = list(_group_dx_names(features, kwargs))
         cands.extend(_dx_terms_for_atlas(patient_context))
+        # Deterministik mezon jadvali — ko'rilgan belgilardan hisoblangan nomzodlar
+        cands.extend(r["name"] for r in _dxc.rank_candidates(features, 5))
         adj = _adjudicate_diagnosis(features, cands, kwargs, organ_lock, patient_context)
         adj_block = _adjudication_block(adj)
 

@@ -152,8 +152,16 @@ repls = {{
     "OPENAI_ROUTER_MODEL=": "OPENAI_ROUTER_MODEL=gpt-4o-mini",
     "OPENAI_MODEL_ID=": "OPENAI_MODEL_ID=gpt-5.6-sol",
 }}
-# Bilimlar bazasi paroli faqat yo'q bo'lsa qo'shiladi (serverda o'zgartirilsa saqlanadi)
-adds = {{"KB_ACCESS_PASSWORD=": "KB_ACCESS_PASSWORD=19980912"}}
+# Faqat yo'q bo'lsa qo'shiladi (serverda o'zgartirilsa saqlanadi):
+#  KB_ACCESS_PASSWORD  — Bilimlar bazasi paroli
+#  CASE_ARCHIVE        — keyslar arxivi (test davri uchun yoqiq; 0 — o'chiradi)
+#  HISTOLOGY_STRUCTURED — tuzilgan tashxis yo'li (0 — eski matn yo'li)
+adds = {{
+    "KB_ACCESS_PASSWORD=": "KB_ACCESS_PASSWORD=19980912",
+    "CASE_ARCHIVE=": "CASE_ARCHIVE=1",
+    "CASE_ARCHIVE_DAYS=": "CASE_ARCHIVE_DAYS=180",
+    "HISTOLOGY_STRUCTURED=": "HISTOLOGY_STRUCTURED=1",
+}}
 lines = []
 seen = set()
 for line in t.splitlines():

@@ -19,6 +19,7 @@ import logging
 import os
 import re
 import threading
+import time
 
 import numpy as np
 
@@ -949,14 +950,15 @@ def retrieve(queries, k=None, organ=None, per_source_max=None, specific_from=Non
     emb, chunks = _load_index()
     if emb is None:
         return []
+    k = TOP_K if k is None else max(1, int(k))
+    per_source_max = PER_SOURCE_MAX if per_source_max is None else max(1, int(per_source_max))
     try:
         qv = embed_queries(queries)
     except Exception as e:
-        log.warning("histology_kb: embed xato: %s", e)
-        return []
-
-    k = TOP_K if k is None else max(1, int(k))
-    per_source_max = PER_SOURCE_MAX if per_source_max is None else max(1, int(per_source_max))
+        # Embedding xizmati tushsa (kredit tugadi, aloqa yo'q) kitoblar butunlay
+        # yo'qolib qolmasin: so'zma-so'z (TF-IDF) qidiruv bilan davom etiladi.
+        log.warning("histology_kb: embed xato: %s — leksik zaxira qidiruv", e)
+        return _lexical_retrieve(queries, k, organ, per_source_max, chunks)
 
     scores = emb @ qv.T
     best = scores.max(axis=1)
@@ -1053,6 +1055,138 @@ def retrieve(queries, k=None, organ=None, per_source_max=None, specific_from=Non
         if len(out) >= k:
             break
         _take(i)
+    return out
+
+
+# ─── Leksik zaxira qidiruv (TF-IDF) ──────────────────────────────────────────
+# Audit topgan xato: embedding xizmati javob bermasa `retrieve()` bo'sh
+# ro'yxat qaytarardi va hisobot kitoblarsiz yozilardi — jurnalda bitta
+# ogohlantirish, hisobotda esa hech qanday iz yo'q. Endi vektor qidiruv
+# ishlamasa so'zma-so'z qidiruv ishlaydi: sifati pastroq, lekin kitob
+# mezoni baribir yetib boradi. Indeks bir marta quriladi va diskda saqlanadi.
+
+_LEX = {"mtime": None, "vec": None, "mat": None}
+
+
+def _lexical_path():
+    return os.path.join(kb_dir(), "lexical.joblib")
+
+
+def _build_lexical(chunks):
+    """TF-IDF indeks (kirill + lotin so'zlar). sklearn bo'lmasa None."""
+    try:
+        from sklearn.feature_extraction.text import TfidfVectorizer
+    except Exception as e:
+        log.warning("histology_kb: sklearn yo'q — leksik qidiruv o'chiq: %s", e)
+        return None, None
+    vec = TfidfVectorizer(
+        lowercase=True,
+        token_pattern=r"(?u)(?<![\w'])[\w'‘’]{3,}(?![\w'])",
+        sublinear_tf=True,
+        min_df=2,
+        max_df=0.5,
+        max_features=400000,
+        dtype=np.float32,
+    )
+    mat = vec.fit_transform((c.get("text") or "") for c in chunks)
+    return vec, mat
+
+
+def _load_lexical(chunks):
+    _, chunks_p, _ = _paths()
+    try:
+        mtime = os.path.getmtime(chunks_p)
+    except OSError:
+        mtime = None
+    with _lock:
+        if _LEX["vec"] is not None and _LEX["mtime"] == mtime:
+            return _LEX["vec"], _LEX["mat"]
+    path = _lexical_path()
+    vec = mat = None
+    try:
+        import joblib
+
+        if os.path.isfile(path) and os.path.getmtime(path) >= (mtime or 0):
+            saved = joblib.load(path)
+            if saved.get("n") == len(chunks):
+                vec, mat = saved["vec"], saved["mat"]
+    except Exception as e:
+        log.warning("histology_kb: leksik indeks o'qilmadi: %s", e)
+    if vec is None:
+        t0 = time.time()
+        vec, mat = _build_lexical(chunks)
+        if vec is None:
+            return None, None
+        log.info("histology_kb: leksik indeks qurildi n=%s %.0fs", len(chunks), time.time() - t0)
+        try:
+            import joblib
+
+            joblib.dump({"vec": vec, "mat": mat, "n": len(chunks)}, path, compress=3)
+        except Exception as e:
+            log.warning("histology_kb: leksik indeks saqlanmadi: %s", e)
+    with _lock:
+        _LEX.update({"vec": vec, "mat": mat, "mtime": mtime})
+    return vec, mat
+
+
+def _lexical_scores(vec, mat, queries):
+    """Har parcha uchun eng yaxshi so'rov mosligi (0..1)."""
+    qm = vec.transform([str(q or "") for q in queries])
+    sc = (mat @ qm.T)
+    sc = sc.toarray() if hasattr(sc, "toarray") else np.asarray(sc)
+    return sc.max(axis=1) if sc.ndim == 2 and sc.shape[1] else np.zeros(mat.shape[0])
+
+
+def _lexical_retrieve(queries, k, organ, per_source_max, chunks):
+    vec, mat = _load_lexical(chunks)
+    if vec is None:
+        return []
+    best = _lexical_scores(vec, mat, queries)
+    if not float(best.max() if best.size else 0.0):
+        return []
+    bonus = np.zeros_like(best)
+    cache = {}
+    for i, ch in enumerate(chunks):
+        code = ch.get("source") or "histology"
+        if code not in cache:
+            cache[code] = _source_bonus(code, organ)
+        bonus[i] = cache[code]
+    ranked = best + bonus + _histo_bonus_array(chunks)
+
+    out, seen, per_source = [], set(), {}
+
+    def _take(i):
+        ch = chunks[int(i)]
+        code = ch.get("source") or "histology"
+        limit = per_source_max + (3 if source_meta(code).get("clinic") else 0)
+        if per_source.get(code, 0) >= limit:
+            return
+        key = (code, ch.get("page"), (ch.get("text") or "")[:80])
+        if key in seen or best[int(i)] <= 0:
+            return
+        seen.add(key)
+        per_source[code] = per_source.get(code, 0) + 1
+        item = dict(ch)
+        item["score"] = float(best[int(i)])
+        item["ranked"] = float(ranked[int(i)])
+        item["clinic"] = bool(source_meta(code).get("clinic"))
+        item["lexical"] = True
+        out.append(item)
+
+    # Klinika kutubxonasiga kafolatlangan joy — vektor yo'lidagi kabi
+    clinic_target = min(CLINIC_MIN_HITS, max(0, k - 4))
+    if clinic_target and index_has_clinic():
+        mask = _clinic_mask(chunks)
+        crank = np.where(mask, ranked, -1e9)
+        for i in np.argsort(-crank)[: clinic_target * 6]:
+            if len(out) >= clinic_target or crank[i] <= -1e8:
+                break
+            _take(i)
+    for i in np.argsort(-ranked)[: max(k * 6, 60)]:
+        if len(out) >= k:
+            break
+        _take(i)
+    log.info("histology_kb: leksik qidiruv — %s parcha (top %.3f)", len(out), float(best.max()))
     return out
 
 
@@ -1159,6 +1293,7 @@ def warm_index(background=True):
             _, chunks = _load_index()
             if chunks:
                 _histo_bonus_array(chunks)
+                _load_lexical(chunks)   # bir marta quriladi, keyin diskdan
         except Exception as e:
             log.warning("histology_kb: warmup xato: %s", e)
 

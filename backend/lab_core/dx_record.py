@@ -83,6 +83,8 @@ class DxRecord:
     confidence_why: str = ""
     caution: str = ""
     notes: list = field(default_factory=list)       # qo'riqchi izohlari (jurnal)
+    confidence_cap: int = 0                         # qo'riqchi qo'ygan shift (0 — yo'q)
+    criteria: dict = field(default_factory=dict)    # mezon jadvali bahosi (arxiv uchun)
 
     # ── Yordamchilar ────────────────────────────────────────────────────
     def display_name(self):
@@ -249,8 +251,48 @@ def apply_guards(rec, features, required_map, descriptive_name=""):
     if len(rec.evidence) != before:
         rec.notes.append("dalilsiz qatorlar olib tashlandi")
 
-    # 2) Nomning majburiy belgilari umuman ko'rinmagan bo'lsa — nom tayanchsiz
-    missing = _missing_required(rec.name, features, required_map)
+    # 2) Mezon jadvali — professor tekshiruvi. Nom jadvalda bo'lsa, shu hal
+    #    qiladi: majburiy belgilardan birortasi yo'q → nom tayanchsiz;
+    #    rad etuvchi belgi bor → nom taxminiy, foiz shiftlanadi.
+    from . import dx_criteria as dxc
+
+    ev = dxc.check_name(rec.name, features)
+    if ev is not None:
+        rec.criteria = {
+            "entity": ev["name"], "score": ev["score"],
+            "essential": f"{ev['essential_hits']}/{ev['essential_total']}",
+            "excluding_present": list(ev["excluding_present"]),
+        }
+        if ev["essential_total"] and ev["essential_hits"] == 0:
+            absent = ", ".join(dxc.feature_label(s) for s in ev["essential_absent"][:3])
+            if descriptive_name:
+                rec.notes.append(
+                    f"«{rec.name}» mezonga zid — birorta majburiy belgi yo'q ({absent}); "
+                    "tavsifiy nomga almashtirildi"
+                )
+                rec.name = descriptive_name
+                rec.certainty = CERTAIN_DESCRIPTIVE
+                rec.malignant = False
+            else:
+                rec.notes.append(f"«{rec.name}» majburiy belgilari yo'q: {absent}")
+                rec.certainty = CERTAIN_PROVISIONAL
+                rec.confidence_cap = 40
+        elif ev["excluding_present"]:
+            excl = ", ".join(dxc.feature_label(s) for s in ev["excluding_present"][:2])
+            rec.notes.append(f"«{rec.name}» uchun rad etuvchi belgi bor: {excl} — taxminiy")
+            rec.certainty = CERTAIN_PROVISIONAL
+            rec.confidence_cap = 50
+        elif not ev["qualifies"]:
+            rec.notes.append(
+                f"«{rec.name}» majburiy belgilar yetarli emas "
+                f"({ev['essential_hits']}/{ev['essential_total']}, kerak {ev['essential_need']})"
+            )
+            rec.certainty = CERTAIN_PROVISIONAL
+            rec.confidence_cap = 60
+        missing = []
+    else:
+        # Jadvalda yo'q nom — eski qisqa ro'yxat bilan tekshiriladi
+        missing = _missing_required(rec.name, features, required_map)
     if missing:
         if descriptive_name:
             rec.notes.append(

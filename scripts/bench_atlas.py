@@ -297,6 +297,58 @@ def run_case(case, lab_type="histology"):
     return rec
 
 
+def replay_cases(args):
+    """Arxivdagi keyslarni yangi kod bilan qayta ishga tushirib, eski tashxis
+    bilan solishtirish. Bu regressiya sinovi: algoritm o'zgargach, ilgari
+    to'g'ri chiqqan keyslar buzilmadimi — shuni ko'rsatadi."""
+    import logging
+
+    logging.getLogger("medlab").setLevel(logging.WARNING)
+    from lab_core import engine as eng
+
+    eng.ensure_openai_from_env()
+    if args.model:
+        os.environ["OPENAI_MODEL_ID"] = args.model
+        eng.OPENAI_MODEL_ID = args.model
+
+    root = Path(args.cases)
+    found = sorted(root.rglob("keys.json"))
+    print(f"model={eng.OPENAI_MODEL_ID}  arxiv={root}  keyslar={len(found)}\n")
+    rows = []
+    for meta_p in found[: args.n] if args.n else found:
+        d = meta_p.parent
+        try:
+            meta = json.loads(meta_p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        imgs = sorted(d.glob("kesma_*.jpg"))
+        if not imgs:
+            continue
+        old = ((meta.get("tashxis") or {}).get("name") or "").strip()
+        pil = [eng._resize_img(Image.open(p).convert("RGB")) for p in imgs[:12]]
+        prompt = eng.LAB_PROMPTS.get(meta.get("lab_type") or "histology", "")
+        t0 = time.time()
+        try:
+            text = eng._openai_generate([prompt] + pil, meta.get("lab_type") or "histology",
+                                        meta.get("kontekst") or None)
+        except Exception as e:
+            print(f"  ERR   {d.name[:40]:40s} {str(e)[:60]}")
+            continue
+        new = re.sub(r"^\s*yakuniy\s+xulosa\s*:\s*", "",
+                     eng._dx_name_only(eng._histology_dx_block(text) or "") or "", flags=re.I)
+        same = quick_match(new, old) if old else None
+        mark = "  =  " if same else ("  ≠  " if same is False else "  ?  ")
+        m = re.search(r"Ishonchlilik:\s*(\d{1,3})\s*%", text)
+        print(f"{mark}{d.name[:34]:34s} {old[:28]:28s} → {new[:34]}  "
+              f"{(m.group(1) + '%') if m else ''}  {time.time()-t0:.0f}s")
+        rows.append({"case": str(d), "old": old, "new": new, "same": same, "report": text})
+    changed = sum(1 for r in rows if r["same"] is False)
+    print(f"\n{len(rows)} keys qayta ishlandi, {changed} tasida tashxis o'zgardi")
+    out = args.out or f"replay_{time.strftime('%Y%m%d_%H%M%S')}.json"
+    Path(out).write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"saqlandi: {out}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=12)
@@ -309,7 +361,12 @@ def main():
         or str(ROOT / "backend" / "data" / "histology_kb"), "atlas"))
     ap.add_argument("--compare", nargs=2, metavar=("A", "B"))
     ap.add_argument("--model", default="", help="serverdagi model bilan bir xil bo'lsin")
+    ap.add_argument("--cases", default="",
+                    help="keys arxivi papkasi: saqlangan keyslarni qayta ishga tushirish")
     args = ap.parse_args()
+
+    if args.cases:
+        return replay_cases(args)
 
     if args.compare:
         a = json.loads(Path(args.compare[0]).read_text(encoding="utf-8"))
