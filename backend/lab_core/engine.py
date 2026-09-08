@@ -1007,6 +1007,42 @@ def _parse_observation(raw):
 SLIDE_SCORE_MIN = 0.35
 
 
+def _normalize_he(img, target=243.0, max_gain=2.2):
+    """Oq shisha fonini neytral oqqa keltirib, rang og'ishini olib tashlash.
+
+    Mikroskopga telefon bilan olingan kadrda oq balans ko'pincha buziladi:
+    butun kadr binafsha tusga kiradi, fon ham oq emas va eozin/gematoksilin
+    farqi yo'qoladi. Model bunday kadrdan belgilarni ajrata olmaydi (haqiqiy
+    keysda 60 ta belgidan atigi 3 tasi topilgan).
+
+    Fon — preparatdagi bo'sh shisha, ya'ni haqiqatda oq. Eng yorug'
+    piksellarning o'rtachasi bo'yicha har kanal kattalashtiriladi.
+    Kuchaytirish cheklangan, aks holda shovqin ko'tariladi.
+    """
+    try:
+        rgb = img.convert("RGB")
+        small = rgb.copy()
+        small.thumbnail((256, 256))
+        px = list(small.getdata())
+        if not px:
+            return rgb
+        order = sorted(range(len(px)), key=lambda i: -(px[i][0] + px[i][1] + px[i][2]))
+        top = order[: max(30, len(px) // 8)]
+        bg = [sum(px[i][c] for i in top) / len(top) for c in range(3)]
+        if min(bg) < 20:
+            return rgb  # deyarli qora kadr — tegilmaydi
+        gains = [min(max_gain, target / max(1.0, bg[c])) for c in range(3)]
+        if max(gains) < 1.05:
+            return rgb  # balans allaqachon joyida
+        lut = []
+        for c in range(3):
+            g = gains[c]
+            lut.extend([min(255, int(round(v * g))) for v in range(256)])
+        return rgb.point(lut)
+    except Exception:
+        return img
+
+
 def _slide_score(img):
     """0..1 — tasvir H&E gistologik kesmaga qanchalik o'xshaydi."""
     try:
@@ -3181,6 +3217,54 @@ def _needs_rewrite(text, lab_type, organ_lock=None):
     )
 
 
+def _complete_resilient(system, user_texts, image_parts, kwargs, label=""):
+    """Filtr rad etsa — ko'rsatma matnini yengillatib qayta urinish.
+
+    Kuzatilgan xatti-harakat: juda uzun va zich ko'rsatma bloki tasvir bilan
+    birga kelganda model "I'm sorry, I can't assist with that" deb javob
+    beradi. Tekshirildi: o'sha blokning har bir bandi ALOHIDA o'tadi, faqat
+    butun blok rad etiladi — ya'ni sabab aniq ibora emas, umumiy hajm.
+
+    Shuning uchun avval MATN qisqartiriladi (rasm qoladi — morfologiya asosiy
+    manba), va faqat oxirgi chorada rasmsiz urinib ko'riladi. Ilgari teskarisi
+    edi: rasm tashlanardi va model ko'rmasdan yozardi.
+    """
+    if isinstance(user_texts, str):
+        user_texts = [user_texts]
+    texts = [t for t in user_texts if t]
+    parts = list(image_parts or [])
+    attempts = [(t, parts) for t in texts]
+    if parts and texts:
+        attempts.append((texts[-1], []))  # oxirgi chora: eng qisqa matn, rasmsiz
+    last = ""
+    for i, (text, imgs) in enumerate(attempts):
+        content = _vision_user(text, imgs) if imgs else text
+        try:
+            out = _chat_complete(
+                [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": content},
+                ],
+                kwargs,
+            )
+        except Exception as e:
+            log.warning("%s: %s chaqiruv xato: %s", ZIYRAKAI_DISPLAY_NAME, label, e)
+            return last
+        last = out
+        if not _looks_like_refusal(out):
+            if i:
+                log.info(
+                    "%s: %s — %s-urinishda o'tdi (matn %s belgi, %s rasm)",
+                    ZIYRAKAI_DISPLAY_NAME, label, i + 1, len(text), len(imgs),
+                )
+            return out
+        log.warning(
+            "%s: %s rad etildi (matn %s belgi, %s rasm) — yengilroq urinish",
+            ZIYRAKAI_DISPLAY_NAME, label, len(text), len(imgs),
+        )
+    return last
+
+
 def _safe_expand(draft, kwargs, image_parts=None, lab_type="histology", organ_lock=None,
                  patient_context=None, features=None):
     """Uzaytirish: tashxis so'zisiz, filtr rad etmasin."""
@@ -3220,16 +3304,47 @@ def _safe_expand(draft, kwargs, image_parts=None, lab_type="histology", organ_lo
         "Malignite qo'yish huquqi YO'Q bo'lsa asosiy tashxis benign/reaktiv bo'ladi. "
         "Sog'lom/dalilsiz holatga rak qo'yish — hisobot yaroqsiz."
     )
-    content = _vision_user(user_text, image_parts) if image_parts else user_text
+    # Yengilroq variantlar: protokol matni tushadi, kitob parchasi qisqaradi,
+    # lekin ko'rik natijasi, qoralama va chiqish shakli har doim qoladi.
+    tail = (
+        "\n\n==== ICHKI QORALAMA (shu asosda YAKUNIY QISQA hisobotni yoz) ====\n"
+        + (draft or "")[:6000]
+        + "\n==== TUGADI ====\n"
+        "Hisobot FAQAT 3 bo'lim: #### TASHXIS, #### NEGA SHU TASHXIS, "
+        "#### FAKT (o'lchangan morfologiya). Jami 2500-4500 belgi — "
+        "bundan qisqa hisobot QABUL QILINMAYDI.\n"
+        "TASHXIS: 1-qator kasallik NOMI (variant bilan); 2-qator "
+        "Organ/qatlam | Ishonch | Malignite qo'yish huquqi; 3-qator bir jumlada "
+        "jarayon tabiati va keyingi qadam.\n"
+        "NEGA SHU TASHXIS — eng katta bo'lim, 6-10 qator:\n"
+        "  · har qator: <mezon> — <QAYERDA, QANDAY, QANCHA ko'rindi>; "
+        "belgi nomini takrorlash TAQIQLANADI;\n"
+        "  · kamida 4 ta mezon ko'rilgan dalil bilan;\n"
+        "  · oxirgi 2-3 qatorda muqobillar shu yerda rad etilsin: "
+        "«<muqobil> emas, chunki <qaysi ko'rilgan belgi mos emas>»; "
+        "eng xavflisi (karsinoma, melanoma, sarkoma) birinchi;\n"
+        "  · kerak bo'lsa oxirgi qator: «Tasdiqlash uchun: <IHC/bo'yoq/kesma>».\n"
+        "FAKT: 6-8 qator, har birida son yoki daraja.\n"
+        "Ko'rinmagan mezonni yozma. Dalilsiz rak yozma."
+    )
+    mid_text = (
+        (patient + "\n" if patient else "")
+        + lock
+        + (feats + "\n" if feats else "")
+        + (kb[:5000] if kb else "")
+        + tail
+    )
+    light_text = (feats + "\n" if feats else "") + lock + tail
+
     expand_kwargs = dict(kwargs or {})
     if lab_type == "histology":
         expand_kwargs["temperature"] = min(float(expand_kwargs.get("temperature", 0.12) or 0.12), 0.15)
-    return _chat_complete(
-        [
-            {"role": "system", "content": _SAFE_SYSTEM},
-            {"role": "user", "content": content},
-        ],
+    return _complete_resilient(
+        _SAFE_SYSTEM,
+        [user_text, mid_text, light_text],
+        image_parts,
         expand_kwargs,
+        "uzaytirish",
     )
 
 
@@ -3237,14 +3352,15 @@ _EXPERT_REVIEW_SYSTEM = (
     "You are the head of a histopathology department doing the final sign-out check of a "
     "trainee's draft. You see the same slide images, the machine-extracted feature list and "
     "the retrieved textbook criteria. Your job is NOT to praise or discuss: you return the "
-    "CORRECTED FINAL REPORT only, in Uzbek, in the required 6-section format. "
+    "CORRECTED FINAL REPORT only, in Uzbek, in the required 3-section format "
     "Fix silently: a name that the features do not support, a missing variant/grade, "
     "vague wording where a number belongs, an alternative dismissed without a discriminator, "
     "a missing confirmation panel, and anything the draft failed to declare as unassessable. "
     "Never invent a finding that is not in the features or visible in the image. "
-    "If the features do not support any specific entity, the final answer is "
-    "'Aniq tashxis uchun yetarli emas' with the nearest descriptive category. "
-    "Output the report only — no commentary, no meta text, no headings other than the six."
+    "The diagnosis line must always carry a NAME. If the features are thin, give the "
+    "most probable entity, mark it provisional and set confidence to low — never answer "
+    "'not enough for a diagnosis'. "
+    "Output the report only — no commentary, no meta text, no headings other than the three."
 )
 
 
@@ -3282,16 +3398,24 @@ def _expert_review(draft, kwargs, image_parts=None, lab_type="histology",
         + (f"8) Barcha {n_img} ta maydon hisobga olinganmi?\n" if n_img > 1 else "")
         + "\nFAQAT yakuniy hisobotni qaytar (3 bo'lim, 2500-4500 belgi). Izoh yozma."
     )
-    content = _vision_user(user_text, image_parts) if image_parts else user_text
     review_kwargs = dict(kwargs or {})
     review_kwargs["temperature"] = 0.0
     try:
-        out = _chat_complete(
-            [
-                {"role": "system", "content": _EXPERT_REVIEW_SYSTEM},
-                {"role": "user", "content": content},
-            ],
+        light_review = (
+            (feats + "\n" if feats else "")
+            + lock
+            + "\n==== SHOGIRD QORALAMASI ====\n"
+            + (draft or "")[:6000]
+            + "\n==== QORALAMA TUGADI ====\n\n"
+            "Hisobotni tekshirib, yakuniy variantini qaytar: 3 bo'lim, "
+            "tashxis o'rnida NOM, har asos qatorida ko'rilgan dalil. Izoh yozma."
+        )
+        out = _complete_resilient(
+            _EXPERT_REVIEW_SYSTEM,
+            [user_text, light_review],
+            image_parts,
             review_kwargs,
+            "imzo tekshiruvi",
         )
     except Exception as e:
         log.warning("%s: professor tekshiruvi xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
@@ -3532,15 +3656,28 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
     t_start = time.time()
     full_prompt = "\n\n".join(item for item in content_list if isinstance(item, str))
     _pils = [item for item in content_list if isinstance(item, Image.Image)]
+    _scores = [_slide_score(im) for im in _pils]
+    # Kesma kadrlarining oq balansi to'g'irlanadi — telefon orqali olingan
+    # rasmlarda binafsha og'ish morfologiyani ko'rinmas qilib qo'yadi.
+    _prepped = [
+        _normalize_he(im) if (sc >= SLIDE_SCORE_MIN and lab_type == "histology") else im
+        for im, sc in zip(_pils, _scores)
+    ]
+    _n_fixed = sum(
+        1 for im, p, sc in zip(_pils, _prepped, _scores)
+        if p is not im and sc >= SLIDE_SCORE_MIN
+    )
+    if _n_fixed:
+        log.info("%s: %s kesmaning oq balansi to'g'irlandi", ZIYRAKAI_DISPLAY_NAME, _n_fixed)
     image_parts = [
         {
             "type": "image_url",
             "image_url": {"url": _pil_to_data_url(item), "detail": "high"},
         }
-        for item in _pils
+        for item in _prepped
     ]
     # Har rasm uchun "kesmami?" bahosi — tanlash shu bo'yicha ustuvorlashadi
-    _scored = list(zip(image_parts, [_slide_score(im) for im in _pils]))
+    _scored = list(zip(image_parts, _scores))
     _n_slides = sum(1 for _, sc in _scored if sc >= SLIDE_SCORE_MIN)
     # Ko'rik, namuna turi va organ qulfi FAQAT kesmalarga qaraydi — tana
     # suratlari morfologik belgilarni suyultirib yuborardi. Kesma bo'lmasa
