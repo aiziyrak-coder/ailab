@@ -1898,6 +1898,187 @@ def _clean_dx_section(text):
     return "\n".join(out)
 
 
+# ─── Ishonchlilik foizi ─────────────────────────────────────────────────────
+# «Ishonch: past», «Malignite qo'yish huquqi: YO'Q», «DIQQAT — barqaror emas»
+# — uchtasi bir narsani aytadi: dalil qanchalik kuchli. Shifokor uchun bu uzun
+# va tushunarsiz. O'sha ma'lumotning hammasi bitta songa sig'adi.
+#
+# Foizni model o'ylab topmaydi (promptlarda foiz hamon TAQIQLANGAN) — u
+# quyidagi O'LCHANGAN signallardan kodda yig'iladi:
+#
+#   mustaqil maydonlar bir nomga keldimi          0–40
+#   ko'rikda topilgan morfologik belgi soni       0–25
+#   kitob mezonlariga moslik (hakamlik)           0–26
+#   namuna sifati                                 0–15
+#
+# Natija 5–95 oralig'ida. 100% yozilmaydi: bironta morfologik tashxis
+# mutlaq emas, va bu raqam shuni ochiq ko'rsatib turishi kerak.
+
+CONFIDENCE_MIN = 5
+CONFIDENCE_MAX = 95
+CONFIDENCE_LOW = 55       # shundan past — dalil bitta nomga yetmagan
+_FEATURES_FOR_FULL = 10   # shuncha belgi topilsa, belgi bandi to'liq ball
+
+
+def _confidence_percent(features=None, adj=None, names=None):
+    """Hisobot ishonchliligi — foiz va qisqa sabab (jurnal uchun)."""
+    score = 0.0
+    why = []
+    caps = []       # yig'indi qancha bo'lishidan qat'i nazar, shundan oshmaydi
+
+    # 1) Mustaqil maydonlar bir xil nomga keldimi — eng og'ir signal
+    names = [str(n).strip() for n in (names or []) if str(n or "").strip()]
+    if len(names) >= 2:
+        norm = [_normalize_dx_name(n) for n in names]
+        agree = norm.count(max(set(norm), key=norm.count))
+        score += 40.0 * agree / len(norm)
+        why.append(f"maydonlar {agree}/{len(norm)}")
+        # Ko'pchilik yig'ilmagan bo'lsa, boshqa bandlar qanchalik kuchli
+        # bo'lmasin — bu tashxis hali bitta nomga kelmagan.
+        if agree < max(2, (len(norm) + 1) // 2):
+            caps.append(45)
+        elif agree < len(norm):
+            caps.append(80)
+    else:
+        score += 22.0  # o'lchanmagan — o'rtacha ball, jazo ham, mukofot ham emas
+
+    # 2) Ko'rikda haqiqatan ko'rilgan belgilar
+    n = len(_true_features(features)) if isinstance(features, dict) else 0
+    score += 25.0 * min(1.0, n / float(_FEATURES_FOR_FULL))
+    why.append(f"{n} belgi")
+    if n < MIN_FEATURES_FOR_ENTITY:
+        # Nozologiya qo'yish uchun yetarli belgi ko'rilmagan
+        caps.append(40)
+
+    # 3) Kitob mezonlariga moslik
+    if isinstance(adj, dict):
+        chosen = str(adj.get("chosen") or "").strip()
+        fit = ""
+        for c in adj.get("candidates") or []:
+            if chosen and _same_entity(chosen, str(c.get("name") or "")):
+                fit = str(c.get("fit") or "").strip().lower()
+                break
+        score += {"mos": 20.0, "qisman": 9.0}.get(fit, 5.0)
+        if fit.startswith("mos emas"):
+            caps.append(35)
+        conf = str(adj.get("confidence") or "").strip().lower()
+        score += {"yuqori": 6.0, "o'rta": 3.0, "orta": 3.0}.get(conf, 0.0)
+        if fit:
+            why.append(f"mezon {fit}")
+    else:
+        score += 7.0
+
+    # 4) Namuna sifati — yomon kesmadan yaxshi tashxis chiqmaydi
+    quality = str((features or {}).get("sample_quality") or "").lower()
+    quality = quality.replace("‘", "'").replace("’", "'")
+    if quality.startswith("yaxshi"):
+        score += 15.0
+    elif quality.startswith(("o'rta", "orta")):
+        score += 8.0
+    else:
+        score += 3.0
+    if quality:
+        why.append(f"namuna {quality}")
+
+    if caps:
+        score = min(score, float(min(caps)))
+    pct = int(round(max(CONFIDENCE_MIN, min(CONFIDENCE_MAX, score))))
+    return pct, "; ".join(why)
+
+
+# TASHXIS bo'limining meta qatorlari — foiz kelgach bularning keragi qolmaydi
+_DX_META_RE = re.compile(
+    r"^\s*(organ\s*/?\s*qatlam|ishonch|ishonchlilik|malignite|daraja)\b", re.I
+)
+_INLINE_META_RE = re.compile(
+    r"\s*\|\s*(?:ishonch|malignite[^|\n]*|daraja)[^|\n]*", re.I
+)
+_ORGAN_VALUE_RE = re.compile(r"organ\s*/?\s*qatlam\s*:\s*([^|\n]+)", re.I)
+_GRADE_VALUE_RE = re.compile(r"daraja\s*:\s*([^|\n]+)", re.I)
+_EMPTY_GRADE = ("qo'llanilmaydi", "qollanilmaydi", "yo'q", "yoq", "noaniq", "-", "—")
+
+
+def _apply_confidence(text, pct, caution=""):
+    """TASHXIS bo'limini ikki qatorga keltirish: nom va ishonchlilik foizi."""
+    if not text:
+        return text
+
+    dx = _histology_dx_block(text) or ""
+    organ = ""
+    m = _ORGAN_VALUE_RE.search(dx)
+    if m:
+        organ = " ".join(m.group(1).split()).strip(" .|;")
+    grade = ""
+    m = _GRADE_VALUE_RE.search(dx)
+    if m:
+        g = " ".join(m.group(1).split()).strip(" .|;")
+        if g.lower().replace("‘", "'").replace("’", "'") not in _EMPTY_GRADE:
+            grade = g
+
+    row = f"Ishonchlilik: {pct}%"
+    if grade:
+        row += f"  ·  Daraja: {grade}"
+    if organ:
+        row += f"  ·  {organ}"
+
+    lines = text.splitlines()
+    start = end = -1
+    for i, line in enumerate(lines):
+        if start < 0:
+            if re.match(r"^\s*#+\s*(?:aniq\s+)?tashxis\b", line, flags=re.I):
+                start = i + 1
+            continue
+        if re.match(r"^\s*#+\s", line):
+            end = i
+            break
+    if start < 0:
+        return text
+    if end < 0:
+        end = len(lines)
+
+    body, name_at = [], -1
+    for line in lines[start:end]:
+        t = line.strip()
+        if not t:
+            if body:            # bo'limning boshidagi bo'sh qatorlar kerak emas
+                body.append("")
+            continue
+        if t.lower().startswith("diqqat") or _DX_META_RE.match(t):
+            continue
+        if name_at < 0:
+            line = _INLINE_META_RE.sub("", line).rstrip(" |;")
+            name_at = len(body)
+        body.append(line)
+
+    at = name_at + 1 if name_at >= 0 else 0
+    if caution:
+        body.insert(at, caution)
+    body.insert(at, row)
+    while body and not body[-1].strip():
+        body.pop()
+    body.append("")
+    return "\n".join(lines[:start] + body + lines[end:])
+
+
+def _finalize_confidence(text, features, adj, names):
+    """Foizni hisoblab, TASHXIS bo'limini yakuniy ko'rinishga keltirish.
+
+    Yagona qoladigan ogohlantirish — xavfli o'sma nomi past ishonchlilik
+    bilan qo'yilgan holat. Bu qator emas, xavfsizlik chizig'i: rakni
+    tasdiqlanmagan holda davolashga o'tib ketmaslik uchun.
+    """
+    pct, why = _confidence_percent(features, adj, names)
+    caution = ""
+    name = _dx_name_only(_histology_dx_block(text)) or ""
+    if pct < CONFIDENCE_LOW and _MALIGN_LEAD_RE.search(name):
+        caution = (
+            "Xavfli o'sma shu hisobot bilan TASDIQLANMAYDI — davolash qarori "
+            "patolog ko'rigi va IHC dan keyin qabul qilinadi."
+        )
+    log.info("%s: ishonchlilik %s%% — %s", ZIYRAKAI_DISPLAY_NAME, pct, why)
+    return _apply_confidence(text, pct, caution)
+
+
 _FINAL_PREFIX = "YAKUNIY XULOSA: "
 
 
@@ -2344,76 +2525,6 @@ def _dx_stability(features, kwargs=None):
         ZIYRAKAI_DISPLAY_NAME, agree, len(norm), " | ".join(names),
     )
     return stable, names
-
-
-def _add_stability_note(text, stable, names):
-    """Tashxis barqaror bo'lmasa — hisobotga ochiq ogohlantirish.
-
-    Xavfsizlik qoidasi: maydonlar bir-biriga zid xulosa berayotgan bo'lsa,
-    xavfli o'sma DA'VO QILINMAYDI. Rakni noto'g'ri qo'yish — eng og'ir xato,
-    va bunday holatda "malignite qo'yish huquqi" har doim YO'Q bo'ladi.
-    """
-    if stable is not False or not text:
-        return text
-    uniq = []
-    for n in names:
-        if _normalize_dx_name(n) not in [_normalize_dx_name(u) for u in uniq]:
-            uniq.append(n)
-    note = (
-        "DIQQAT — tashxis barqaror emas: shu kesmaning turli maydonlaridan "
-        "har xil xulosa chiqdi (" + ", ".join(uniq[:3]) + "). "
-        "Dalil bir tashxisga yetarli emas; patolog ko'rigi va qo'shimcha "
-        "kesma/IHC shart."
-    )
-
-    dx_block = _histology_dx_block(text)
-    if _MALIGN_LEAD_RE.search(dx_block or ""):
-        note += (
-            " Xavfli o'sma bu hisobot asosida TASDIQLANMAYDI — nom faqat "
-            "ehtimol sifatida qaraladi va davolash qarori patolog xulosasidan "
-            "keyin qabul qilinadi."
-        )
-        # Malignite qo'yish huquqi majburan YO'Q
-        text = re.sub(
-            r"(Malignite qo'yish huquqi:\s*)(HA|BOR|HA\b)",
-            r"\1YO'Q",
-            text,
-            flags=re.I,
-        )
-
-    # Ogohlantirish TASHXIS nomidan KEYIN turadi: shifokor avval xulosani
-    # o'qishi kerak, so'ng cheklovni. Ilgari u sarlavhadan keyin darhol
-    # qo'yilardi va o'qigan odam tashxisni topolmasdan chalkashardi.
-    lines = text.splitlines()
-    out = []
-    state = "before"   # sarlavha topilmagan
-    placed = False
-    for line in lines:
-        if state == "before" and re.match(r"^\s*#+\s*(?:aniq\s+)?tashxis\b", line, flags=re.I):
-            out.append(line)
-            state = "meta"
-            continue
-        if state == "meta" and not placed:
-            low = line.strip().lower()
-            # nom va uning meta qatorlaridan keyin joylashtiriladi
-            is_meta = (
-                not line.strip()
-                or low.startswith(("yakuniy xulosa", "organ", "ishonch", "malignite",
-                                   "daraja", "taxminiy", "bemor", "namuna"))
-                or "|" in line
-            )
-            if is_meta:
-                out.append(line)
-                continue
-            out.append(note)
-            out.append(line)
-            placed = True
-            continue
-        out.append(line)
-    if not placed and state == "meta":
-        out.append(note)
-        placed = True
-    return "\n".join(out) if placed else note + "\n\n" + text
 
 
 # ─── Differensial hakamlik ───────────────────────────────────────────────────
@@ -4734,6 +4845,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
     # kitob mezonlari bo'yicha tekshiriladi. Bu — qaror nuqtasi, shuning uchun
     # kitoblar aynan shu yerda ishlashi kerak.
     adj_block = ""
+    adj = None      # hisobot oxirida ishonchlilik foiziga ham kerak bo'ladi
     if lab_type == "histology" and isinstance(features, dict):
         cands = list(_group_dx_names(features, kwargs))
         cands.extend(_dx_terms_for_atlas(patient_context))
@@ -4900,26 +5012,25 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
     if lab_type == "histology" and not from_recovery and _usable(report, MIN_REPORT_CHARS):
         report = _coherence_pass(report, kwargs, features, lab_type)
 
-    # Tashxis barqarorligi eng oxirida tekshiriladi: mustaqil maydonlar bir xil
-    # nomga olib keladimi? Ogohlantirish shundan keyin qo'shiladi, aks holda
-    # mantiq tuzatuvchisi uni qayta yozishda tashlab yuborardi.
+    # Tashxis barqarorligi eng oxirida o'lchanadi: mustaqil maydonlar bir xil
+    # nomga olib keladimi? Natija endi alohida ogohlantirish emas — u
+    # ishonchlilik foizining eng og'ir bandiga kiradi.
+    _names = []
     if lab_type == "histology" and features and _usable(report, 400):
         _stable, _names = _dx_stability(features, kwargs)
         if _stable is False:
             log.warning(
-                "%s: tashxis barqaror emas — ogohlantirish qo'shildi: %s",
+                "%s: tashxis barqaror emas: %s",
                 ZIYRAKAI_DISPLAY_NAME, " | ".join(_names[:3]),
             )
-            report = _cap_confidence(report, "past")
-            report = _add_stability_note(report, _stable, _names)
 
     if _usable(report, 400):
         report = _strip_preamble(report)
         if lab_type == "histology":
             report = _clean_dx_section(report)
             report = _mark_final_conclusion(report)
-        if lab_type == "histology":
             report = _strip_other_organ_differential(report)
+            report = _finalize_confidence(report, features, adj, _names)
         log.info(
             "%s: hisobot tayyor lab=%s imgs=%s belgi=%s %.1fs",
             ZIYRAKAI_DISPLAY_NAME, lab_type, n_img, len(report), time.time() - t_start,

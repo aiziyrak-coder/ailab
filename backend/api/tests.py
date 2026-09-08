@@ -462,12 +462,13 @@ class DermatopathologyCanonTests(TestCase):
         self.assertTrue(eng._too_verbose(base + "\n#### KLINIK FIKRLASH\nSavol: nima?", "histology"))
         self.assertTrue(eng._too_verbose(base + ("\nmatn" * 3000), "histology"))
 
-    def test_six_sections_required(self):
+    def test_three_sections_required(self):
+        """Hisobot 3 bo'limga qisqartirilgan: TASHXIS, NEGA SHU TASHXIS, FAKT."""
         from lab_core import engine as eng
 
         full = self._full_report()
         self.assertFalse(eng._missing_diagnosis_sections(full, "histology"))
-        for drop in ("#### TASDIQLASH", "#### BAHOLANMAGAN"):
+        for drop in ("#### NEGA SHU TASHXIS", "#### FAKT"):
             cut = full.split(drop)[0]
             self.assertTrue(
                 eng._missing_diagnosis_sections(cut, "histology"),
@@ -601,6 +602,110 @@ class ObservationGateTests(TestCase):
         self.assertEqual(parsed.get("dominant_pattern"), "x")
 
 
+class ConfidencePercentTests(TestCase):
+    """Tashxis foiz bilan chiqadi; «Ishonch: past» va uzun ogohlantirish yo'q."""
+
+    REPORT = "\n".join([
+        "#### TASHXIS",
+        "Bemor: 5 yosh, erkak; namuna №40FSH7OPHIST0005.",
+        "Verruca vulgaris, yallig'langan turi — benign.",
+        "Organ/qatlam: teri, epidermis–retikulyar derma | Daraja: qo'llanilmaydi | "
+        "Ishonch: past | Malignite qo'yish huquqi: YO'Q.",
+        "Ishchi taassurotlar: 1) verruca vulgaris; 2) squamous papilloma.",
+        "#### NEGA SHU TASHXIS",
+        "Koilotsitoz — KO'RINDI: perinuklear tiniqlashgan keratinotsitlar.",
+        "#### FAKT (o'lchangan morfologiya)",
+        "Mitoz: 0/10 HPF",
+    ])
+
+    FEATURES = {
+        "sample_quality": "o'rtacha",
+        "epidermis": {
+            "acanthosis": True, "hyperkeratosis": True, "papillomatosis": True,
+            "parakeratosis": True, "koilocytes": True, "horn_cysts": False,
+        },
+        "junction": {},
+        "dermis": {"chronic_inflammation": True, "granulation": True},
+        "cytology": {"atypia": False},
+    }
+    ADJ = {
+        "chosen": "Verruca vulgaris",
+        "confidence": "o'rta",
+        "candidates": [
+            {"name": "Verruca vulgaris", "fit": "mos"},
+            {"name": "Squamous papilloma", "fit": "qisman"},
+        ],
+    }
+
+    def _final(self, features=None, adj=None, names=None, report=None):
+        from lab_core import engine as eng
+
+        text = eng._mark_final_conclusion(eng._clean_dx_section(report or self.REPORT))
+        return eng._finalize_confidence(text, features, adj, names or [])
+
+    def test_meta_clutter_is_replaced_by_one_percentage(self):
+        out = self._final(self.FEATURES, self.ADJ, ["Verruca vulgaris"] * 3)
+        self.assertIn("YAKUNIY XULOSA: Verruca vulgaris", out)
+        self.assertRegex(out, r"Ishonchlilik: \d{1,2}%")
+        for gone in ("Ishonch: past", "Malignite", "DIQQAT", "Ishchi taassurot", "Bemor:"):
+            self.assertNotIn(gone, out, f"{gone} qatori qolib ketdi")
+        # Boshqa bo'limlarga tegilmaydi
+        self.assertIn("Koilotsitoz", out)
+        self.assertIn("Mitoz: 0/10 HPF", out)
+
+    def test_agreeing_fields_score_higher_than_disagreeing_ones(self):
+        from lab_core import engine as eng
+
+        agree, _ = eng._confidence_percent(
+            self.FEATURES, self.ADJ, ["Verruca vulgaris"] * 3
+        )
+        split, _ = eng._confidence_percent(
+            self.FEATURES, self.ADJ, ["Verruca vulgaris", "Lichen planus", "Ekzema"]
+        )
+        self.assertGreater(agree, split)
+        # Ko'pchilik yig'ilmagan — foiz shiftdan oshmaydi
+        self.assertLessEqual(split, 45)
+
+    def test_thin_evidence_is_capped(self):
+        from lab_core import engine as eng
+
+        pct, _ = eng._confidence_percent({"sample_quality": "past"}, None, [])
+        self.assertLessEqual(pct, 40)
+        self.assertGreaterEqual(pct, eng.CONFIDENCE_MIN)
+
+    def test_never_reaches_one_hundred(self):
+        from lab_core import engine as eng
+
+        rich = {
+            "sample_quality": "yaxshi",
+            "epidermis": {f"f{i}": True for i in range(8)},
+            "cytology": {f"c{i}": True for i in range(8)},
+        }
+        pct, _ = eng._confidence_percent(
+            rich,
+            {"chosen": "X", "confidence": "yuqori", "candidates": [{"name": "X", "fit": "mos"}]},
+            ["X", "X", "X"],
+        )
+        self.assertLessEqual(pct, eng.CONFIDENCE_MAX)
+        self.assertLess(pct, 100)
+
+    def test_low_confidence_malignancy_keeps_one_safety_line(self):
+        malignant = self.REPORT.replace(
+            "Verruca vulgaris, yallig'langan turi — benign.",
+            "Melanoma, yuzaki tarqaluvchi turi — malign.",
+        )
+        out = self._final(
+            {"sample_quality": "past"}, None, ["Melanoma", "Nevus", "Bazalioma"],
+            report=malignant,
+        )
+        self.assertIn("TASDIQLANMAYDI", out)
+
+    def test_confident_diagnosis_carries_no_extra_warning(self):
+        out = self._final(self.FEATURES, self.ADJ, ["Verruca vulgaris"] * 3)
+        self.assertNotIn("TASDIQLANMAYDI", out)
+        self.assertNotIn("barqaror emas", out)
+
+
 class EvidenceCeilingTests(TestCase):
     """Dalil kam bo'lsa ishonchli aniq tashxis chiqmasligi kerak."""
 
@@ -640,17 +745,23 @@ class EvidenceCeilingTests(TestCase):
         "cytology": {},
     }
 
-    def test_thin_evidence_blocks_a_named_entity(self):
+    def test_thin_evidence_marks_the_name_provisional(self):
+        """Dalil kam bo'lsa nom saqlanadi, lekin «taxminiy» deb belgilanadi.
+
+        Ilgari nom butunlay «Aniq tashxis uchun yetarli emas» bilan
+        almashtirilardi — shifokorga bu hech narsa bermasdi.
+        """
         from lab_core import engine as eng
 
         n, level = eng._evidence_level(self.THIN)
         self.assertEqual(level, "past")
         out = eng._apply_evidence_rules(self.REPORT, self.THIN)
-        self.assertIn("Aniq tashxis uchun yetarli emas", out)
+        self.assertIn("Seboreik keratoz", out)
+        self.assertIn("taxminiy", out.lower())
         self.assertIn("Ishonch: past", out)
         self.assertNotIn("Ishonch: yuqori", out)
         # Qolgan bo'limlar joyida qoladi
-        for head in ("#### FAKT", "#### TASDIQLASH", "#### BAHOLANMAGAN"):
+        for head in ("#### NEGA SHU TASHXIS", "#### FAKT"):
             self.assertIn(head, out)
 
     def test_rich_evidence_keeps_the_diagnosis(self):
@@ -672,13 +783,14 @@ class EvidenceCeilingTests(TestCase):
         self.assertIn("Seboreik keratoz", out)
         self.assertIn("Ishonch: o'rta", out)
 
-    def test_unsupported_name_is_downgraded_not_published(self):
+    def test_contradicted_name_is_replaced_by_a_descriptive_one(self):
+        """Nom ko'rikka zid bo'lsa — tavsifiy morfologiyaga almashtiriladi."""
         from lab_core import engine as eng
 
-        out = eng._force_insufficient(self.REPORT, self.THIN, "sinov sababi")
-        self.assertIn("Aniq tashxis uchun yetarli emas", out)
+        out = eng._mark_provisional(self.REPORT, self.THIN, "sinov sababi", rename=True)
         self.assertNotIn("Seboreik keratoz", out.split("#### NEGA SHU TASHXIS")[0])
-        self.assertIn("Sabab: sinov sababi", out)
+        self.assertIn("sabab: sinov sababi", out.lower())
+        self.assertIn("taxminiy", out.lower())
 
     def test_image_spread_covers_the_whole_set(self):
         from lab_core import engine as eng

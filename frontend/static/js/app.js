@@ -2274,6 +2274,32 @@ function markdownToHtml(text, opts) {
       continue;
     }
 
+    // Yakuniy xulosa — hisobotdagi eng muhim qator. Shifokor uni qidirib
+    // yurmasligi kerak, shuning uchun alohida ko'rinishda beriladi.
+    if (!forPrint && /^yakuniy\s+xulosa\s*:/i.test(l)) {
+      const dx = l.replace(/^yakuniy\s+xulosa\s*:\s*/i, '');
+      html += `<div class="r-final${anim}">` +
+              '<span class="r-final__tag">Yakuniy xulosa</span>' +
+              `<span class="r-final__dx">${inlineFormat(dx)}</span></div>`;
+      i++;
+      continue;
+    }
+
+    // «Ishonchlilik: 72% · teri, epidermis» — raqam va yo'lakcha bilan
+    const conf = !forPrint && l.match(/^ishonchlilik\s*:\s*(\d{1,3})\s*%\s*(.*)$/i);
+    if (conf) {
+      const pct = Math.max(0, Math.min(100, parseInt(conf[1], 10)));
+      const rest = conf[2].replace(/^[\s·•|—-]+/, '').trim();
+      const tone = pct >= 75 ? 'hi' : (pct >= 55 ? 'mid' : 'lo');
+      html += `<div class="r-conf r-conf--${tone}${anim}">` +
+              `<span class="r-conf__num">${pct}%</span>` +
+              `<span class="r-conf__bar"><i style="width:${pct}%"></i></span>` +
+              (rest ? `<span class="r-conf__meta">${inlineFormat(rest)}</span>` : '') +
+              '</div>';
+      i++;
+      continue;
+    }
+
     let cls = 'r-line' + anim;
     if (!forPrint) {
       const lLow = l.toLowerCase();

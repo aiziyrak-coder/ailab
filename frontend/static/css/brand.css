@@ -1213,3 +1213,92 @@ h1, h2, h3 {
   line-height: 1.45;
   color: var(--rd-ink-soft);
 }
+
+/* ── Yakuniy xulosa va ishonchlilik ─────────────────────────────────────── */
+/* Shifokor hisobotni ochganda birinchi ko'radigan ikki narsa: tashxis nomi
+   va u qanchalik dalilga tayanganini ko'rsatuvchi foiz. Qolgan hamma narsa
+   shundan keyin turadi. */
+
+.r-final {
+  margin: 14px 0 6px;
+  padding: 14px 18px;
+  border: 1px solid var(--rd-gold-soft);
+  border-left: 4px solid var(--rd-gold);
+  border-radius: 10px;
+  background: var(--rd-gold-wash);
+}
+
+.r-final__tag {
+  display: block;
+  font-family: var(--rd-display);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--rd-gold-deep);
+  margin-bottom: 5px;
+}
+
+.r-final__dx {
+  display: block;
+  font-family: var(--rd-display);
+  font-size: 1.06rem;
+  font-weight: 700;
+  line-height: 1.42;
+  color: var(--rd-ink);
+}
+
+.r-conf {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 9px 18px 11px;
+  border: 1px solid var(--rd-line);
+  border-radius: 10px;
+  background: var(--rd-mist-2);
+}
+
+.r-conf__num {
+  font-family: var(--rd-display);
+  font-size: 1.24rem;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 3.2rem;
+  color: var(--rd-ink);
+}
+
+.r-conf__bar {
+  flex: 1 1 130px;
+  height: 7px;
+  min-width: 110px;
+  border-radius: 4px;
+  background: var(--rd-line);
+  overflow: hidden;
+}
+
+.r-conf__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--rd-gold);
+}
+
+.r-conf__meta {
+  flex: 1 1 100%;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--rd-ink-soft);
+}
+
+.r-conf--hi .r-conf__bar i { background: #3f7d5c; }
+.r-conf--hi .r-conf__num  { color: #2f6247; }
+.r-conf--mid .r-conf__bar i { background: var(--rd-gold); }
+.r-conf--lo .r-conf__bar i { background: #b4623a; }
+.r-conf--lo .r-conf__num  { color: #96502e; }
+
+@media (max-width: 640px) {
+  .r-final__dx { font-size: 0.98rem; }
+  .r-conf { padding: 9px 14px 11px; }
+}
