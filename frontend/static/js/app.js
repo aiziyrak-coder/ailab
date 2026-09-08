@@ -2877,7 +2877,49 @@ async function refreshUserPill() {
   }
 }
 
+// Tahlil xizmati tushib qolganida shifokor buni rasm yuklab, xato olgandan
+// keyin emas, ochilganda BILISHI kerak. Ilgari /api/health umuman
+// so'ralmasdi, shuning uchun tizim tashqaridan sog'lom ko'rinardi.
+const SERVICE_PROBLEM_UZ = {
+  kredit: 'Tahlil xizmatining hisobida mablag‘ tugagan — tahlil ishlamaydi. Administratorga xabar bering.',
+  kalit: 'Tahlil xizmatining kaliti yaroqsiz — tahlil ishlamaydi. Administratorga xabar bering.',
+  model: 'Tahlil modeli sozlanmagan — tahlil ishlamaydi. Administratorga xabar bering.',
+  band: 'Tahlil xizmati hozir band — biroz kuting.',
+  aloqa: 'Tahlil xizmatiga ulanib bo‘lmadi — internet aloqasini tekshiring.',
+};
+
+async function checkServiceHealth() {
+  // api() har qanday xatoni {success:false} ga aylantiradi — u holda
+  // ziyrakai_ready umuman bo'lmaydi va biz holatni «yaxshi» deb o'ylab
+  // qolardik. Shuning uchun bu yerda to'g'ridan-to'g'ri fetch ishlatiladi.
+  let h = null;
+  try {
+    const r = await fetch(apiPath('/api/health'), { credentials: 'same-origin' });
+    if (r.ok) h = await r.json();
+  } catch (_e) {
+    /* aloqa yo'q — pastda hal qilinadi */
+  }
+  const bar = document.getElementById('serviceBanner');
+  if (!h || typeof h.ziyrakai_ready === 'undefined') {
+    console.warn('Xizmat holatini aniqlab bo‘lmadi');
+    return;
+  }
+  if (h.ziyrakai_ready) {
+    if (bar) bar.hidden = true;
+    return;
+  }
+  const msg = SERVICE_PROBLEM_UZ[h.ziyrakai_problem] ||
+    'Tahlil xizmati hozir ishlamayapti. Administratorga xabar bering.';
+  if (bar) {
+    bar.textContent = msg;
+    bar.hidden = false;
+  } else {
+    toast(msg, 'red');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  checkServiceHealth();
   lockLabSelect();
   bindUploadFileActions();
   refreshUserPill();

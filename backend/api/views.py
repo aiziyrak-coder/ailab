@@ -319,7 +319,10 @@ class HealthView(APIView):
             snap_ok = False
 
         eng.ensure_openai_from_env()
-        ziyrakai_ready = eng.openai_client is not None
+        # Kalit borligi xizmat ishlayotganini bildirmaydi: hisobda kredit
+        # tugaganda ham kalit joyida turadi. Holat haqiqiy chaqiruvdan olinadi.
+        api = eng.api_status()
+        ziyrakai_ready = bool(api.get("ready"))
 
         try:
             from lab_core.histology_kb import index_stats
@@ -335,6 +338,9 @@ class HealthView(APIView):
         except Exception:
             atlas = {"ready": False, "images": 0, "labels": 0, "slides": 0}
 
+        # «ok» — xizmatning O'ZI ishlayaptimi (baza, disk). Tahlil xizmatining
+        # holati alohida maydonlarda: u tushib qolgani bu jarayonni nosog'lom
+        # qilmaydi va uni qayta ishga tushirish kerak emas — kredit kerak.
         overall = db_ok and snap_ok
         payload = {
             "ok": overall,
@@ -344,6 +350,8 @@ class HealthView(APIView):
             "database": db_ok,
             "snapshot_dir_writable": snap_ok,
             "ziyrakai_ready": ziyrakai_ready,
+            "ziyrakai_problem": api.get("kind") or "",
+            "ziyrakai_detail": api.get("detail") or "",
             "product": eng.ZIYRAKAI_DISPLAY_NAME,
             "knowledge_base": {
                 "ready": bool(kb.get("ready")),

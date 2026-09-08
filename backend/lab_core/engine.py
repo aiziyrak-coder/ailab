@@ -50,13 +50,20 @@ def _backend_dotenv_path():
 
 
 def _load_backend_dotenv():
-    """Gunicorn/systemd ishlaganda cwd farq qilishi mumkin — .env doim backend/ dan."""
+    """Gunicorn/systemd ishlaganda cwd farq qilishi mumkin — .env doim backend/ dan.
+
+    override=False: jarayon muhitida allaqachon bor qiymat ustun turadi.
+    Ilgari .env qobiqdagi o'zgaruvchini bosib ketardi — shuning uchun
+    `OPENAI_MODEL_ID=... python ...` jimgina e'tiborsiz qolardi va mahalliy
+    sinov serverdagidan boshqa modelda ketardi. systemd .env ni allaqachon
+    EnvironmentFile orqali yuklaydi, ya'ni bu yerda bosib o'tish keraksiz.
+    """
     try:
         from dotenv import load_dotenv
 
         p = _backend_dotenv_path()
         if os.path.isfile(p):
-            load_dotenv(p, override=True)
+            load_dotenv(p, override=False)
     except ImportError:
         pass
 
@@ -134,6 +141,10 @@ def ensure_openai_from_env():
     qayta yuklab OpenAI ni ishga tushirish.
     """
     global openai_client, OPENAI_MODEL_ID
+    # Model nomi mijoz allaqachon qurilgan bo'lsa ham yangilanadi: ilgari bu
+    # funksiya darrov qaytib ketardi va .env dagi yangi model restartsiz
+    # hech qachon qo'llanilmasdi.
+    OPENAI_MODEL_ID = (os.environ.get("OPENAI_MODEL_ID") or "gpt-4o").strip()
     if openai_client is not None:
         return True
     _load_backend_dotenv()
@@ -1896,6 +1907,84 @@ def _clean_dx_section(text):
             ZIYRAKAI_DISPLAY_NAME, removed,
         )
     return "\n".join(out)
+
+
+# ─── Tuzilgan tashxis: qaror bosqichi ───────────────────────────────────────
+# Audit topgan xato: hisobot bosqichdan bosqichga MATN bo'lib o'tardi va
+# o'nga yaqin qadam uni regex bilan yamardi. Sakkiztasi «#### TASHXIS»
+# sarlavhasiga bog'liq edi — model «####» ni tushirsa, hammasi jimgina
+# o'tkazib yuborilardi. Endi qaror QAT'IY JSON bo'lib keladi, qo'riqchilar
+# maydonlar ustida ishlaydi, hisobot esa oxirida koddan chiqariladi.
+
+
+def _structured_enabled():
+    v = (os.environ.get("HISTOLOGY_STRUCTURED") or "1").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
+def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
+                      patient_context=None, image_parts=None):
+    """Yakuniy tashxisni tuzilgan yozuv sifatida olish. Bo'lmasa None."""
+    from . import dx_record as dxr
+
+    if not isinstance(features, dict):
+        return None
+    feats = _features_prompt_block(features)
+    if not feats:
+        return None
+
+    blocks = [feats]
+    if adj:
+        blocks.append(_adjudication_block(adj))
+    if kb_block:
+        blocks.append(kb_block)
+    if organ_lock and organ_lock.get("organ"):
+        blocks.append(f"Organ qulfi: {organ_lock['organ']} — boshqa organ tashxisi yozilmaydi.")
+    ref = _referral_dx_block(patient_context)
+    if ref:
+        blocks.append(ref)
+    blocks.append(
+        "Yuqoridagilarga tayanib yakuniy tashxisni JSON shaklida qaytaring. "
+        "Rasmlar ham berilgan — dalil tafsilotini ulardan oling."
+    )
+    user_text = "\n\n".join(b for b in blocks if b)
+
+    parts = _spread_pick(list(image_parts or []), 6)
+    try:
+        raw = _complete_resilient(
+            dxr.DECISION_SYSTEM, [user_text], parts,
+            {**kwargs, "max_tokens": 2000, "temperature": 0.0}, "qaror",
+        )
+    except Exception as e:
+        log.warning("%s: qaror bosqichi xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
+        return None
+
+    rec = dxr.from_json(_parse_observation(raw))
+    if rec is None:
+        log.warning("%s: qaror JSON o'qilmadi: %r", ZIYRAKAI_DISPLAY_NAME, _preview(raw))
+        return None
+    log.info(
+        "%s: qaror — %r (%s dalil, %s differensial)",
+        ZIYRAKAI_DISPLAY_NAME, rec.name[:50], len(rec.evidence), len(rec.differentials),
+    )
+    return rec
+
+
+def _finish_record(rec, features, adj, names):
+    """Qo'riqchilar + foiz + hisobot matni. Har doim to'liq ishlaydi."""
+    from . import dx_record as dxr
+
+    rec = dxr.apply_guards(rec, features, _DX_REQUIRED_FEATURES, _descriptive_dx(features))
+    if rec is None:
+        return None, ""
+    pct, why = _confidence_percent(features, adj, names)
+    if rec.certainty == dxr.CERTAIN_DESCRIPTIVE:
+        pct = min(pct, 40)          # tavsifiy nom — nozologiya emas
+    dxr.set_confidence(rec, pct, why)
+    for note in rec.notes:
+        log.info("%s: qo'riqchi — %s", ZIYRAKAI_DISPLAY_NAME, note)
+    log.info("%s: ishonchlilik %s%% — %s", ZIYRAKAI_DISPLAY_NAME, rec.confidence, why)
+    return rec, rec.render()
 
 
 # ─── Ishonchlilik foizi ─────────────────────────────────────────────────────
@@ -4040,6 +4129,7 @@ def _chat_complete(messages, kwargs, model=None):
                         len(text),
                         text[:180],
                     )
+                _note_api_ok()
                 return text
             return (
                 "%s javob matni bo'sh yoki to'liq emas (finish_reason=%s). "
@@ -4074,7 +4164,95 @@ def _chat_complete(messages, kwargs, model=None):
                 )
                 time.sleep(delay)
                 continue
+            _note_api_error(e)
             raise
+
+
+# ─── Xizmat holati ──────────────────────────────────────────────────────────
+# Audit topgan xato: /api/health «ziyrakai_ready: true» deb turardi, chunki u
+# faqat kalit satri borligini tekshirardi. Hisobda kredit tugaganda tizim
+# sog'lom ko'rinar, ammo har bir tahlil xato bilan tugardi. Endi holat
+# HAQIQIY chaqiruv natijasidan olinadi.
+
+_api_state = {"ok": None, "at": 0.0, "error": "", "kind": ""}
+_api_state_lock = threading.Lock()
+
+
+def _classify_api_error(e):
+    """Xatoni shifokorga tushunarli turga ajratish."""
+    s = str(e).lower()
+    if "no credits" in s or "insufficient_quota" in s or "billing" in s:
+        return "kredit"
+    if "rate limit" in s or "429" in s:
+        return "band"
+    if "401" in s or "invalid_api_key" in s or "incorrect api key" in s:
+        return "kalit"
+    if "timeout" in s or "timed out" in s or "connection" in s:
+        return "aloqa"
+    if "does not exist" in s or "model_not_found" in s or "404" in s:
+        return "model"
+    return "boshqa"
+
+
+# Shifokor ekranida inglizcha xom xato va billing havolasi chiqmasin
+_API_ERROR_UZ = {
+    "kredit": "Tahlil xizmatining hisobida mablag' tugagan. Administrator OpenAI "
+              "hisobiga kredit qo'shishi kerak — shundan keyin tahlil darhol ishlaydi.",
+    "band": "Tahlil xizmati hozir band. Bir necha daqiqadan so'ng qayta urinib ko'ring.",
+    "kalit": "Tahlil xizmatining kaliti yaroqsiz. Administrator .env dagi "
+             "OPENAI_API_KEY ni yangilashi kerak.",
+    "aloqa": "Tahlil xizmatiga ulanib bo'lmadi. Internet aloqasini tekshiring va "
+             "qayta urinib ko'ring.",
+    "model": "Tanlangan model mavjud emas. Administrator OPENAI_MODEL_ID ni "
+             "tekshirishi kerak.",
+    "boshqa": "Tahlil xizmatida kutilmagan xato. Qayta urinib ko'ring; takrorlansa "
+              "administratorga xabar bering.",
+}
+
+
+def api_error_uz(e):
+    """Xatoning o'zbekcha, harakatga yo'naltirilgan matni."""
+    return _API_ERROR_UZ.get(_classify_api_error(e), _API_ERROR_UZ["boshqa"])
+
+
+def _note_api_ok():
+    with _api_state_lock:
+        _api_state.update({"ok": True, "at": time.time(), "error": "", "kind": ""})
+
+
+def _note_api_error(e):
+    kind = _classify_api_error(e)
+    with _api_state_lock:
+        _api_state.update({"ok": False, "at": time.time(), "error": str(e)[:300], "kind": kind})
+    log.error("%s: xizmat xatosi (%s): %s", ZIYRAKAI_DISPLAY_NAME, kind, str(e)[:200])
+
+
+def api_status(probe_after_sec=600):
+    """Tahlil xizmati haqiqatan ishlayaptimi.
+
+    Yaqinda haqiqiy chaqiruv bo'lgan bo'lsa — o'sha natija. Bo'lmasa arzon
+    sinov chaqiruvi qilinadi, natija esa keshlanadi.
+    """
+    if openai_client is None:
+        return {"ready": False, "kind": "kalit", "detail": "kalit sozlanmagan"}
+    with _api_state_lock:
+        st = dict(_api_state)
+    fresh = st["ok"] is not None and (time.time() - st["at"]) < probe_after_sec
+    if fresh:
+        return {
+            "ready": bool(st["ok"]),
+            "kind": st["kind"] or "",
+            "detail": st["error"][:200] if not st["ok"] else "",
+        }
+    try:
+        _chat_complete(
+            [{"role": "user", "content": "ok"}],
+            {"max_tokens": 4, "temperature": 0.0},
+        )
+        return {"ready": True, "kind": "", "detail": ""}
+    except Exception as e:
+        _note_api_error(e)
+        return {"ready": False, "kind": _classify_api_error(e), "detail": str(e)[:200]}
 
 
 def _usable(text, min_len=120):
@@ -4852,6 +5030,31 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
         adj = _adjudicate_diagnosis(features, cands, kwargs, organ_lock, patient_context)
         adj_block = _adjudication_block(adj)
 
+    # Tuzilgan qaror — asosiy yo'l. Matn qayta o'qilmaydi, hisobot shu
+    # yozuvdan chiqariladi, shuning uchun sarlavha yoki foiz yo'qolmaydi.
+    if lab_type == "histology" and _structured_enabled() and isinstance(features, dict):
+        _rec = _decide_diagnosis(
+            features, adj, kb_block, kwargs, organ_lock, patient_context, _vision_parts
+        )
+        if _rec is not None:
+            _stable, _names = _dx_stability(features, kwargs)
+            if _stable is False:
+                log.warning(
+                    "%s: tashxis barqaror emas: %s",
+                    ZIYRAKAI_DISPLAY_NAME, " | ".join(_names[:3]),
+                )
+            _rec, _text = _finish_record(_rec, features, adj, _names)
+            if _text:
+                log.info(
+                    "%s: hisobot tayyor (tuzilgan) imgs=%s belgi=%s %.1fs",
+                    ZIYRAKAI_DISPLAY_NAME, n_img, len(_text), time.time() - t_start,
+                )
+                return _text
+        log.warning(
+            "%s: tuzilgan qaror olinmadi — eski matn yo'liga o'tildi",
+            ZIYRAKAI_DISPLAY_NAME,
+        )
+
     patient_block = _patient_prompt_prefix(patient_context, lab_type)
     features_block = (
         (_features_prompt_block(features) if lab_type == "histology" else "")
@@ -5279,10 +5482,13 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None,
         log.info("%s OK %s (%s rasm), %s belgi", ZIYRAKAI_DISPLAY_NAME, lab_type, len(imgs), len(text))
 
     except Exception as e:
-        err = str(e)
-        log.exception("%s tahlil xatosi: %s", ZIYRAKAI_DISPLAY_NAME, err)
+        # Shifokorga inglizcha xom xato va billing havolasi emas,
+        # tushunarli va harakatga yo'naltirilgan matn. Xomi jurnalda.
+        log.exception("%s tahlil xatosi: %s", ZIYRAKAI_DISPLAY_NAME, e)
+        _note_api_error(e)
+        err = api_error_uz(e)
         _publish_analysis({
-            "text": f"Xato: {err}", "lines": [f"Xato: {err}"],
+            "text": err, "lines": [err],
             "timestamp": time.strftime('%H:%M:%S'),
             "status": "xato", "loading": False,
         })
@@ -5364,10 +5570,13 @@ def do_analyze_video(
         log.info("%s video OK %s, %s belgi", ZIYRAKAI_DISPLAY_NAME, lab_type, len(text))
 
     except Exception as e:
-        err = str(e)
-        log.exception("%s video xatosi: %s", ZIYRAKAI_DISPLAY_NAME, err)
+        # Shifokorga inglizcha xom xato va billing havolasi emas,
+        # tushunarli va harakatga yo'naltirilgan matn. Xomi jurnalda.
+        log.exception("%s video xatosi: %s", ZIYRAKAI_DISPLAY_NAME, e)
+        _note_api_error(e)
+        err = api_error_uz(e)
         _publish_analysis({
-            "text": f"Xato: {err}", "lines": [f"Xato: {err}"],
+            "text": err, "lines": [err],
             "timestamp": time.strftime('%H:%M:%S'),
             "status": "xato", "loading": False,
         })

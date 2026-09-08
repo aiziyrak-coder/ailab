@@ -1302,3 +1302,19 @@ h1, h2, h3 {
   .r-final__dx { font-size: 0.98rem; }
   .r-conf { padding: 9px 14px 11px; }
 }
+
+/* ── Xizmat holati chizig'i ─────────────────────────────────────────────── */
+/* Tahlil xizmati ishlamayotganini shifokor rasm yuklashdan OLDIN bilsin. */
+
+.service-banner {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  padding: 10px 18px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #7a2e12;
+  background: #fdece4;
+  border-bottom: 1px solid #f0c3ab;
+}

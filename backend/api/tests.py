@@ -602,6 +602,167 @@ class ObservationGateTests(TestCase):
         self.assertEqual(parsed.get("dominant_pattern"), "x")
 
 
+class StructuredDiagnosisTests(TestCase):
+    """Tashxis tuzilgan yozuv; hisobot undan chiqariladi, qayta o'qilmaydi.
+
+    Auditda topilgan xato: hisobot matn bo'lib o'tar va o'nga yaqin qadam uni
+    regex bilan yamardi. Model «####» sarlavhasini tushirsa, hammasi jimgina
+    o'tkazib yuborilardi. Quyidagi sinovlar aynan shuning takrorlanmasligini
+    tekshiradi.
+    """
+
+    RAW = {
+        "diagnosis": "Verruca vulgaris, yallig'langan turi",
+        "malignant": False,
+        "organ": "teri",
+        "layer": "epidermis–papillyar derma",
+        "grade": "qo'llanilmaydi",
+        "evidence": [
+            {"feature": "Koilotsitoz", "detail": "perinuklear tiniqlashgan 12+ keratinotsit"},
+            {"feature": "Papillomatoz", "detail": "4 ta papillyar cho'qqi"},
+            {"feature": "Giperkeratoz", "detail": "kompakt ortokeratoz ~120 mkm"},
+        ],
+        "differentials": [
+            {"name": "Seboreik keratoz", "excluded_by": "shox kistalari yo'q"},
+        ],
+        "facts": ["Mitoz: 0/10 HPF", "Chekka: baholab bo'lmaydi"],
+    }
+    FEATURES = {
+        "sample_quality": "o'rtacha",
+        "epidermis": {"acanthosis": True, "hyperkeratosis": True,
+                      "papillomatosis": True, "koilocytes": True, "parakeratosis": True},
+        "dermis": {"chronic_inflammation": True},
+        "cytology": {"atypia": False},
+    }
+
+    def _render(self, raw=None, features=None, names=None):
+        from lab_core import dx_record as dxr
+        from lab_core import engine as eng
+
+        rec = dxr.from_json(raw if raw is not None else self.RAW)
+        rec, text = eng._finish_record(
+            rec, features if features is not None else self.FEATURES, None, names or [])
+        return rec, text
+
+    def test_every_section_is_always_present(self):
+        """Sarlavhalar koddan yoziladi — model shakliga bog'liq emas."""
+        for raw in (self.RAW, {"diagnosis": "Psoriasis vulgaris"}):
+            _rec, text = self._render(raw, features={})
+            self.assertTrue(text.startswith("#### TASHXIS"), text[:60])
+            self.assertIn("#### NEGA SHU TASHXIS", text)
+            self.assertIn("#### FAKT", text)
+            self.assertIn("YAKUNIY XULOSA:", text)
+            self.assertRegex(text, r"Ishonchlilik: \d{1,2}%")
+
+    def test_report_carries_the_evidence_and_exclusions(self):
+        _rec, text = self._render()
+        self.assertIn("Koilotsitoz — KO'RINDI: perinuklear", text)
+        self.assertIn("Rad etildi: Seboreik keratoz — shox kistalari yo'q", text)
+        self.assertIn("Mitoz: 0/10 HPF", text)
+
+    def test_unsupported_name_is_swapped_for_a_descriptive_one(self):
+        from lab_core import dx_record as dxr
+
+        thin = {"sample_quality": "past", "dominant_pattern": "acanthotic papillomatous"}
+        rec, text = self._render({**self.RAW, "diagnosis": "Seboreik keratoz"}, features=thin)
+        self.assertEqual(rec.certainty, dxr.CERTAIN_DESCRIPTIVE)
+        self.assertIn("Tavsifiy morfologiya", text)
+        self.assertLessEqual(rec.confidence, 40)
+        self.assertTrue(rec.notes)
+
+    def test_low_confidence_malignancy_keeps_the_safety_line(self):
+        rec, text = self._render(
+            {**self.RAW, "diagnosis": "Melanoma, yuzaki tarqaluvchi", "malignant": True},
+            features={"sample_quality": "past"},
+            names=["Melanoma", "Nevus", "Bazalioma"],
+        )
+        self.assertIn("TASDIQLANMAYDI", text)
+
+    def test_confident_benign_carries_no_warning(self):
+        _rec, text = self._render(names=["Verruca vulgaris"] * 3)
+        self.assertNotIn("TASDIQLANMAYDI", text)
+        self.assertNotIn("DIQQAT", text)
+        self.assertNotIn("Ishonch: past", text)
+        self.assertNotIn("Malignite", text)
+
+    def test_malformed_json_falls_back_instead_of_inventing(self):
+        from lab_core import dx_record as dxr
+
+        for bad in ({}, {"diagnosis": ""}, {"diagnosis": "noaniq"}, None, "matn", []):
+            self.assertIsNone(dxr.from_json(bad), bad)
+
+    def test_evidence_not_in_the_observation_is_still_rendered_honestly(self):
+        """Dalil bo'lmasa bo'lim bo'sh qolmaydi — nima yo'qligini aytadi."""
+        _rec, text = self._render({"diagnosis": "Psoriasis vulgaris"}, features={})
+        self.assertIn("aniq morfologik belgi ajratilmadi", text)
+
+
+class AtlasMatchingTests(TestCase):
+    """Ma'lumotnoma rasm to'g'ri kasallikdan olinsin.
+
+    Yorliqlar rus tilida, so'rov lotinchada — ilgari ular faqat sinonim
+    jadvalidagi nomlar uchun uchrashardi. Bundan ham yomoni: «keratoz»
+    «porokeratoz» ichida bor deb hisoblanib, modelga BOSHQA kasallikning
+    rasmi ko'rsatilardi.
+    """
+
+    def test_cross_script_names_match(self):
+        from lab_core.atlas_images import _score_label, _tokens
+
+        for uz, ru in [("Bazalioma", "Базалиома"), ("Melanoma", "Меланома"),
+                       ("Sarkoidoz", "Саркоидоз"), ("Vitiligo", "Витилиго"),
+                       ("Psoriaz", "Псориаз")]:
+            self.assertGreaterEqual(_score_label(_tokens(uz), ru), 0.6, f"{uz}/{ru}")
+
+    def test_a_shared_suffix_is_not_a_match(self):
+        from lab_core.atlas_images import _score_label, _tokens
+
+        # «keratoz» «porokeratoz» ning OXIRIDA — bu boshqa kasallik
+        self.assertLess(_score_label(_tokens("Seboreik keratoz"), "Порокератоз"), 0.6)
+        self.assertLess(_score_label(_tokens("Sklerotik lixen"), "Простой лихен Видаля"), 0.6)
+
+    def test_chapter_numbering_is_stripped_and_junk_dropped(self):
+        from lab_core.atlas_images import clean_label
+
+        self.assertEqual(clean_label("XV. Псориаз"), "Псориаз")
+        self.assertEqual(clean_label("4. Экзема"), "Экзема")
+        self.assertEqual(clean_label("Базалиома"), "Базалиома")
+        for junk in ("I. Норма и патология кожи", "ВНУТРЕННИЕ БОЛЕЗНИ",
+                     "ираклий 13-09-2014_02-02-45", "Новая папка"):
+            self.assertEqual(clean_label(junk), "", junk)
+
+
+class ServiceStatusTests(TestCase):
+    """Xizmat holati kalit borligidan emas, haqiqiy chaqiruvdan olinadi."""
+
+    def test_quota_error_is_classified_and_translated(self):
+        from lab_core import engine as eng
+
+        cases = {
+            "Error code: 429 - You have no credits remaining. Add credits": "kredit",
+            "Rate limit reached for gpt-4o": "band",
+            "Error code: 401 - Incorrect API key provided": "kalit",
+            "Connection timed out": "aloqa",
+            "The model `gpt-9` does not exist": "model",
+        }
+        for msg, kind in cases.items():
+            self.assertEqual(eng._classify_api_error(Exception(msg)), kind, msg)
+            uz = eng.api_error_uz(Exception(msg))
+            self.assertNotIn("http", uz.lower())      # billing havolasi chiqmasin
+            self.assertNotIn("credits", uz.lower())   # inglizcha xom matn chiqmasin
+            self.assertGreater(len(uz), 30)
+
+    def test_status_reports_a_recent_failure(self):
+        from lab_core import engine as eng
+
+        eng._note_api_error(Exception("Error code: 429 - no credits remaining"))
+        st = eng.api_status()
+        self.assertFalse(st["ready"])
+        self.assertEqual(st["kind"], "kredit")
+        eng._note_api_ok()
+        self.assertTrue(eng.api_status()["ready"])
+
+
 class ConfidencePercentTests(TestCase):
     """Tashxis foiz bilan chiqadi; «Ishonch: past» va uzun ogohlantirish yo'q."""
 

@@ -81,8 +81,35 @@ _STOP = {
 }
 
 
+# Yorliqlar rus tilida, so'rov esa lotinchada keladi («базалиома» va
+# «Bazalioma» — bir xil kasallik). Ilgari ular faqat sinonim jadvalida
+# yozilgan bo'lsa uchrashardi, ya'ni jadvalga kirmagan 200 dan ortiq yorliq
+# hech qachon topilmasdi. Endi ikkala yozuv bir o'zakka keltiriladi.
+_CYR2LAT = {
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e",
+    "ж": "j", "з": "z", "и": "i", "й": "i", "к": "k", "л": "l", "м": "m",
+    "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u",
+    "ф": "f", "х": "x", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "sh",
+    "ъ": "", "ы": "i", "ь": "", "э": "e", "ю": "yu", "я": "ya",
+}
+# Lotin imlosidagi tibbiy atamalar ham bir o'zakka: "carcinoma"/"karsinoma"
+_LAT_FOLD = (
+    ("sch", "sh"), ("ch", "x"), ("kh", "x"), ("ph", "f"), ("th", "t"),
+    ("ck", "k"), ("cz", "z"), ("c", "k"), ("w", "v"), ("y", "i"), ("j", "i"),
+    ("ee", "i"), ("oo", "u"), ("ss", "s"), ("ll", "l"), ("nn", "n"),
+)
+
+
+def _fold(word):
+    w = "".join(_CYR2LAT.get(ch, ch) for ch in word.lower())
+    for a, b in _LAT_FOLD:
+        w = w.replace(a, b)
+    return w
+
+
 def _tokens(text):
-    return {w.lower() for w in _WORD.findall(str(text or "").lower())} - _STOP
+    raw = {w.lower() for w in _WORD.findall(str(text or "").lower())} - _STOP
+    return {_fold(w) for w in raw if _fold(w)}
 
 
 def _synonym_terms(name):
@@ -101,22 +128,58 @@ def _synonym_terms(name):
     return {t for t in out if t}
 
 
+# Papka nomlari kitobdan olingani uchun ular tashxis emas, bob sarlavhasi
+# bo'lishi mumkin («XV. Псориаз»), yoki umuman kasallik nomi emas (kitob
+# nomi, «Новая папка», sana). Raqamli prefiks kesiladi, kasallik bo'lmagan
+# yorliqlar esa moslashtirishdan chiqariladi — aks holda ma'lumotnoma rasm
+# tasodifiy bobdan olinadi.
+_LABEL_NUM = re.compile(r"^\s*(?:[IVXLC]+|\d+)\s*[.)]\s*", re.I)
+_LABEL_DATE = re.compile(r"\d{2}-\d{2}-\d{4}")
+_NOT_DIAGNOSIS = (
+    "норма и патология", "гистопатология кожи", "принципы диагностики",
+    "внутренние болезни", "руководство до и после", "монография",
+    "новая папка", "пороки развития",
+)
+
+
+def clean_label(raw):
+    """Papka nomidan tashxis nomi; tashxis bo'lmasa bo'sh satr."""
+    s = _LABEL_NUM.sub("", str(raw or "").strip())
+    s = re.sub(r"\s+", " ", s).strip()
+    low = s.lower()
+    if len(s) < 4 or _LABEL_DATE.search(s) or any(b in low for b in _NOT_DIAGNOSIS):
+        return ""
+    return s
+
+
+def _pair_score(a, b):
+    """Ikki o'zakning yaqinligi 0..1.
+
+    Qisman moslik faqat BOSHIDAN mos kelganda hisobga olinadi. Ilgari oddiy
+    ichida-borlik yetardi va «keratoz» ⊂ «porokeratoz» deb hisoblanardi —
+    natijada modelga BOSHQA kasallikning rasmi ko'rsatilardi. Noto'g'ri
+    ma'lumotnoma rasm rasmsizdan yomonroq.
+    """
+    if a == b:
+        return 1.0
+    short, long = (a, b) if len(a) <= len(b) else (b, a)
+    if len(short) >= 5 and long.startswith(short):
+        return len(short) / len(long)
+    return 0.0
+
+
 def _score_label(query_tokens, label):
     lt = _tokens(label)
     if not lt or not query_tokens:
         return 0.0
-    inter = query_tokens & lt
-    if not inter:
-        # qisman moslik: "базалиом" ⊂ "базалиома"
-        for q in query_tokens:
-            for l in lt:
-                if len(q) >= 6 and (q in l or l in q):
-                    return 0.55
-        return 0.0
-    return len(inter) / max(1, min(len(query_tokens), len(lt)))
+    total = 0.0
+    for q in query_tokens:
+        best = max((_pair_score(q, l) for l in lt), default=0.0)
+        total += best
+    return total / max(1, min(len(query_tokens), len(lt)))
 
 
-def find_reference_images(names, max_slides=2, max_clinical=1, min_score=0.5):
+def find_reference_images(names, max_slides=2, max_clinical=1, min_score=0.6):
     """Berilgan tashxis nomlariga mos ma'lumotnoma rasmlar.
 
     names: ro'yxat (klinik gipoteza, qoralamadagi tashxis va h.k.)
@@ -137,7 +200,11 @@ def find_reference_images(names, max_slides=2, max_clinical=1, min_score=0.5):
     best_label, best_score = None, 0.0
     labels = {}
     for r in rows:
-        labels.setdefault(r.get("label") or "", []).append(r)
+        # Moslashtirish TOZALANGAN nom bo'yicha ketadi, lekin rasmlar asl
+        # yorliq ostida guruhlanadi — indeks o'zgarmaydi.
+        clean = clean_label(r.get("label"))
+        if clean:
+            labels.setdefault(clean, []).append(r)
     for label in labels:
         sc = _score_label(q, label)
         if sc > best_score:
