@@ -1400,6 +1400,28 @@ _DX_REQUIRED_FEATURES = {
     "melanom": ("pagetoid_spread", "single_melanocyte_proliferation", "melanocyte_nests"),
     "nevus": ("melanocyte_nests", "single_melanocyte_proliferation"),
     "psoriaz": ("parakeratosis",),
+    # Hakamlik nomzodlarini ham shu jadval tekshiradi — qamrovi kengaytirildi
+    "lichen planus": ("band_like_infiltrate", "interface_damage"),
+    "qizil yassi temiratki": ("band_like_infiltrate", "interface_damage"),
+    "lixenoid": ("band_like_infiltrate", "interface_damage"),
+    "ekzema": ("spongiosis",),
+    "eczema": ("spongiosis",),
+    "spongiotic": ("spongiosis",),
+    "spongiotik": ("spongiosis",),
+    "sarcoidos": ("granuloma",),
+    "sarkoidoz": ("granuloma",),
+    "granuloma annulare": ("granuloma",),
+    "granulomatous": ("granuloma",),
+    "granulomatoz": ("granuloma",),
+    "vasculitis": ("vasculitis",),
+    "vaskulit": ("vasculitis",),
+    "mycosis fungoides": ("pagetoid_spread", "dense_lymphoid_infiltrate"),
+    "gribovidn": ("pagetoid_spread", "dense_lymphoid_infiltrate"),
+    "lymphoma": ("dense_lymphoid_infiltrate",),
+    "limfoma": ("dense_lymphoid_infiltrate",),
+    "kaposi": ("vascular_proliferation", "spindle_cells"),
+    "hemangiom": ("vascular_proliferation",),
+    "gemangiom": ("vascular_proliferation",),
     "psoriasis": ("parakeratosis",),
     "lichen planus": ("band_like_infiltrate", "interface_damage"),
     "granuloma annulare": ("granuloma",),
@@ -2190,13 +2212,18 @@ def _stability_enabled():
     return v not in ("0", "false", "no", "off")
 
 
-def _dx_stability(features, kwargs=None):
-    """[(nom, ...)] → (barqarormi, nomlar ro'yxati). Guruh bo'lmasa (None, [])."""
-    if not _stability_enabled() or not isinstance(features, dict):
-        return None, []
+def _group_dx_names(features, kwargs=None):
+    """Har mustaqil ko'rik guruhi bo'yicha alohida tashxis nomi.
+
+    Bu nomlar ikki joyda ishlatiladi: barqarorlikni o'lchash va differensial
+    hakamlikka nomzod berish.
+    """
+    if not isinstance(features, dict):
+        return []
+    cached = features.get("_group_names")
+    if cached is not None:
+        return list(cached)
     groups = features.get("_groups") or []
-    if len(groups) < 2:
-        return None, []
     names = []
     for g in groups:
         block = _features_prompt_block(g)
@@ -2212,11 +2239,23 @@ def _dx_stability(features, kwargs=None):
                 model=_router_model(),
             )
         except Exception as e:
-            log.warning("%s: barqarorlik chaqiruvi xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
+            log.warning("%s: nomzod chaqiruvi xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
             continue
         name = (out or "").strip().splitlines()[0][:60] if out else ""
-        if name and not _looks_like_refusal(name):
+        if name and not _looks_like_refusal(name) and name.upper() != "NOANIQ":
             names.append(name)
+    features["_group_names"] = names
+    return names
+
+
+def _dx_stability(features, kwargs=None):
+    """[(nom, ...)] → (barqarormi, nomlar ro'yxati). Guruh bo'lmasa (None, [])."""
+    if not _stability_enabled() or not isinstance(features, dict):
+        return None, []
+    groups = features.get("_groups") or []
+    if len(groups) < 2:
+        return None, []
+    names = _group_dx_names(features, kwargs)
     if len(names) < 2:
         return None, names
     norm = [_normalize_dx_name(n) for n in names]
@@ -2273,6 +2312,189 @@ def _add_stability_note(text, stable, names):
             out.append(note)
             done = True
     return "\n".join(out) if done else note + "\n\n" + text
+
+
+# ─── Differensial hakamlik ───────────────────────────────────────────────────
+# Mustaqil maydonlar turli nom berganda tizim ulardan birini asossiz tanlardi.
+# Patolog bunday qilmaydi: u har nomzodning MEZONINI oladi va ko'rgan belgilari
+# bilan bandma-band solishtiradi, so'ng qaysi biri mos kelishini AYTADI.
+# Shu qadam kitoblarni aynan qaror nuqtasida ishlatadi.
+
+_ADJUDICATE_SYSTEM = (
+    "Siz — dermatopatologiya bo'yicha konsultantsiz. Sizga bitta kesmadan "
+    "olingan O'LCHANGAN belgilar ro'yxati va bir necha nomzod tashxis, "
+    "hamda har nomzod uchun darslik mezonlari beriladi.\n"
+    "Vazifa: har nomzodni mezonlari bo'yicha tekshirib, qaysi biri belgilarga "
+    "eng mos kelishini aniqlash.\n"
+    "Qat'iy shartlar:\n"
+    "— Faqat berilgan belgilarga tayaning; yangi topilma o'ylab topmang.\n"
+    "— Nomzodning ASOSIY (majburiy) mezoni belgilar ro'yxatida YO'Q bo'lsa, "
+    "uni tanlamang: bunday tashxis dalilga zid bo'ladi.\n"
+    "— Har nomzod uchun uning ASOSIY mezonlarini sanang va har birini "
+    "BOR / YO'Q / BAHOLANMAGAN deb belgilang.\n"
+    "— Hal qiluvchi belgini alohida ayting.\n"
+    "— Agar hech bir nomzod mos kelmasa yoki ikkitasi teng bo'lsa, buni "
+    "ochiq ayting.\n"
+    "Javob QAT'IY JSON: {\"chosen\": \"nom yoki \", "
+    "\"confidence\": \"past|o'rta|yuqori\", "
+    "\"deciding\": \"hal qiluvchi belgi, bir jumla\", "
+    "\"candidates\": [{\"name\": \"...\", \"fit\": \"mos|qisman|mos emas\", "
+    "\"criteria\": [{\"c\": \"mezon\", \"v\": \"bor|yo'q|baholanmagan\"}], "
+    "\"why\": \"bir jumla\"}]}"
+)
+
+
+def _adjudicate_enabled():
+    v = (os.environ.get("HISTOLOGY_ADJUDICATE") or "1").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
+def _candidate_criteria(name, organ_lock=None, patient_context=None):
+    """Nomzod uchun kitoblardan qisqa mezon parchasi."""
+    try:
+        from .histology_kb import retrieve
+    except Exception:
+        return ""
+    queries = [
+        f"{name} histopathology diagnostic criteria essential features",
+        f"{name} патоморфология критерии диагноза гистология",
+    ]
+    try:
+        hits = retrieve(queries, k=3, organ=(organ_lock or {}).get("organ") or "teri")
+    except Exception as e:
+        log.warning("%s: mezon qidiruvi xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
+        return ""
+    if not hits:
+        return ""
+    parts = []
+    for h in hits[:3]:
+        body = re.sub(r"\s+", " ", (h.get("text") or "")).strip()
+        if body:
+            parts.append(body[:420])
+    return "\n".join(parts)
+
+
+def _candidate_blocked(name, features):
+    """Nomzodning barcha asosiy belgilari ko'rikda yo'qmi.
+
+    Hakam ilgari shunday nomzodni ham tanlashi mumkin edi, keyin tekshirgich
+    uni rad etardi va hisobot tavsifiy nomga tushib qolardi. Bunday nomzodni
+    umuman taklif qilmaslik to'g'riroq: hakam qolgan haqiqiy variantlarni
+    solishtirsin.
+    """
+    if not name or not isinstance(features, dict):
+        return ""
+    low = str(name).lower()
+    for key, required in _DX_REQUIRED_FEATURES.items():
+        if key not in low:
+            continue
+        missing = [k for k in required if not _feature_true(features, k)]
+        if len(missing) == len(required):
+            return ", ".join(_FEATURE_UZ.get(m, m) for m in missing)
+    return ""
+
+
+def _adjudicate_diagnosis(features, candidates, kwargs, organ_lock=None, patient_context=None):
+    """Nomzodlarni kitob mezonlari bo'yicha tekshirib, birini tanlash."""
+    if not _adjudicate_enabled() or not isinstance(features, dict):
+        return None
+    names, blocked = [], []
+    for c in candidates or []:
+        c = str(c or "").strip()
+        if not c or any(_same_entity(c, x) for x in names):
+            continue
+        why = _candidate_blocked(c, features)
+        if why:
+            blocked.append((c, why))
+            continue
+        names.append(c)
+    if blocked:
+        log.info(
+            "%s: hakamlikdan chiqarildi — %s",
+            ZIYRAKAI_DISPLAY_NAME,
+            "; ".join(f"{n} ({w})" for n, w in blocked[:3]),
+        )
+    if len(names) < 2:
+        return None
+    names = names[:4]
+
+    feats = _features_prompt_block(features)
+    if not feats:
+        return None
+
+    blocks = []
+    for n in names:
+        crit = _candidate_criteria(n, organ_lock, patient_context)
+        blocks.append(
+            f"== NOMZOD: {n} ==\n"
+            + (f"Darslik mezonlari:\n{crit}\n" if crit else "Darslik parchasi topilmadi.\n")
+        )
+
+    user = (
+        feats
+        + "\n\n==== NOMZODLAR VA MEZONLAR ====\n"
+        + "\n".join(blocks)
+        + "\n==== TUGADI ====\n"
+        "Har nomzodni mezonlari bo'yicha tekshiring va JSON qaytaring."
+    )
+    try:
+        raw = _chat_complete(
+            [
+                {"role": "system", "content": _ADJUDICATE_SYSTEM},
+                {"role": "user", "content": user},
+            ],
+            {"max_tokens": 1600, "temperature": 0.0},
+        )
+    except Exception as e:
+        log.warning("%s: hakamlik xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
+        return None
+    data = _parse_observation(raw)
+    if not isinstance(data, dict) or not data.get("candidates"):
+        log.warning("%s: hakamlik javobi o'qilmadi", ZIYRAKAI_DISPLAY_NAME)
+        return None
+    log.info(
+        "%s: hakamlik — tanlandi=%r ishonch=%s (%s nomzod)",
+        ZIYRAKAI_DISPLAY_NAME,
+        str(data.get("chosen"))[:40],
+        data.get("confidence"),
+        len(data.get("candidates") or []),
+    )
+    return data
+
+
+def _adjudication_block(adj):
+    """Hakamlik natijasini hisobot promptiga qo'shiladigan matn."""
+    if not isinstance(adj, dict):
+        return ""
+    lines = ["### DIFFERENSIAL TEKSHIRUV (mezonlar bo'yicha)"]
+    for c in (adj.get("candidates") or [])[:4]:
+        name = str(c.get("name") or "").strip()
+        if not name:
+            continue
+        marks = []
+        for it in (c.get("criteria") or [])[:6]:
+            cc = str(it.get("c") or "").strip()
+            vv = str(it.get("v") or "").strip()
+            if cc:
+                marks.append(f"{cc}: {vv or 'noaniq'}")
+        lines.append(
+            f"- {name} — {c.get('fit') or 'noaniq'}"
+            + (f" ({'; '.join(marks)})" if marks else "")
+            + (f". {str(c.get('why') or '').strip()}" if c.get("why") else "")
+        )
+    chosen = str(adj.get("chosen") or "").strip()
+    if chosen:
+        lines.append(
+            f"Mezonlar bo'yicha eng mos: {chosen} "
+            f"(ishonch: {adj.get('confidence') or 'noaniq'})."
+        )
+    if adj.get("deciding"):
+        lines.append(f"Hal qiluvchi belgi: {str(adj['deciding']).strip()[:200]}")
+    lines.append(
+        "Shu tekshiruvni hisobotda ishlat: TASHXIS nomi mezonlarga mos bo'lsin, "
+        "asosda hal qiluvchi belgini ayt. Mos kelmasa — nima uchun, ayt."
+    )
+    return "\n".join(lines) + "\n"
 
 
 def _apply_evidence_rules(text, features, lab_type="histology"):
@@ -4401,8 +4623,21 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
             organ_lock, patient_context, draft=_features_query_text(features) or None
         )
 
+    # Differensial hakamlik: mustaqil maydonlar bergan nomlar + klinik gipoteza
+    # kitob mezonlari bo'yicha tekshiriladi. Bu — qaror nuqtasi, shuning uchun
+    # kitoblar aynan shu yerda ishlashi kerak.
+    adj_block = ""
+    if lab_type == "histology" and isinstance(features, dict):
+        cands = list(_group_dx_names(features, kwargs))
+        cands.extend(_dx_terms_for_atlas(patient_context))
+        adj = _adjudicate_diagnosis(features, cands, kwargs, organ_lock, patient_context)
+        adj_block = _adjudication_block(adj)
+
     patient_block = _patient_prompt_prefix(patient_context, lab_type)
-    features_block = _features_prompt_block(features) if lab_type == "histology" else ""
+    features_block = (
+        (_features_prompt_block(features) if lab_type == "histology" else "")
+        + ("\n" + adj_block if adj_block else "")
+    )
     multi_note = _multi_image_protocol(n_img) if n_img > 1 else ""
 
     # Professor/konsilium so'rovi gpt-4o da tibbiy filtr bilan rad etiladi.
