@@ -1202,6 +1202,27 @@ class TokenBudgetTests(TestCase):
         eng._meter_reset()
         eng._budget_check("yangi keys")     # reset dan keyin yana ruxsat
 
+    def test_open_case_meter_survives_the_pipeline_entry(self):
+        """do_analyze hisobni ochadi; _openai_generate uni nolga tushirmaydi —
+        klinik surat chaqiruvi ham keys chegarasiga kiradi."""
+        from lab_core import engine as eng
+
+        eng._meter_begin()
+        eng._meter_add("klinik surat", None, 1, 200)
+        eng._meter_ensure()                      # ochiq — tegmaydi
+        self.assertEqual(eng._meter_summary()["calls"], 1)
+        eng._meter_end()
+        eng._meter_ensure()                      # yopiq — yangi keys
+        self.assertEqual(eng._meter_summary()["calls"], 0)
+
+    def test_default_ceiling_is_a_safety_net_not_a_budget(self):
+        from lab_core import engine as eng
+
+        for k in ("OPENAI_MAX_CALLS_PER_CASE", "OPENAI_MAX_TOKENS_PER_CASE"):
+            os.environ.pop(k, None)
+        self.assertLessEqual(eng._max_calls_per_case(), 5)
+        self.assertLessEqual(eng._max_tokens_per_case(), 40000)
+
 
 class EconomyPipelineMockTests(TestCase):
     """Tejamkor quvur: keysga ≤3 chaqiruv, hisobot to'liq, sarf yozib boriladi."""

@@ -3097,6 +3097,7 @@ def _clinical_appearance(clinical_parts, patient_context=None):
                 {"role": "user", "content": _vision_user(user, picked)},
             ],
             {"max_tokens": 400, "temperature": 0.0},
+            label="klinik surat",
         )
     except Exception as e:
         log.warning("%s: klinik ko'rinish xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
@@ -4181,6 +4182,24 @@ def _meter_reset():
     _case_meter.prompt = 0
     _case_meter.completion = 0
     _case_meter.log = []
+    _case_meter.open = False
+
+
+def _meter_begin():
+    """Keys boshlandi — shu paytdan hamma chaqiruv (klinik surat ham) hisobga kiradi."""
+    _meter_reset()
+    _case_meter.open = True
+
+
+def _meter_end():
+    _meter_state().open = False
+
+
+def _meter_ensure():
+    """_openai_generate to'g'ridan-to'g'ri chaqirilsa (benchmark) — o'zi boshlaydi;
+    do_analyze ichida bo'lsa — ochiq hisobni buzmaydi."""
+    if not getattr(_meter_state(), "open", False):
+        _meter_begin()
 
 
 def _meter_state():
@@ -4214,16 +4233,16 @@ def _meter_summary():
 
 def _max_calls_per_case():
     try:
-        return max(1, int(os.environ.get("OPENAI_MAX_CALLS_PER_CASE", "6")))
+        return max(1, int(os.environ.get("OPENAI_MAX_CALLS_PER_CASE", "5")))
     except ValueError:
-        return 6
+        return 5
 
 
 def _max_tokens_per_case():
     try:
-        return max(5000, int(os.environ.get("OPENAI_MAX_TOKENS_PER_CASE", "60000")))
+        return max(5000, int(os.environ.get("OPENAI_MAX_TOKENS_PER_CASE", "40000")))
     except ValueError:
-        return 60000
+        return 40000
 
 
 class CaseBudgetExceeded(RuntimeError):
@@ -5162,7 +5181,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
                 "%s: to'plamda H&E kesmasi topilmadi — klinik suratlar bilan ishlanmoqda",
                 ZIYRAKAI_DISPLAY_NAME,
             )
-    _meter_reset()
+    _meter_ensure()
     economy = lab_type == "histology" and _economy_enabled() and _structured_enabled()
     if image_parts and economy:
         # TEJAMKOR YO'L: namuna tekshiruvi, organ va ko'rik — BITTA chaqiruv.
@@ -5646,6 +5665,7 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None,
             "loading": False,
         })
         return
+    _meter_begin()
     try:
         with analysis_lock:
             latest_analysis.update({"status": "tahlil_qilinmoqda", "lab_type": lab_type})
@@ -5712,8 +5732,10 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None,
             "img_count": len(imgs),
         })
         log.info("%s OK %s (%s rasm), %s belgi", ZIYRAKAI_DISPLAY_NAME, lab_type, len(imgs), len(text))
+        _meter_end()
 
     except Exception as e:
+        _meter_end()
         # Shifokorga inglizcha xom xato va billing havolasi emas,
         # tushunarli va harakatga yo'naltirilgan matn. Xomi jurnalda.
         log.exception("%s tahlil xatosi: %s", ZIYRAKAI_DISPLAY_NAME, e)

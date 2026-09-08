@@ -159,6 +159,9 @@ repls = {{
     "CSRF_TRUSTED_ORIGINS=": "CSRF_TRUSTED_ORIGINS=https://lab.fermi.uz,http://lab.fermi.uz",
     "OPENAI_ROUTER_MODEL=": "OPENAI_ROUTER_MODEL=gpt-4o-mini",
     "OPENAI_MODEL_ID=": "OPENAI_MODEL_ID=gpt-5.6-sol",
+    # Keys chegarasi — har deployda yangilanadi (himoya to'ri, ixtiyoriy emas)
+    "OPENAI_MAX_CALLS_PER_CASE=": "OPENAI_MAX_CALLS_PER_CASE=5",
+    "OPENAI_MAX_TOKENS_PER_CASE=": "OPENAI_MAX_TOKENS_PER_CASE=40000",
 }}
 # Faqat yo'q bo'lsa qo'shiladi (serverda o'zgartirilsa saqlanadi):
 #  KB_ACCESS_PASSWORD  — Bilimlar bazasi paroli
@@ -171,8 +174,6 @@ adds = {{
     "HISTOLOGY_STRUCTURED=": "HISTOLOGY_STRUCTURED=1",
     # Tejamkor quvur: keysga ≤3 chaqiruv, rasm 1280 px, qattiq chegara
     "HISTOLOGY_ECONOMY=": "HISTOLOGY_ECONOMY=1",
-    "OPENAI_MAX_CALLS_PER_CASE=": "OPENAI_MAX_CALLS_PER_CASE=6",
-    "OPENAI_MAX_TOKENS_PER_CASE=": "OPENAI_MAX_TOKENS_PER_CASE=60000",
     "OPENAI_IMAGE_MAX_PX=": "OPENAI_IMAGE_MAX_PX=1280",
 }}
 lines = []
