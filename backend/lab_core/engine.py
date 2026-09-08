@@ -2396,6 +2396,19 @@ def _finish_record(rec, features, adj, names, verified_changes=None, clinical_te
     """Qo'riqchilar + foiz + hisobot matni. Har doim to'liq ishlaydi."""
     from . import dx_record as dxr
 
+    # Umumiy ko'rinish, qaror va klinika — oldindan hisoblanadi: tekshiruv
+    # bloki shunga qarab nomni almashtiradi yoki almashtirmaydi.
+    _g_dx = str((gestalt or {}).get("diagnosis") or "").strip() if isinstance(gestalt, dict) else ""
+    _g_ent = _dxc.find_entity(_g_dx) if _g_dx else None
+    _r_ent = _dxc.find_entity(rec.name)
+    agree_early = bool(_g_dx) and (
+        _same_entity(_g_dx, rec.name) or (_g_ent is not None and _r_ent is not None and _g_ent is _r_ent))
+    _g_strong = str((gestalt or {}).get("confidence") or "").lower() in ("high", "moderate") \
+        if isinstance(gestalt, dict) else False
+    _clinic_names = set(_dxc.referral_entities(referral_pure) + _dxc.clinical_entities(
+        (clinical_text or "") + " " + (referral_pure or "")))
+    clinic_backs_early = _g_ent is not None and _g_ent["name"] in _clinic_names
+
     if verified_changes is None and _economy_enabled() and _verify_enabled():
         # Ikkinchi ko'z bo'lmadi — bitta ko'rikka to'liq ishonib bo'lmaydi
         rec.confidence_cap = min(rec.confidence_cap or 100, 75)
@@ -2421,6 +2434,14 @@ def _finish_record(rec, features, adj, names, verified_changes=None, clinical_te
             swap, why = top[0], "tayanchsiz qoldi"
         elif ev is None and hinted_top is not None:
             swap, why = hinted_top, "jadvalda yo'q, tekshiruv gipotezani qo'llab-quvvatladi"
+        if swap is not None and agree_early and _g_strong:
+            # Umumiy ko'rinish va qaror bir nomga kelgan — ro'yxat shovqini nomni
+            # almashtira olmaydi (3-keys: PG → «Vitiligo» → PG sakrashi).
+            rec.notes.append(
+                f"tekshiruvdan keyin ro'yxat «{swap['name']}» ni ko'tardi, lekin umumiy "
+                f"ko'rinish va qaror «{rec.name}» da kelishgan — nom saqlanadi"
+            )
+            swap = None
         if swap is not None:
             rec.notes.append(
                 f"tekshiruvdan keyin «{rec.name}» {why} — "
@@ -2436,10 +2457,13 @@ def _finish_record(rec, features, adj, names, verified_changes=None, clinical_te
                 dxr.Evidence(feature=_dxc.feature_label(k), seen=True, detail="tekshiruvda tasdiqlandi")
                 for k in swap["essential_present"][:6]
             ]
-        # Tasdiqlangan (yo'q → bor) belgilar dalilga; ularni rad etgan differensiallar olib tashlanadi
+        # Tasdiqlangan (yo'q → bor) belgilar dalilga — faqat tashxisga aloqadorlari;
+        # ularni rad etgan differensiallar olib tashlanadi
+        material_now = _material_changes(rec.name, verified_changes, ranked)
         present = [c.split(":")[0].strip() for c in verified_changes if c.endswith(": bor")]
         for label in present:
-            if not any(e.feature.lower() == label.lower() for e in rec.evidence):
+            relevant = any(label in m for m in material_now)
+            if relevant and not any(e.feature.lower() == label.lower() for e in rec.evidence):
                 rec.evidence.append(dxr.Evidence(feature=label, seen=True,
                                                  detail="qayta tekshiruvda tasdiqlandi"))
             rec.differentials = [
@@ -2511,7 +2535,10 @@ def _finish_record(rec, features, adj, names, verified_changes=None, clinical_te
                     f"qaror «{rec.name}» senior o'qish «{gdx}» ni rad etuvchi belgisiz bekor qildi; "
                     "klinika gestaltni qo'llaydi — nom gestaltniki"
                 )
-                rec.differentials = [d for d in rec.differentials if not _same_entity(d.name, gdx)]
+                rec.differentials = [
+                    d for d in rec.differentials
+                    if not _same_entity(d.name, gdx) and _dxc.find_entity(d.name) is not ge
+                ]
                 rec.differentials.insert(0, dxr.Differential(
                     name=rec.name[:80],
                     excluded_by="ko'rikdagi qo'shimcha belgilar; umumiy ko'rinish va klinika boshqa nomga keldi"))
@@ -2551,6 +2578,15 @@ def _finish_record(rec, features, adj, names, verified_changes=None, clinical_te
         why += "; umumiy ko'rinish mos"
     if rec.confidence_cap:
         pct = min(pct, rec.confidence_cap)   # mezon qo'riqchisi qo'ygan shift
+    # Uch mustaqil manba — umumiy ko'rinish, qaror va klinika — bir nomda bo'lsa,
+    # ro'yxat shovqini ishonchni 65% dan pastga tushirmaydi (nomuvofiqlik bo'lmasa).
+    if (rec.gestalt_agreement == "mos" and clinic_backs_early and not rec.discordance
+            and not dxr.looks_malignant(rec)):
+        if pct < 65:
+            why += "; umumiy ko'rinish + qaror + klinika kelishdi"
+        pct = max(pct, 65)
+        if rec.certainty == dxr.CERTAIN_PROVISIONAL and not rec.discordance:
+            rec.certainty = dxr.CERTAIN_DEFINITE
     dxr.set_confidence(rec, pct, why)
     for note in rec.notes:
         log.info("%s: qo'riqchi — %s", ZIYRAKAI_DISPLAY_NAME, note)

@@ -659,8 +659,6 @@ CRITERIA = [
     E("Teri amiloidozi", ["amiloid", "amyloid", "амилоид"], "dermal",
       ["amyloid_deposits"], ["pigment_incontinence", "acanthosis"],
       ["granuloma", "acantholysis"], min_essential=1),
-    E("Vitiligo", ["vitiligo", "витилиго"], "epidermal",
-      ["basal_pigment"], [], ["melanocyte_nests"], min_essential=0),
     E("Alopetsiya areata", ["areata", "alopet", "alopeci", "алопец", "gnezdn", "гнездн"],
       "follikulyar",
       ["dense_lymphoid_infiltrate", "adnexal_involvement"], ["eosinophils", "mast_cell_infiltrate"],

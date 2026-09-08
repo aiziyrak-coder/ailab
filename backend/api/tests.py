@@ -1526,6 +1526,31 @@ class ClinicalReasoningTests(TestCase):
         self.assertNotIn("Umumiy ko'rinish bilan zid", text)
         self.assertGreaterEqual(rec.confidence, 55, rec.confidence_why)
 
+    def test_agreed_name_survives_a_noisy_verification(self):
+        """Gestalt PG + qaror PG + klinika «Ангиома?»: tekshiruv ro'yxatda tomir belgisini
+        ko'rmasa ham nom almashmaydi, ishonch ≥65, «taxminiy» yo'q."""
+        from lab_core import dx_record as dxr
+        from lab_core import engine as eng
+
+        f = {"sample_quality": "o'rtacha", "cytology": {},
+             "epidermis": {"acanthosis": True, "basal_pigment": True, "follicular_plugging": True},
+             "dermis": {"papillary_dermal_edema": True}}       # tomir belgisi yo'q — ro'yxat shovqini
+        rec = dxr.from_json({"diagnosis": "Lobulyar kapillyar gemangioma (piogen granuloma)",
+                             "organ": "teri", "evidence": [
+                                 {"feature": "Polipoid tuzilma", "detail": "x"},
+                                 {"feature": "Kapillyar lobulalar", "detail": "y"}]})
+        gestalt = {"diagnosis": "Lobular capillary hemangioma (pyogenic granuloma)",
+                   "confidence": "moderate", "decisive_features": ["Lobular capillaries"]}
+        rec, text = eng._finish_record(
+            rec, f, None, [], ["bazal membrana qalinlashgan: bor", "follikulyar tiqin: bor"],
+            clinical_text=self.CLIN, referral_text=self.REF + " Piogen granuloma",
+            gestalt=gestalt, referral_pure=self.REF)
+        self.assertIn("gemangioma", rec.name.lower())
+        self.assertFalse(any("Vitiligo" in d.name for d in rec.differentials))
+        self.assertGreaterEqual(rec.confidence, 65, rec.confidence_why)
+        self.assertNotIn("taxminiy", text)
+        self.assertNotIn("bazal membrana", text)      # ahamiyatsiz flip dalilga yozilmaydi
+
     def test_after_verification_the_vascular_lesion_wins(self):
         from lab_core import dx_criteria as dxc
 
