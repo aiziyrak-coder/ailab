@@ -1002,3 +1002,73 @@ h1, h2, h3 {
   color: var(--rd-gold-deep) !important;
   border-color: var(--rd-gold) !important;
 }
+
+/* ─── Klinik rasmlar maydoni ───────────────────────────────────────────────
+   Mikroskop kesmalaridan alohida: patolog kesmani bemorning terisini ko'rgan
+   holda o'qiydi, shuning uchun ikkala to'plam ham yuboriladi, lekin klinik
+   rasm morfologik ko'rikka aralashmaydi.
+   ──────────────────────────────────────────────────────────────────────── */
+.clinical-zone {
+  margin-top: 10px;
+  padding: 14px 12px;
+  border: 1px dashed var(--rd-gold-soft);
+  border-radius: 8px;
+  background: var(--rd-gold-wash);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.clinical-zone:hover,
+.clinical-zone.drag-active {
+  border-color: var(--rd-gold);
+  border-style: solid;
+}
+
+.clinical-main {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--rd-gold-deep);
+}
+
+.clinical-hint {
+  margin-top: 3px;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--rd-ink-soft);
+}
+
+.clinical-list {
+  margin-top: 8px;
+  border: 1px solid var(--rd-line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.clinical-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--rd-mist-2);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--rd-ink-soft);
+}
+
+.clinical-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 0.74rem;
+  border-top: 1px solid var(--rd-line);
+}
+
+.clinical-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -550,7 +550,7 @@ class AnalyzeView(APIView):
                 )
                 _spawn_analyze(
                     eng.do_analyze,
-                    ([pil_img], lab_type, custom_prompt, micro_pfx, patient_ctx),
+                    ([pil_img], lab_type, custom_prompt, micro_pfx, patient_ctx, None),
                     rec.pk if rec else None,
                     job_id=job_id,
                 )
@@ -567,6 +567,26 @@ class AnalyzeView(APIView):
             files = request.FILES.getlist("files[]")
             if not files or all(not getattr(f, "name", "") for f in files):
                 files = request.FILES.getlist("file")
+
+            # Tanadagi (klinik) rasmlar alohida keladi: ular H&E kesma emas,
+            # shuning uchun morfologik ko'rikka aralashmaydi — faqat kontekst.
+            clinical_images = []
+            for cf in request.FILES.getlist("clinical[]")[: eng.MAX_UPLOAD_FILES]:
+                if not getattr(cf, "name", ""):
+                    continue
+                try:
+                    data = cf.read()
+                    if not data:
+                        continue
+                    img = Image.open(io.BytesIO(data))
+                    img.load()
+                    clinical_images.append(img.convert("RGB"))
+                except Exception:
+                    continue
+            if clinical_images:
+                eng.log.info(
+                    "analyze: %s ta klinik rasm qabul qilindi", len(clinical_images)
+                )
             if not files:
                 return Response(
                     {"success": False, "message": "Fayl yuklanmagan"},
@@ -678,7 +698,7 @@ class AnalyzeView(APIView):
             else:
                 _spawn_analyze(
                     eng.do_analyze,
-                    (pil_images, lab_type, custom_prompt, micro_pfx, patient_ctx),
+                    (pil_images, lab_type, custom_prompt, micro_pfx, patient_ctx, clinical_images),
                     rec.pk if rec else None,
                     job_id=job_id,
                 )

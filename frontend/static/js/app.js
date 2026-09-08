@@ -880,6 +880,68 @@ function buildPrintMicroscopeHtml() {
   return h;
 }
 
+/* ── Klinik rasmlar (tanadagi ko'rinish) ──────────────────────────────────
+   Mikroskop kesmalaridan alohida saqlanadi: ular morfologik ko'rikka
+   qo'shilmaydi, faqat klinik kontekst sifatida yuboriladi. */
+let clinicalFiles = [];
+
+function handleClinicalSelect(e) {
+  const files = Array.from(e.target.files || []).filter(f => /^image\//.test(f.type));
+  if (files.length) addClinicalFiles(files);
+}
+
+function handleClinicalDrop(e) {
+  e.preventDefault();
+  const z = document.getElementById('clinicalZone');
+  if (z) z.classList.remove('drag-active');
+  const files = Array.from(e.dataTransfer.files || []).filter(f => /^image\//.test(f.type));
+  if (files.length) addClinicalFiles(files);
+}
+
+function addClinicalFiles(files) {
+  const seen = new Set(clinicalFiles.map(f => f.name + ':' + f.size));
+  files.forEach(f => {
+    const key = f.name + ':' + f.size;
+    if (!seen.has(key)) { seen.add(key); clinicalFiles.push(f); }
+  });
+  renderClinicalList();
+}
+
+function removeClinicalFile(i) {
+  clinicalFiles.splice(i, 1);
+  renderClinicalList();
+}
+
+function clearClinicalFiles() {
+  clinicalFiles = [];
+  const inp = document.getElementById('clinicalInput');
+  if (inp) inp.value = '';
+  renderClinicalList();
+}
+
+function renderClinicalList() {
+  const box = document.getElementById('clinicalList');
+  if (!box) return;
+  if (!clinicalFiles.length) {
+    box.hidden = true;
+    box.innerHTML = '';
+    return;
+  }
+  box.hidden = false;
+  box.innerHTML =
+    '<div class="clinical-head"><span>' + clinicalFiles.length +
+    ' ta klinik rasm</span><button type="button" class="btn-x" onclick="clearClinicalFiles()">\u2715 Tozalash</button></div>' +
+    clinicalFiles.map((f, i) =>
+      '<div class="clinical-item"><span>' + (f.name || 'rasm').replace(/[<>&]/g, '') +
+      '</span><button type="button" class="btn-x" onclick="removeClinicalFile(' + i +
+      ')" aria-label="O\u2018chirish">\u2715</button></div>'
+    ).join('');
+}
+
+function appendClinicalToFormData(fd) {
+  for (const f of clinicalFiles) fd.append('clinical[]', f);
+}
+
 function handleFileSelect(e) {
   const files = Array.from(e.target.files);
   if (files.length) loadFiles(files);
@@ -1112,6 +1174,7 @@ function showMainPreview(fileOrIndex) {
 
 function clearFile() {
   uploadedFiles = [];
+  clearClinicalFiles();
   _previewIndex = 0;
   _revokePreviewUrl();
   _revokeThumbUrls();
@@ -1782,6 +1845,7 @@ async function analyzeLocalLive() {
   formData.append('source', 'upload');
   appendPatientToFormData(formData);
   appendMicroscopeToFormData(formData);
+  appendClinicalToFormData(formData);
   await postAnalyzeForm(formData);
 }
 
@@ -1801,6 +1865,7 @@ async function analyzeBrowserLive() {
   formData.append('source', currentSource === 'phone' ? 'phone' : 'upload');
   appendPatientToFormData(formData);
   appendMicroscopeToFormData(formData);
+  appendClinicalToFormData(formData);
   await postAnalyzeForm(formData);
 }
 
@@ -1814,6 +1879,7 @@ async function analyzeFile() {
   formData.append('source', currentSource === 'phone' ? 'phone' : 'upload');
   appendPatientToFormData(formData);
   appendMicroscopeToFormData(formData);
+  appendClinicalToFormData(formData);
   await postAnalyzeForm(formData);
 }
 

@@ -2262,6 +2262,91 @@ MANTIQ QOIDALARI — hisobot o'z ichida zid bo'lmasin:
 def _append_output_format(prompt, lab_type=None):
     return (prompt or "").rstrip() + "\n\n" + OUTPUT_FORMAT_HISTOLOGY_UZ
 
+# ─── Klinik rasm va yo'llanmadagi tashxis ────────────────────────────────────
+# Patolog kesmani bo'sh joyda o'qimaydi: u yo'llanmani va bemorning terisini
+# ko'rgan holda o'qiydi. Ilgari dasturga faqat kesma tushardi va klinik kontekst
+# bir qatorlik "klinik izoh" bo'lib qolib ketardi.
+
+_CLINICAL_LOOK_SYSTEM = (
+    "You are a dermatologist describing what a skin lesion LOOKS LIKE on the "
+    "patient — not through a microscope. Report only what is visible: primary "
+    "lesion type (macule, papule, plaque, nodule, vesicle, pustule, ulcer), "
+    "colour, surface (scale, crust, erosion), border, size if judgeable, "
+    "number and distribution, and the body site. "
+    "Answer in Uzbek, 3-6 short sentences. NEVER name a disease or diagnosis."
+)
+
+
+def _clinical_appearance(clinical_parts, patient_context=None):
+    """Tanadagi rasmlardan klinik ko'rinish tavsifi (tashxis nomisiz)."""
+    if not clinical_parts:
+        return ""
+    p = _normalize_patient_context(patient_context)
+    site = (p.get("specimen_site") or "").strip() or "—"
+    picked = _spread_pick(list(clinical_parts), 4)
+    user = (
+        f"Namuna joyi: {site}. {len(clinical_parts)} ta klinik rasm. "
+        "Toshmaning ko'rinishini tasvirla — kasallik nomini YOZMA."
+    )
+    try:
+        out = _chat_complete(
+            [
+                {"role": "system", "content": _CLINICAL_LOOK_SYSTEM},
+                {"role": "user", "content": _vision_user(user, picked)},
+            ],
+            {"max_tokens": 400, "temperature": 0.0},
+        )
+    except Exception as e:
+        log.warning("%s: klinik ko'rinish xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
+        return ""
+    out = (out or "").strip()
+    if not out or _looks_like_refusal(out) or len(out) < 60:
+        log.warning("%s: klinik ko'rinish olinmadi (rad yoki bo'sh)", ZIYRAKAI_DISPLAY_NAME)
+        return ""
+    # Yo'llanma varaqasi yoki hujjat surati klinik rasm sifatida kelib qolsa,
+    # javob toshma tavsifi bo'lmaydi — bunday matn promptga kiritilmaydi.
+    if not re.search(
+        r"toshma|papula|blyashka|dog'|yara|tugun|pufak|qichim|qizar|po'st|"
+        r"tangacha|eroziya|qobiq|infiltrat|o'choq|teri|lezion",
+        out,
+        re.I,
+    ):
+        log.warning(
+            "%s: klinik rasm toshma tavsifini bermadi — kontekstga qo'shilmadi",
+            ZIYRAKAI_DISPLAY_NAME,
+        )
+        return ""
+    log.info("%s: klinik ko'rinish olindi (%s belgi)", ZIYRAKAI_DISPLAY_NAME, len(out))
+    return (
+        "### KLINIK KO'RINISH (bemor tanasidagi rasm — kesma EMAS)\n"
+        + out[:900]
+        + "\nBu klinik kontekst: morfologik xulosani tasdiqlash yoki rad etishda "
+        "hisobga ol. Uni gistologik belgi sifatida FAKT bo'limiga yozma.\n"
+    )
+
+
+def _referral_dx_block(patient_context=None):
+    """Yo'llanmadagi klinik tashxis — gipoteza sifatida."""
+    p = _normalize_patient_context(patient_context)
+    note = (p.get("clinical_note") or "").strip()
+    if not note:
+        return ""
+    # "Псориаз? · Yo'llanma №26/2026; Shifokor: ..." — tashxis qismi boshida
+    head = re.split(r"[·|;]| - ", note)[0].strip()
+    if len(head) < 3:
+        head = note[:120]
+    return (
+        "### YO'LLANMADAGI KLINIK TASHXIS (gipoteza — tasdiq emas)\n"
+        f"Yuboruvchi shifokor: «{head[:160]}»\n"
+        "Buni GIPOTEZA deb ol va morfologiya bilan solishtir:\n"
+        "— mos kelsa: qaysi KO'RINGAN belgilar uni tasdiqlayotganini aniq ayt;\n"
+        "— mos kelmasa: nima uchun mos emasligini va kesmada nima "
+        "ko'rinayotganini ayt.\n"
+        "Gipotezani ko'r-ko'rona qabul qilma, lekin sababsiz ham rad etma. "
+        "Klinik tashxis morfologiya bilan tasdiqlansa — bu ishonchni oshiradi.\n"
+    )
+
+
 def _full_analysis_prompt(base, microscope_prefix, lab_type=None, patient_context=None):
     """Bemor konteksti + yo'nalish protokoli."""
     merged = _merge_prompt_with_microscope(base, microscope_prefix)
@@ -2270,6 +2355,9 @@ def _full_analysis_prompt(base, microscope_prefix, lab_type=None, patient_contex
     parts = [lock]
     if patient:
         parts.append(patient)
+    referral = _referral_dx_block(patient_context)
+    if referral:
+        parts.append(referral)
     parts.append(CLINICAL_EXCELLENCE_PREFIX_UZ.strip())
     if (lab_type or "") == "histology":
         parts.append(_HISTOLOGY_PATIENT_SAFETY.strip())
@@ -3155,6 +3243,15 @@ _RETRY_DEEP_USER = (
 )
 
 _REFUSAL_MARKERS = (
+    # O'zbekcha rad javoblari: model uzun va muloyim rad etganda ingliz
+    # markerlari ushlamasdi va rad matni promptga kirib ketardi.
+    "kechirasiz, men",
+    "tahlil qila olmayman",
+    "yordam bera olmayman",
+    "javob bera olmayman",
+    "iltimos, rasmni taqdim eting",
+    "shaxsiy ma'lumotlarni",
+    "shaxsiy ma\u2019lumotlarni",
     "i'm sorry, i can't assist",
     "i’m sorry, i can’t assist",
     "i cannot assist with that",
@@ -4356,7 +4453,8 @@ def parse_referral_image(pil_image):
     return out
 
 
-def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None, patient_context=None):
+def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None,
+               patient_context=None, clinical_images=None):
     """Ko'p rasm tahlili — pil_images: list of PIL.Image (loading=True allaqachon API da)."""
     global latest_analysis
     if not isinstance(pil_images, list):
@@ -4380,6 +4478,21 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None,
 
         base = custom_prompt if custom_prompt and custom_prompt.strip() else LAB_PROMPTS.get(lab_type, "Bu mikroskopiya tasvirini O'zbek tilida batafsil tahlil qil.")
         prompt = _full_analysis_prompt(base, microscope_prefix, lab_type, patient_context)
+
+        # Klinik rasmlar alohida ko'riladi: ular kesma emas, shuning uchun
+        # morfologik ko'rikka aralashmaydi — faqat kontekst beradi.
+        clinical_block = ""
+        if clinical_images:
+            c_parts = [
+                {
+                    "type": "image_url",
+                    "image_url": {"url": _pil_to_data_url(_resize_img(im)), "detail": "low"},
+                }
+                for im in clinical_images
+            ]
+            clinical_block = _clinical_appearance(c_parts, patient_context)
+        if clinical_block:
+            prompt = clinical_block + "\n" + prompt
 
         if len(imgs) > 1:
             prefix = (
