@@ -32,6 +32,10 @@ for _s in (sys.stdout, sys.stderr):
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL_KB = ROOT / "backend" / "data" / "histology_kb"
 FILES = ("meta.json", "chunks.jsonl", "embeddings.npy")
+# Ma'lumotnoma rasmlar: yuzlab kichik fayl — bittalab yuborish sekin,
+# shuning uchun bitta arxivga yig'ilib, serverda ochiladi.
+ATLAS_DIR = "atlas"
+ATLAS_TAR = "atlas.tar.gz"
 
 def _load_ssh_env():
     """SSH sozlamalari backend/.env dan ham o'qiladi (parol terminal tarixiga tushmasin)."""
@@ -115,8 +119,27 @@ def main() -> int:
         print(out, file=sys.stderr)
         return 4
 
+    # Atlas papkasi bo'lsa — arxivga yig'amiz
+    atlas_src = kb / ATLAS_DIR
+    atlas_tar = None
+    if atlas_src.is_dir() and (atlas_src / "atlas.json").is_file():
+        import tarfile
+        import tempfile
+
+        atlas_tar = Path(tempfile.gettempdir()) / ATLAS_TAR
+        n = 0
+        with tarfile.open(atlas_tar, "w:gz") as tf:
+            for p in sorted(atlas_src.rglob("*")):
+                if p.is_file():
+                    tf.add(p, arcname=str(p.relative_to(atlas_src)).replace("\\", "/"))
+                    n += 1
+        print(f"atlas arxivi: {n} fayl, {atlas_tar.stat().st_size / 1048576:.1f} MB")
+
     sftp = client.open_sftp()
     t0 = time.time()
+    if atlas_tar:
+        print(f"yuborilmoqda {ATLAS_TAR} ({atlas_tar.stat().st_size / 1048576:.1f} MB)")
+        sftp.put(str(atlas_tar), f"{staging}/{ATLAS_TAR}")
     for f in FILES:
         src = kb / f
         size = src.stat().st_size
@@ -140,8 +163,19 @@ mkdir -p {shlex.quote(remote_kb)}
 for f in {' '.join(FILES)}; do
   mv -f {shlex.quote(staging)}/$f {shlex.quote(remote_kb)}/$f
 done
+if [ -f {shlex.quote(staging)}/{ATLAS_TAR} ]; then
+  rm -rf {shlex.quote(remote_kb)}/{ATLAS_DIR}.new
+  mkdir -p {shlex.quote(remote_kb)}/{ATLAS_DIR}.new
+  tar -xzf {shlex.quote(staging)}/{ATLAS_TAR} -C {shlex.quote(remote_kb)}/{ATLAS_DIR}.new
+  rm -rf {shlex.quote(remote_kb)}/{ATLAS_DIR}
+  mv {shlex.quote(remote_kb)}/{ATLAS_DIR}.new {shlex.quote(remote_kb)}/{ATLAS_DIR}
+  rm -f {shlex.quote(staging)}/{ATLAS_TAR}
+  echo "atlas: $(find {shlex.quote(remote_kb)}/{ATLAS_DIR} -name '*.jpg' | wc -l) rasm"
+fi
 chown -R www-data:www-data {shlex.quote(remote_kb)}
-chmod 640 {shlex.quote(remote_kb)}/*
+chmod 640 {shlex.quote(remote_kb)}/*.json {shlex.quote(remote_kb)}/*.jsonl {shlex.quote(remote_kb)}/*.npy 2>/dev/null || true
+find {shlex.quote(remote_kb)}/{ATLAS_DIR} -type d -exec chmod 750 {{}} + 2>/dev/null || true
+find {shlex.quote(remote_kb)}/{ATLAS_DIR} -type f -exec chmod 640 {{}} + 2>/dev/null || true
 rmdir {shlex.quote(staging)} 2>/dev/null || true
 ls -la {shlex.quote(remote_kb)}
 """

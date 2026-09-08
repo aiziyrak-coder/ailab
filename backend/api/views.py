@@ -328,6 +328,13 @@ class HealthView(APIView):
         except Exception:
             kb = {"ready": False, "chunks": 0, "sources": {}}
 
+        try:
+            from lab_core.atlas_images import atlas_stats
+
+            atlas = atlas_stats()
+        except Exception:
+            atlas = {"ready": False, "images": 0, "labels": 0, "slides": 0}
+
         overall = db_ok and snap_ok
         payload = {
             "ok": overall,
@@ -345,6 +352,7 @@ class HealthView(APIView):
                 "clinic_chunks": kb.get("clinic_chunks") or 0,
                 "books": len(kb.get("sources") or {}),
             },
+            "atlas": atlas,
         }
         st = status.HTTP_200_OK if overall else status.HTTP_503_SERVICE_UNAVAILABLE
         return Response(payload, status=st)

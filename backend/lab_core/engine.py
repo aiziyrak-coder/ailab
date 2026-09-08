@@ -2440,6 +2440,49 @@ _CLINICAL_LOOK_SYSTEM = (
 )
 
 
+def _atlas_reference(names, detail="low"):
+    """Tashxis nomlari uchun klinika atlasidan ma'lumotnoma rasm va izoh.
+
+    Matn mezoni "periferik palisad" deydi — uni KO'RISH boshqa narsa.
+    Shifokor kesmani atlasdagi rasm bilan solishtiradi; dastur ham shuni
+    qila olishi kerak. Rasmlar kitob papkalaridagi kasallik yorlig'i bo'yicha
+    tanlanadi va FAQAT hisobot chaqiruviga qo'shiladi — morfologik ko'rik
+    faqat bemor kesmasini ko'rishi kerak.
+    """
+    if (os.environ.get("HISTOLOGY_ATLAS") or "1").strip().lower() in ("0", "false", "no", "off"):
+        return "", []
+    clean = [str(n).strip() for n in (names or []) if str(n or "").strip()]
+    if not clean:
+        return "", []
+    try:
+        from .atlas_images import find_reference_images, image_parts, reference_block
+    except Exception as e:
+        log.warning("%s: atlas moduli yuklanmadi: %s", ZIYRAKAI_DISPLAY_NAME, e)
+        return "", []
+    try:
+        refs = find_reference_images(clean)
+        if not refs:
+            return "", []
+        return reference_block(refs), image_parts(refs, detail=detail)
+    except Exception as e:
+        log.warning("%s: atlas xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
+        return "", []
+
+
+def _dx_terms_for_atlas(patient_context=None, draft=None):
+    """Atlasda qidiriladigan nomlar: klinik gipoteza + qoralamadagi tashxis."""
+    out = []
+    p = _normalize_patient_context(patient_context)
+    picked = (p.get("clinical_dx") or "").strip()
+    if picked:
+        out.extend([x.strip() for x in re.split(r"\||;|,", picked) if x.strip()][:3])
+    if draft:
+        name = _dx_name_only(_histology_dx_block(draft))
+        if name and len(name) > 3:
+            out.append(name)
+    return out[:4]
+
+
 def _clinical_appearance(clinical_parts, patient_context=None):
     """Tanadagi rasmlardan klinik ko'rinish tavsifi (tashxis nomisiz)."""
     if not clinical_parts:
@@ -4185,7 +4228,8 @@ def _recovery_report(features, organ_lock, patient_context, kwargs, image_parts=
     return out
 
 
-def _openai_generate(content_list, lab_type="histology", patient_context=None):
+def _openai_generate(content_list, lab_type="histology", patient_context=None,
+                     ref_parts=None, ref_block=""):
     if openai_client is None:
         raise RuntimeError(
             "%s sozlanmagan: xizmat kaliti o'rnatilmagan — administrator .env faylida "
@@ -4241,6 +4285,16 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
     features = None
     # Hisobot bosqichiga butun to'plamdan teng oraliqdagi namuna boradi
     report_parts = _pick_images(_scored, _report_max_images()) if image_parts else []
+    # Atlas rasmlari hisobot chaqiruvining OXIRIGA qo'shiladi: ko'rik, organ
+    # qulfi va namuna tekshiruvi ularni ko'rmaydi (ular bemor kesmasi emas).
+    if ref_parts:
+        report_parts = report_parts + list(ref_parts)
+        if ref_block:
+            full_prompt = full_prompt + "\n\n" + ref_block
+        log.info(
+            "%s: hisobotga %s ta atlas rasmi qo'shildi",
+            ZIYRAKAI_DISPLAY_NAME, len(ref_parts),
+        )
     if image_parts:
         log.info(
             "%s: hisobot uchun %s rasmdan %s tasi tanlandi (kesma: %s/%s)",
@@ -4677,6 +4731,9 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None,
         if clinical_block:
             prompt = clinical_block + "\n" + prompt
 
+        # Klinik gipoteza bo'yicha atlasdan ma'lumotnoma rasm(lar)
+        atlas_block, atlas_parts = _atlas_reference(_dx_terms_for_atlas(patient_context))
+
         if len(imgs) > 1:
             prefix = (
                 f"Quyida {len(imgs)} ta mikroskopiya tasviri — BIR xil kasallik/holatning "
@@ -4688,7 +4745,9 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None,
         else:
             content = [prompt, imgs[0]]
 
-        text = _openai_generate(content, lab_type, patient_context)
+        text = _openai_generate(
+            content, lab_type, patient_context, atlas_parts, atlas_block
+        )
         lines = [l.strip() for l in text.split('\n') if l.strip()]
 
         _publish_analysis({

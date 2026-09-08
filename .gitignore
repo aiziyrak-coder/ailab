@@ -41,3 +41,6 @@ scripts/_*.js
 scripts/_*.html
 scripts/_*.txt
 test_openai.py
+
+# Ma'lumotnoma atlas rasmlari (kitobdan olingan — gitga kirmaydi, SFTP bilan yuboriladi)
+backend/data/histology_kb/atlas/
