@@ -1072,3 +1072,144 @@ h1, h2, h3 {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ─── Klinik tashxis tanlagich ─────────────────────────────────────────────
+   Yo'llanmadagi tashxis avtomatik tanlanadi, shifokor qidiruv orqali
+   qo'shimcha tashxis qo'shadi yoki ro'yxatda yo'q nomni qo'lda yozadi.
+   ──────────────────────────────────────────────────────────────────────── */
+.dx-field { display: block; }
+
+.dx-label {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--rd-ink-soft);
+  margin-bottom: 5px;
+}
+
+.dx-picker { position: relative; }
+
+.dx-picker input[type="search"] {
+  width: 100%;
+  box-sizing: border-box;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--rd-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--rd-ink);
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.dx-picker input[type="search"]:focus {
+  outline: 2px solid var(--rd-gold);
+  outline-offset: 0;
+  border-color: var(--rd-gold);
+}
+
+.dx-results {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--rd-line);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px -12px rgba(26, 26, 26, 0.28);
+}
+
+.dx-group {
+  position: sticky;
+  top: 0;
+  padding: 6px 10px;
+  background: var(--rd-mist-2);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rd-ink-soft);
+}
+
+.dx-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--rd-line);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--rd-ink);
+}
+
+.dx-item:hover,
+.dx-item.is-active { background: var(--rd-gold-wash); }
+
+.dx-item.is-on { color: var(--rd-gold-deep); font-weight: 600; }
+
+.dx-item em {
+  font-style: normal;
+  font-size: 0.68rem;
+  color: var(--rd-ink-soft);
+  flex: 0 0 auto;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dx-item--free { color: var(--rd-gold-deep); font-weight: 600; }
+
+.dx-empty {
+  padding: 10px;
+  font-size: 0.76rem;
+  color: var(--rd-ink-soft);
+}
+
+.dx-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.dx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  background: var(--rd-gold-wash);
+  border: 1px solid var(--rd-gold-soft);
+  border-radius: 20px;
+  font-size: 0.74rem;
+  color: var(--rd-gold-deep);
+}
+
+.dx-chip button {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 2px;
+}
+
+.dx-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: var(--rd-ink-soft);
+}

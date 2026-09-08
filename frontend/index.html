@@ -11,10 +11,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" href="/static/img/favicon.png" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=r12">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=r12">
-  <link rel="stylesheet" href="/static/css/mobile.css?v=r12">
-  <link rel="stylesheet" href="/static/css/brand.css?v=r12">
+  <link rel="stylesheet" href="/static/css/style.css?v=r13">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=r13">
+  <link rel="stylesheet" href="/static/css/mobile.css?v=r13">
+  <link rel="stylesheet" href="/static/css/brand.css?v=r13">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -127,6 +127,17 @@
           <label class="acc-span"><span>Klinik izoh / shikoyat</span>
             <input id="accClinical" maxlength="200" placeholder="Shifokor yozuvi, qisqa klinik kontekst">
           </label>
+          <div class="acc-span dx-field">
+            <span class="dx-label">Klinik tashxis (gipoteza)</span>
+            <div class="dx-picker" id="dxPicker">
+              <input id="dxSearch" type="search" autocomplete="off"
+                     placeholder="Qidiring yoki yozing: psoriaz, экзема, melanoma…"
+                     aria-label="Klinik tashxis qidirish">
+              <div class="dx-results" id="dxResults" hidden></div>
+              <div class="dx-chips" id="dxChips" hidden></div>
+            </div>
+            <span class="dx-hint">Yo‘llanmadagi tashxis avtomatik tanlanadi. Bir nechta tashxis qo‘shish mumkin — dastur ularni morfologiya bilan tekshiradi.</span>
+          </div>
           <details class="daftar-more" id="daftarMore">
             <summary>Muassasa va joylashuv</summary>
             <div class="daftar-grid">
@@ -548,9 +559,11 @@
 
 <div id="toast"></div>
 <script src="/static/js/uz_localities.js?v=off59"></script>
+<script src="/static/js/dx_list.js?v=r13"></script>
+<script src="/static/js/dx_picker.js?v=r13"></script>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=r12"></script>
-<script src="/static/js/ux.js?v=r12"></script>
-<script src="/static/js/referral.js?v=r12"></script>
+<script src="/static/js/app.js?v=r13"></script>
+<script src="/static/js/ux.js?v=r13"></script>
+<script src="/static/js/referral.js?v=r13"></script>
 </body>
 </html>

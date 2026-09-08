@@ -32,6 +32,12 @@
 
   function applyReferral(r) {
     const filled = [];
+    // Yo'llanmadagi klinik tashxis alohida maydonda keladi — uni
+    // tanlagichga solamiz, shifokor tekshirib qo'shimcha qo'shadi.
+    if (typeof setDxFromReferral === 'function') {
+      const n = setDxFromReferral(r.clinical_dx || r.clinical_note || '');
+      if (n) filled.push('klinik tashxis');
+    }
     Object.keys(FIELD_MAP).forEach((key) => {
       const el = $(FIELD_MAP[key]);
       const val = (r[key] || '').trim();

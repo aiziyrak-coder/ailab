@@ -819,6 +819,18 @@ def _query_parts(organ_lock, patient_context=None, draft=None):
     if site:
         parts.append(f"{base} {site} histopathology differential diagnosis criteria")
 
+    # Shifokor tanlagan klinik tashxis — kitobdan aynan shu mavzuni qidiramiz.
+    # Bu birinchi bosqichdayoq to'g'ri bobni olib keladi (qoralama kutilmaydi).
+    clinical_dx = (p.get("clinical_dx") or "").strip()
+    if clinical_dx:
+        for item in [x.strip() for x in re.split(r"\||;|,", clinical_dx) if x.strip()][:3]:
+            parts.append(f"{item} histopathology diagnostic criteria differential")
+            parts.append(
+                f"{item} патоморфология "
+                f"критерии диагноза "
+                f"гистология"
+            )
+
     for term, term_ru in _dx_terms_from_draft(draft):
         parts.append(f"{term} histopathology diagnostic criteria differential")
         if term_ru:

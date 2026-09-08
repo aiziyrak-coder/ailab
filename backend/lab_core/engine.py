@@ -2328,22 +2328,31 @@ def _clinical_appearance(clinical_parts, patient_context=None):
 def _referral_dx_block(patient_context=None):
     """Yo'llanmadagi klinik tashxis — gipoteza sifatida."""
     p = _normalize_patient_context(patient_context)
+    picked = (p.get("clinical_dx") or "").strip()
     note = (p.get("clinical_note") or "").strip()
-    if not note:
+    if not picked and not note:
         return ""
-    # "Псориаз? · Yo'llanma №26/2026; Shifokor: ..." — tashxis qismi boshida
-    head = re.split(r"[·|;]| - ", note)[0].strip()
-    if len(head) < 3:
-        head = note[:120]
+    if picked:
+        # Shifokor tanlagan yoki yozgan tashxis(lar) — aniqroq manba
+        items = [x.strip() for x in re.split(r"\||;|,", picked) if x.strip()]
+        head = "; ".join(items[:5])
+    else:
+        # "Псориаз? · Yo'llanma №26/2026; Shifokor: ..." — tashxis qismi boshida
+        head = re.split(r"[·|;]| - ", note)[0].strip()
+        if len(head) < 3:
+            head = note[:120]
     return (
-        "### YO'LLANMADAGI KLINIK TASHXIS (gipoteza — tasdiq emas)\n"
-        f"Yuboruvchi shifokor: «{head[:160]}»\n"
+        "### KLINIK TASHXIS (gipoteza — tasdiq emas)\n"
+        f"Yuboruvchi shifokor / laborant: «{head[:200]}»\n"
         "Buni GIPOTEZA deb ol va morfologiya bilan solishtir:\n"
         "— mos kelsa: qaysi KO'RINGAN belgilar uni tasdiqlayotganini aniq ayt;\n"
         "— mos kelmasa: nima uchun mos emasligini va kesmada nima "
         "ko'rinayotganini ayt.\n"
         "Gipotezani ko'r-ko'rona qabul qilma, lekin sababsiz ham rad etma. "
         "Klinik tashxis morfologiya bilan tasdiqlansa — bu ishonchni oshiradi.\n"
+        "Bir nechta gipoteza berilgan bo'lsa, HAR BIRINI ko'rib chiq: qaysi biri "
+        "morfologiyaga mos kelishini ayt, qolganini nima uchun rad "
+        "etayotganingni KO'RILGAN belgi bilan asosla.\n"
     )
 
 
@@ -2458,6 +2467,7 @@ def _normalize_patient_context(patient_context):
         ("ward", 80),
         ("specimen_site", 80),
         ("clinical_note", 200),
+        ("clinical_dx", 300),
         ("region", 40),
         ("locality", 80),
         ("clinic", 8),
@@ -4328,7 +4338,9 @@ _REFERRAL_SCHEMA = (
     '"sex": "Erkak|Ayol|\"\"", '
     '"age": "yosh (faqat son) yoki tug\'ilgan yil", '
     '"address": "manzil / viloyat", '
-    '"clinical_note": "klinik ma\'lumot va klinik tashxis", '
+    '"clinical_note": "klinik ma\'lumot (tashxisdan tashqari)", '
+    '"clinical_dx": "yo\'llanmada yozilgan KLINIK TASHXIS — faqat tashxis nomi, '
+    'masalan: Psoriaz, Ekzema, Bazalioma. Bir nechta bo\'lsa vergul bilan", '
     '"procedure": "jarrohlik amaliyoti turi va sanasi", '
     '"specimen_site": "namuna olingan joy/organ (matndan), masalan: Teri, o\'ng oyoq", '
     '"doctor": "davolovchi shifokor F.I.Sh.", '

@@ -940,6 +940,11 @@ function renderClinicalList() {
 
 function appendClinicalToFormData(fd) {
   for (const f of clinicalFiles) fd.append('clinical[]', f);
+  // Tanlangan klinik tashxislar — gipoteza va kitob qidiruvi kaliti
+  if (typeof getClinicalDx === 'function') {
+    const dx = getClinicalDx();
+    if (dx.length) fd.append('clinical_dx', dx.join(' | '));
+  }
 }
 
 function handleFileSelect(e) {
@@ -1175,6 +1180,7 @@ function showMainPreview(fileOrIndex) {
 function clearFile() {
   uploadedFiles = [];
   clearClinicalFiles();
+  if (typeof dxClear === 'function') dxClear();
   _previewIndex = 0;
   _revokePreviewUrl();
   _revokeThumbUrls();

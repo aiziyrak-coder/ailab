@@ -112,6 +112,8 @@ def _patient_context_from_request(request):
         "ward": g("ward", 80),
         "specimen_site": g("specimen_site", 80),
         "clinical_note": g("clinical_note", 200),
+        # Shifokor tanlagan yoki yozgan klinik tashxis(lar) — gipoteza
+        "clinical_dx": g("clinical_dx", 300),
         "region": g("region", 40),
         "locality": g("locality", 80),
         "clinic": g("clinic", 8),
