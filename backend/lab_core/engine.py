@@ -1859,6 +1859,83 @@ _SEC_RE = {
 _WRAPPER_LINE_RE = re.compile(r"^\s*={3,}.*?={3,}\s*$", re.M)
 
 
+# TASHXIS bo'limida turishi kerak bo'lmagan qatorlar: bemor ma'lumoti kartada
+# allaqachon bor, «ishchi taassurotlar 1) 2) 3)» esa aniq xulosani yo'qotadi —
+# shifokor nima deyilganini tushunmay qoladi.
+_DX_NOISE_RE = re.compile(
+    r"^\s*(bemor\s*:|namuna\s*(№|no|nomer)|ishchi\s+taassurot|"
+    r"working\s+impression|tasdiqlash\s*:|klinik\s+ma'lumot\s*:)",
+    re.I,
+)
+
+
+def _clean_dx_section(text):
+    """TASHXIS bo'limini faqat xulosa va uning meta qatorlariga qisqartirish."""
+    if not text:
+        return text
+    lines = text.splitlines()
+    out, state, removed = [], "before", 0
+    for line in lines:
+        if state == "before":
+            out.append(line)
+            if re.match(r"^\s*#+\s*(?:aniq\s+)?tashxis\b", line, flags=re.I):
+                state = "inside"
+            continue
+        if state == "inside":
+            if re.match(r"^\s*#+\s", line):
+                state = "after"
+                out.append(line)
+                continue
+            if _DX_NOISE_RE.match(line):
+                removed += 1
+                continue
+        out.append(line)
+    if removed:
+        log.info(
+            "%s: tashxis bo'limidan %s ta ortiqcha qator olib tashlandi",
+            ZIYRAKAI_DISPLAY_NAME, removed,
+        )
+    return "\n".join(out)
+
+
+_FINAL_PREFIX = "YAKUNIY XULOSA: "
+
+
+def _mark_final_conclusion(text):
+    """TASHXIS bo'limining nom qatorini aniq belgilash.
+
+    Shifokor hisobotni ochganda birinchi ko'radigan narsa xulosa bo'lishi
+    kerak — ogohlantirish, bemor ma'lumoti yoki muqobillar ro'yxati emas.
+    """
+    if not text:
+        return text
+    lines = text.splitlines()
+    out, state, done = [], "before", False
+    for line in lines:
+        if state == "before" and re.match(r"^\s*#+\s*(?:aniq\s+)?tashxis\b", line, flags=re.I):
+            out.append(line)
+            state = "name"
+            continue
+        if state == "name" and not done:
+            t = line.strip()
+            if not t:
+                out.append(line)
+                continue
+            low = t.lower()
+            if low.startswith(("diqqat", "yakuniy xulosa")) or low.startswith(
+                ("organ", "ishonch", "malignite", "daraja", "bemor", "namuna")
+            ):
+                out.append(line)
+                if low.startswith("yakuniy xulosa"):
+                    done = True
+                continue
+            out.append(_FINAL_PREFIX + t)
+            done = True
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
 def _strip_preamble(text):
     """Hisobotdan oldingi bo'sh gaplarni olib tashlash.
 
@@ -2304,14 +2381,39 @@ def _add_stability_note(text, stable, names):
             flags=re.I,
         )
 
+    # Ogohlantirish TASHXIS nomidan KEYIN turadi: shifokor avval xulosani
+    # o'qishi kerak, so'ng cheklovni. Ilgari u sarlavhadan keyin darhol
+    # qo'yilardi va o'qigan odam tashxisni topolmasdan chalkashardi.
     lines = text.splitlines()
-    out, done = [], False
+    out = []
+    state = "before"   # sarlavha topilmagan
+    placed = False
     for line in lines:
-        out.append(line)
-        if not done and re.match(r"^\s*#+\s*(?:aniq\s+)?tashxis\b", line, flags=re.I):
+        if state == "before" and re.match(r"^\s*#+\s*(?:aniq\s+)?tashxis\b", line, flags=re.I):
+            out.append(line)
+            state = "meta"
+            continue
+        if state == "meta" and not placed:
+            low = line.strip().lower()
+            # nom va uning meta qatorlaridan keyin joylashtiriladi
+            is_meta = (
+                not line.strip()
+                or low.startswith(("yakuniy xulosa", "organ", "ishonch", "malignite",
+                                   "daraja", "taxminiy", "bemor", "namuna"))
+                or "|" in line
+            )
+            if is_meta:
+                out.append(line)
+                continue
             out.append(note)
-            done = True
-    return "\n".join(out) if done else note + "\n\n" + text
+            out.append(line)
+            placed = True
+            continue
+        out.append(line)
+    if not placed and state == "meta":
+        out.append(note)
+        placed = True
+    return "\n".join(out) if placed else note + "\n\n" + text
 
 
 # ─── Differensial hakamlik ───────────────────────────────────────────────────
@@ -2615,11 +2717,16 @@ yozing va shu qatordagi «Ishonch:» ni past/o'rta qilib qo'ying. Ya'ni nom
 har doim bor, ishonch darajasi esa dalilga qarab o'zgaradi.
 Faqat bitta istisno: kadrda to'qima umuman bo'lmasa (bo'sh shisha, artefakt).
 
-TASHXIS bo'limi (3–5 qator):
-1-qator — tashxis nomi (va bo'lsa varianti/darajasi).
+TASHXIS bo'limi (3–5 qator) — SHIFOKOR BIRINCHI O'QIYDIGAN JOY:
+1-qator — «YAKUNIY XULOSA: <kasallik nomi>» (va bo'lsa varianti/turi).
+   Faqat BITTA nom. Ro'yxat, raqamlangan variantlar («1) … 2) … 3) …»),
+   «ishchi taassurot», bemor ismi/yoshi/namuna raqami — bu bo'limga
+   YOZILMAYDI. Bemor ma'lumotlari kartada allaqachon bor.
 2-qator — Organ/qatlam: … | Ishonch: past/o'rta/yuqori | Malignite qo'yish huquqi: BOR/YO'Q
 3-qator — bir jumlada: bu qanday jarayon (xavfsiz/chegaraviy/xavfli) va nima
 qilish kerakligi (kuzatuv, kesib olish, IHC bilan tasdiqlash).
+Muqobil variantlar kerak bo'lsa, ular «NEGA SHU TASHXIS» bo'limida
+rad etiladi — TASHXIS bo'limida emas.
 
 NEGA SHU TASHXIS bo'limi — HISOBOTNING ASOSIY QISMI (6–10 qator, batafsil):
 — Har qator bitta mezon: «<mezon nomi> — <QAYERDA, QANDAY, QANCHA ko'rindi>».
@@ -4808,6 +4915,9 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
 
     if _usable(report, 400):
         report = _strip_preamble(report)
+        if lab_type == "histology":
+            report = _clean_dx_section(report)
+            report = _mark_final_conclusion(report)
         if lab_type == "histology":
             report = _strip_other_organ_differential(report)
         log.info(
