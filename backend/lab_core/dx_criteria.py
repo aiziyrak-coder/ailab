@@ -258,8 +258,21 @@ _SCALE = {
 }
 
 
+# Klinik ko'rinish turi. Auditda topilgan xato: 5 yoshli bolaning bo'ynidagi
+# yakka qizil oyoqchali tugun «Darier kasalligi» deb chiqdi — tarqoq irsiy
+# dermatoz, hech qachon yakka tugun bo'lmaydi. Jadval bu farqni bilmasdi.
+#   "solitary" — yakka o'choq/tugun/o'sma (biopsiya odatda shu uchun olinadi)
+#   "eruption" — tarqoq toshma (ko'p o'choqli dermatoz)
+#   "either"   — ikkalasi ham bo'lishi mumkin
+_ERUPTION_PATTERNS = {"psoriaziform", "spongiotik", "lixenoid", "interfeys", "pufakli",
+                      "vaskulit", "vaskulyar", "pannikulit", "neytrofil", "sklerozlovchi",
+                      "follikulyar"}
+_SOLITARY_PATTERNS = {"epidermal", "melanotsitar", "dermal", "vaskulyar o'sma", "adneksal",
+                      "fibrozlovchi"}
+
+
 def E(name, aliases, pattern, essential, supporting=(), excluding=(), malignant=False,
-      min_essential=None, require_any=()):
+      min_essential=None, require_any=(), presentation=None):
     """require_any — FARQLOVCHI belgilar: kamida bittasi bo'lmasa nozologiya
     nomzod bo'lolmaydi. Mezonlari boshqa kasallikning kichik to'plami bo'lgan
     tashxislar uchun (masalan lixenoid dori reaksiyasi ⊂ lichen planus):
@@ -269,6 +282,9 @@ def E(name, aliases, pattern, essential, supporting=(), excluding=(), malignant=
         "malignant": malignant, "essential": tuple(essential),
         "supporting": tuple(supporting), "excluding": tuple(excluding),
         "min_essential": min_essential, "require_any": tuple(require_any),
+        "presentation": presentation or (
+            "eruption" if pattern in _ERUPTION_PATTERNS
+            else "solitary" if pattern in _SOLITARY_PATTERNS else "either"),
     }
 
 
@@ -579,7 +595,7 @@ CRITERIA = [
       ["vascular_proliferation"], ["tumour_nodule", "symmetry=simmetrik"],
       ["slit_like_vascular_spaces", "promontory_sign", "pleomorphism>=o'rta", "storiform_pattern"],
       min_essential=1),
-    E("Piogen granuloma", ["piogen", "pyogenic", "пиогенн", "botriomikom"], "vaskulyar o'sma",
+    E("Piogen granuloma", ["piogen", "pyogenic", "пиогенн", "botriomikom", "angiom"], "vaskulyar o'sma",
       ["lobular_capillary_proliferation"],
       ["ulceration", "neutrophils", "papillary_dermal_edema"],
       ["slit_like_vascular_spaces", "promontory_sign", "storiform_pattern"], min_essential=1),
@@ -661,10 +677,19 @@ _FOLD = (
     ("sch", "sh"), ("ch", "x"), ("kh", "x"), ("ph", "f"), ("th", "t"),
     ("ck", "k"), ("c", "k"), ("w", "v"), ("y", "i"), ("j", "i"), ("'", ""), ("‘", ""), ("’", ""),
 )
+# Yo'llanmalar rus tilida keladi («Ангиома?») — kirill ham bir o'zakka keltiriladi,
+# aks holda ruscha nom lotincha aliasga hech qachon tushmaydi.
+_CYR = {
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e", "ж": "j",
+    "з": "z", "и": "i", "й": "i", "к": "k", "л": "l", "м": "m", "н": "n", "о": "o",
+    "п": "p", "р": "r", "с": "s", "т": "t", "у": "u", "ф": "f", "х": "x", "ц": "ts",
+    "ч": "ch", "ш": "sh", "щ": "sh", "ъ": "", "ы": "i", "ь": "", "э": "e", "ю": "yu",
+    "я": "ya", "ў": "u", "қ": "k", "ғ": "g", "ҳ": "x",
+}
 
 
 def _fold(s):
-    s = str(s or "").lower()
+    s = "".join(_CYR.get(ch, ch) for ch in str(s or "").lower())
     for a, b in _FOLD:
         s = s.replace(a, b)
     return re.sub(r"\s+", " ", s).strip()
@@ -782,11 +807,98 @@ def evaluate(entity, features):
     }
 
 
-def rank_candidates(features, limit=8):
-    """Ko'rikdan kelib chiqib eng mos nozologiyalar — deterministik hakamlik."""
+_SOLITARY_WORDS = re.compile(
+    r"yakka|bitta|solitar|solitary|tugun|nodul|o'sma|osma|papilloma|oyoqcha|"
+    r"pedunk|polip|yakkam|единичн|одиночн|узел|узелок|опухол|ножк|полип|"
+    r"biopsiya.*(tugun|o'sma)|eksizion", re.I)
+_ERUPTION_WORDS = re.compile(
+    r"toshma|tarqoq|ko'p o'choq|ko'p sonli|simmetrik|generalizat|blyashkalar|papulalar|"
+    r"сыпь|высыпан|множествен|распростран|бляшки|папулы|диссемин", re.I)
+
+
+def clinical_hint(text):
+    """Klinik tavsif/yo'llanmadan ko'rinish turi: 'solitary' | 'eruption' | ''."""
+    t = str(text or "")
+    if not t.strip():
+        return ""
+    sol = len(_SOLITARY_WORDS.findall(t))
+    eru = len(_ERUPTION_WORDS.findall(t))
+    if sol > eru:
+        return "solitary"
+    if eru > sol:
+        return "eruption"
+    return ""
+
+
+# Klinik tavsifdagi kalit so'zlar → tekshirib ko'rish kerak bo'lgan nozologiyalar.
+# Bu tashxis emas — «shu belgilarni qidir» degan ishora (patolog klinik
+# ko'rinishdan kelib chiqib aynan shunday qiladi).
+_CLINICAL_CUES = (
+    (re.compile(r"(qizil|pushti|красн|розов|ярко).{0,40}(tugun|papula|oyoqch|pedunk|polip|узел|ножк|полип)|"
+                r"(tugun|papula|узел).{0,40}(qizil|красн)|qon(a|ay)|кровоточ|yaltiroq qizil", re.I),
+     ["Piogen granuloma", "Gemangioma"]),
+    (re.compile(r"pigment|qora|jigarrang|to'q|пигмент|чёрн|черн|коричнев|xol|родинк|невус", re.I),
+     ["Melanotsitar nevus", "Melanoma", "Seboreik keratoz"]),
+    (re.compile(r"marvarid|telangiekt|yaltiroq.{0,20}(chegara|tugun)|перламутр|телеангиэкт|yara.{0,30}bitmay|незажива", re.I),
+     ["Bazal hujayrali karsinoma (bazalioma)", "Invaziv skvamoz hujayrali karsinoma"]),
+    (re.compile(r"so'gal|бородав|g'adir|verrukoz|веррук", re.I),
+     ["Verruca vulgaris", "Seboreik keratoz"]),
+    (re.compile(r"qattiq.{0,20}tugun|dermatofibrom|плотн.{0,20}узел|chuqurlash|dimple", re.I),
+     ["Dermatofibroma"]),
+    (re.compile(r"tangacha|kumushsimon|чешуй|серебрист|blyashka|бляшк", re.I),
+     ["Psoriasis vulgaris", "Lichen simplex chronicus (Vidal)"]),
+    (re.compile(r"pufak|pufakcha|пузыр|буллез|eroziya|эрози", re.I),
+     ["Pemphigus vulgaris", "Bulloz pemfigoid", "Herpes (oddiy / belbog')"]),
+)
+
+
+def clinical_entities(text):
+    """Klinik tavsif/yo'llanma matnidan tekshirilishi kerak bo'lgan nozologiyalar."""
+    t = str(text or "")
+    if not t.strip():
+        return []
+    out = []
+    for rx, names in _CLINICAL_CUES:
+        if rx.search(t):
+            out += [n for n in names if n not in out]
+    return out
+
+
+def referral_entities(text):
+    """Yo'llanma/klinik tashxis matnida nomi tilga olingan nozologiyalar."""
+    t = _fold(text)
+    if not t:
+        return []
+    out = []
+    for aliases, e in _BY_ALIAS:
+        if any(a and a in t for a in aliases) and e["name"] not in out:
+            out.append(e["name"])
+    return out
+
+
+def rank_candidates(features, limit=8, clinical_text="", referral_text=""):
+    """Ko'rikdan kelib chiqib eng mos nozologiyalar — deterministik hakamlik.
+
+    clinical_text — tana surati tavsifi; referral_text — yo'llanma/klinik tashxis.
+    Morfologiya asosiy manba; klinik mantiq faqat TUZATADI: yakka tugun uchun
+    tarqoq dermatoz nomzodlari pasaytiriladi, yo'llanma gipotezasi ozgina ko'tariladi.
+    """
     if not isinstance(features, dict):
         return []
+    hint = clinical_hint(clinical_text) or clinical_hint(referral_text)
+    named = set(referral_entities(referral_text))
     rows = [evaluate(e, features) for e in CRITERIA]
+    for r, e in zip(rows, CRITERIA):
+        r["presentation"] = e["presentation"]
+        if hint == "solitary" and e["presentation"] == "eruption":
+            r["score"] = round(r["score"] * 0.5, 3)
+            r["clinical_note"] = "yakka o'choqqa mos emas (tarqoq dermatoz)"
+        elif hint == "eruption" and e["presentation"] == "solitary":
+            r["score"] = round(r["score"] * 0.6, 3)
+            r["clinical_note"] = "tarqoq toshmaga mos emas (yakka o'sma)"
+        if e["name"] in named and r["qualifies"]:
+            r["score"] = round(min(1.0, r["score"] + 0.12), 3)
+            r["clinical_note"] = "yo'llanma gipotezasi"
     rows = [r for r in rows if r["qualifies"] and r["score"] > 0]
     rows.sort(key=lambda r: (-r["score"], -r["essential_hits"], r["name"]))
     return rows[:limit]
@@ -803,12 +915,22 @@ def check_name(name, features):
     return evaluate(e, features)
 
 
-def criteria_block(features, limit=6):
+def criteria_block(features, limit=6, clinical_text="", referral_text=""):
     """Qaror bosqichi uchun matn: mezon bo'yicha eng mos nomzodlar."""
-    rows = rank_candidates(features, limit)
-    if not rows:
+    rows = rank_candidates(features, limit, clinical_text, referral_text)
+    hint = clinical_hint(clinical_text) or clinical_hint(referral_text)
+    named = referral_entities(referral_text)
+    if not rows and not named:
         return ""
     lines = ["#### MEZON JADVALI (deterministik — ko'rilgan belgilardan hisoblangan)"]
+    if hint:
+        lines.append("Klinik ko'rinish turi: " + (
+            "YAKKA o'choq/tugun — tarqoq dermatozlar (Darier, pemfigus, psoriaz, ekzema…) "
+            "bu holatga mos kelmaydi" if hint == "solitary"
+            else "TARQOQ toshma — yakka o'sma nomzodlari kam ehtimol"))
+    if named:
+        lines.append("Yo'llanma gipotezasi: " + ", ".join(named[:3]) +
+                     " — ko'rikda uning belgilari bormi, aniq tekshirilsin.")
     for r in rows:
         present = ", ".join(feature_label(s) for s in r["essential_present"][:4]) or "—"
         absent = ", ".join(feature_label(s) for s in r["essential_absent"][:3]) or "—"
@@ -819,6 +941,8 @@ def criteria_block(features, limit=6):
         )
         if excl:
             line += f"; RAD ETUVCHI BOR: {excl}"
+        if r.get("clinical_note"):
+            line += f" [{r['clinical_note']}]"
         lines.append(line)
     lines.append(
         "Tashxis shu jadvaldagi nomzodlardan tanlanadi, jadvaldan tashqari nom faqat "

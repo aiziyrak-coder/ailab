@@ -1389,6 +1389,97 @@ class DecisiveFeatureVerificationTests(TestCase):
         self.assertNotIn("hailey", top[0]["name"].lower(), [r["name"] for r in top])
 
 
+class ClinicalReasoningTests(TestCase):
+    """Klinik mantiq: yakka tugun ≠ tarqoq dermatoz; yo'llanma va tana surati
+    tekshiruvga yo'nalish beradi (3-keys: piogen granuloma → «Darier» xatosi)."""
+
+    MISREAD = {  # serverdagi xato keysning aynan ko'rik natijasi
+        "sample_quality": "o'rtacha", "cytology": {},
+        "epidermis": {k: True for k in ["acanthosis", "hyperkeratosis", "parakeratosis",
+                                        "papillomatosis", "acantholysis", "dyskeratosis",
+                                        "intraepidermal_vesicle", "keratin_filled_crater"]},
+        "dermis": {k: True for k in ["dense_lymphoid_infiltrate", "eosinophils", "neutrophils",
+                                     "superficial_perivascular_infiltrate", "papillary_dermal_edema"]},
+    }
+    CLIN = "Bo'yinda yakka, qizil, oyoqchali yaltiroq tugun ~4 mm."
+    REF = "Ангиома? Эксцизионная биопсия с шеи"
+
+    def test_cyrillic_referral_names_are_recognised(self):
+        from lab_core import dx_criteria as dxc
+
+        names = dxc.referral_entities(self.REF)
+        self.assertTrue(any("Gemangioma" in n or "Piogen" in n for n in names), names)
+        self.assertEqual(dxc.find_entity("Псориаз обыкновенный")["name"], "Psoriasis vulgaris")
+
+    def test_solitary_nodule_demotes_eruptive_dermatoses(self):
+        from lab_core import dx_criteria as dxc
+
+        self.assertEqual(dxc.clinical_hint(self.CLIN), "solitary")
+        plain = dxc.rank_candidates(self.MISREAD, 1)[0]["name"]
+        self.assertIn("Darier", plain)
+        top = dxc.rank_candidates(self.MISREAD, 3, self.CLIN, self.REF)
+        self.assertNotIn("Darier", top[0]["name"], [r["name"] for r in top])
+
+    def test_clinical_cues_point_the_verification_at_vascular_features(self):
+        from lab_core import dx_criteria as dxc
+        from lab_core import dx_record as dxr
+        from lab_core import engine as eng
+
+        self.assertIn("Piogen granuloma", dxc.clinical_entities(self.CLIN))
+        rec = dxr.from_json({"diagnosis": "Darier kasalligi", "evidence": [
+            {"feature": "akantoliz", "detail": "x"}, {"feature": "diskeratoz", "detail": "y"}]})
+        keys = eng._decisive_features(rec, dict(self.MISREAD), self.REF + " " + self.CLIN)
+        self.assertIn("lobular_capillary_proliferation", keys)
+        self.assertIn("acantholysis", keys)
+
+    def test_discordant_diagnosis_is_flagged_and_capped(self):
+        """Yakka tugun + «Hailey–Hailey» → nomuvofiqlik yoziladi, ishonch ≤45%."""
+        from lab_core import dx_record as dxr
+        from lab_core import engine as eng
+
+        rec = dxr.from_json({"diagnosis": "Hailey-Hailey kasalligi", "organ": "teri", "evidence": [
+            {"feature": "akantoliz", "detail": "x"}, {"feature": "akantoz", "detail": "y"}]})
+        f = json.loads(json.dumps(self.MISREAD))
+        rec, text = eng._finish_record(rec, f, None, [], [], clinical_text=self.CLIN,
+                                       referral_text=self.REF)
+        self.assertIn("NOMUVOFIQLIK", text)
+        self.assertIn("Piogen granuloma", text)          # kutilgan nozologiya aytiladi
+        self.assertLessEqual(rec.confidence, 45)
+        self.assertIn("taxminiy", text)
+
+    def test_verified_hypothesis_replaces_an_unlisted_name(self):
+        """Nom jadvalda yo'q (SCAP), tekshiruv «tomir proliferatsiyasi: bor» dedi va
+        yo'llanma «angioma» — nom gipotezaga o'tadi, zid differensial yo'qoladi."""
+        from lab_core import dx_record as dxr
+        from lab_core import engine as eng
+
+        rec = dxr.from_json({"diagnosis": "Siringotsistadenoma papilliferum", "organ": "teri",
+                             "evidence": [{"feature": "papillyar", "detail": "x"},
+                                          {"feature": "bezli", "detail": "y"}],
+                             "differentials": [{"name": "Gemangioma",
+                                                "excluded_by": "tomir proliferatsiyasi ko'rinmadi"}]})
+        f = {"sample_quality": "o'rtacha", "cytology": {},
+             "epidermis": {"acanthosis": True}, "dermis": {"vascular_proliferation": True}}
+        changes = ["tomir proliferatsiyasi: bor"]
+        rec, text = eng._finish_record(rec, f, None, [], changes, clinical_text=self.CLIN,
+                                       referral_text=self.REF)
+        self.assertIn("Gemangioma", rec.name)
+        self.assertNotIn("tomir proliferatsiyasi ko'rinmadi", text)
+        self.assertIn("taxminiy", text)
+        self.assertLessEqual(rec.confidence, 60)
+
+    def test_after_verification_the_vascular_lesion_wins(self):
+        from lab_core import dx_criteria as dxc
+
+        f = json.loads(json.dumps(self.MISREAD))
+        f["epidermis"].update({"acantholysis": False, "dyskeratosis": False,
+                               "intraepidermal_vesicle": False})
+        f["dermis"].update({"lobular_capillary_proliferation": True,
+                            "vascular_proliferation": True, "extravasated_erythrocytes": True})
+        top = dxc.rank_candidates(f, 1, self.CLIN, self.REF)[0]
+        self.assertIn("Piogen", top["name"])
+
+
 class LexicalFallbackTests(TestCase):
     """Embedding tushganda kitoblar so'zma-so'z qidiruv bilan yetib boradi."""
 

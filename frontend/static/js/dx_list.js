@@ -197,4 +197,16 @@ window.DX_LIST = [
   ["Chandiq to'qimasi", "рубцовая ткань", "Boshqa"],
   ["Normal teri", "нормальная кожа", "Boshqa"],
   ["Reaktiv (nospetsifik) yallig'lanish", "неспецифическое воспаление", "Boshqa"],
+
+  // ─── Tomir o'smalari ───────────────────────────────────────────────────
+  // Ro'yxatda yo'q edi — yo'llanmadagi «Ангиома?» hech narsaga mos kelmasdi.
+  ["Piogen granuloma (lobulyar kapillyar gemangioma)", "пиогенная гранулёма", "Tomir"],
+  ["Gemangioma", "гемангиома", "Tomir"],
+  ["Angioma", "ангиома", "Tomir"],
+  ["Gilos (senil) angiomasi", "старческая ангиома", "Tomir"],
+  ["Angiokeratoma", "ангиокератома", "Tomir"],
+  ["Limfangioma", "лимфангиома", "Tomir"],
+  ["Kaposi sarkomasi", "саркома Капоши", "Tomir"],
+  ["Angiosarkoma", "ангиосаркома", "Tomir"],
+  ["Glomus o'smasi", "гломусная опухоль", "Tomir"],
 ];

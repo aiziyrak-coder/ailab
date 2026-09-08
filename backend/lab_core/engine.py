@@ -939,7 +939,13 @@ _HISTOLOGY_OBSERVE_SYSTEM = (
     "go back over the images before answering. "
     "Use 'noaniq' only where the images genuinely cannot answer the field. "
     "Never refuse; if everything is blurry, set sample_quality past and still describe what "
-    "is discernible."
+    "is discernible. "
+    "Classic confusions to avoid: a neutrophil pustule is NOT acantholysis; loose oedematous "
+    "vascular stroma under a thinned epidermis (polypoid lesion with a collarette) is NOT an "
+    "intraepidermal vesicle — look for lobules of capillaries and extravasated red cells; "
+    "inflammatory cells in the epidermis are NOT dyskeratosis; a polypoid or exophytic "
+    "lesion must be described by its stroma (vascular, fibrous, cellular), not only by "
+    "its epidermis."
 )
 
 # Ko'rik shakli endi mezon jadvali bilan BIR manbadan quriladi — belgilar
@@ -1911,7 +1917,8 @@ def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
         return None
 
     blocks = [feats]
-    crit = _dxc.criteria_block(features)
+    ref_text = _referral_text(patient_context)
+    crit = _dxc.criteria_block(features, clinical_text=clinical_block, referral_text=ref_text)
     if crit:
         blocks.append(crit)
     if adj:
@@ -1950,7 +1957,7 @@ def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
     try:
         raw = _complete_resilient(
             dxr.DECISION_SYSTEM, [user_text], parts,
-            {**kwargs, "max_tokens": 2000, "temperature": 0.0}, "qaror",
+            {**kwargs, "max_tokens": 3500, "temperature": 0.0}, "qaror",
         )
     except CaseBudgetExceeded:
         raise
@@ -1967,6 +1974,13 @@ def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
         ZIYRAKAI_DISPLAY_NAME, rec.name[:50], len(rec.evidence), len(rec.differentials),
     )
     return rec
+
+
+def _referral_text(patient_context):
+    """Yo'llanma va klinik izoh matni — gipoteza va ko'rinish turi uchun."""
+    p = _normalize_patient_context(patient_context)
+    return " ".join(x for x in (p.get("clinical_dx"), p.get("clinical_note"),
+                                p.get("specimen_site")) if x)
 
 
 def _trim_block(text, limit):
@@ -2040,8 +2054,9 @@ def _record_from_criteria(features):
 # Narxi — kichik chaqiruv (≈2.5k kirish, ~150 chiqish).
 
 _VERIFY_SYSTEM = (
-    "You are a dermatopathologist re-examining ONE H&E field to settle specific "
-    "findings. For each feature below answer strictly from what is visible. "
+    "You are a dermatopathologist re-examining a few H&E fields of ONE case to settle "
+    "specific findings. Answer 'bor' if the feature is present in ANY field. "
+    "Decide each finding strictly from what is visible. "
     "Use the definitions given — they exist because these features are confused. "
     "Return ONE JSON object: {\"<key>\": \"bor\"|\"yo'q\"|\"noaniq\", ...}, keys exactly "
     "as given, nothing else. Answer 'noaniq' only if the field truly cannot show it."
@@ -2072,6 +2087,15 @@ _VERIFY_DEFS = {
     "full_thickness_atypia": "Atypical keratinocytes through the whole epidermal thickness.",
     "storiform_pattern": "Cartwheel/pinwheel arrangement of spindle cells.",
     "collagen_trapping": "Collagen bundles caught between tumour cells at the edge.",
+    "lobular_capillary_proliferation": "Lobules of small capillaries with plump endothelium in an "
+                                       "oedematous stroma, often under a thinned epidermis with a "
+                                       "collarette (pyogenic granuloma).",
+    "vascular_proliferation": "Increased number of vascular channels lined by endothelium.",
+    "extravasated_erythrocytes": "Red blood cells outside vessels, in the stroma.",
+    "dyskeratosis": "Individual keratinocytes keratinising prematurely (corps ronds/grains) — "
+                    "NOT oedematous stroma, NOT inflammatory cells.",
+    "intraepidermal_vesicle": "Fluid-filled space WITHIN the epidermis, bounded by keratinocytes "
+                              "— NOT loose oedematous dermal stroma beneath a thin epidermis.",
 }
 
 
@@ -2080,10 +2104,17 @@ def _verify_enabled():
     return v not in ("0", "false", "no", "off")
 
 
-def _decisive_features(rec, features):
+def _decisive_features(rec, features, referral_text=""):
     """Qayta tekshiriladigan belgilar: tanlovning tayanchi + uni rad etuvchilar
-    + eng yaqin muqobillarning yo'q deb topilgan majburiy belgilari."""
+    + eng yaqin muqobillarning yo'q deb topilgan majburiy belgilari
+    + yo'llanma gipotezasining majburiy belgilari (ko'rik ularni umuman
+    belgilamagan bo'lishi mumkin — aynan shu joyda adashadi)."""
     keys = []
+    hinted = _dxc.referral_entities(referral_text)[:2] + _dxc.clinical_entities(referral_text)[:2]
+    for name in hinted:
+        ent = _dxc.find_entity(name)
+        if ent:
+            keys += [k for k in ent["essential"] if "=" not in k][:3]
     ev = _dxc.check_name(rec.name, features)
     if ev:
         keys += [k for k in ev["essential_present"] if "=" not in k][:3]
@@ -2100,13 +2131,13 @@ def _decisive_features(rec, features):
     return out[:8]
 
 
-def _verify_decisive_features(rec, features, image_parts, kwargs):
+def _verify_decisive_features(rec, features, image_parts, kwargs, referral_text=""):
     """Hal qiluvchi belgilarni bitta rasmda qayta so'rash; features yangilanadi.
     Qaytaradi: o'zgargan belgilar ro'yxati."""
     """None — tekshiruv o'tmadi (ikkinchi ko'z yo'q); [] — o'tdi, o'zgarish yo'q."""
     if rec is None or not isinstance(features, dict) or not image_parts or not _verify_enabled():
         return None
-    keys = _decisive_features(rec, features)
+    keys = _decisive_features(rec, features, referral_text)
     if not keys:
         return []
     lines = []
@@ -2120,7 +2151,7 @@ def _verify_decisive_features(rec, features, image_parts, kwargs):
     try:
         # Fikrlovchi model javob oldidan token sarflaydi — 300 yetmadi, javob bo'sh keldi
         raw = _complete_resilient(
-            _VERIFY_SYSTEM, [user], list(image_parts[:1]),
+            _VERIFY_SYSTEM, [user], _spread_pick(list(image_parts), 3),
             {**kwargs, "max_tokens": 800, "temperature": 0.0}, "tekshiruv",
         )
     except CaseBudgetExceeded as e:
@@ -2174,7 +2205,8 @@ def _clinical_summary_line(block):
     return text[:260].rsplit(" ", 1)[0] + ("…" if len(text) > 260 else "") if text else ""
 
 
-def _finish_record(rec, features, adj, names, verified_changes=None):
+def _finish_record(rec, features, adj, names, verified_changes=None, clinical_text="",
+                   referral_text=""):
     """Qo'riqchilar + foiz + hisobot matni. Har doim to'liq ishlaydi."""
     from . import dx_record as dxr
 
@@ -2183,21 +2215,50 @@ def _finish_record(rec, features, adj, names, verified_changes=None):
         rec.confidence_cap = min(rec.confidence_cap or 100, 75)
         rec.notes.append("hal qiluvchi belgilar tekshiruvi o'tmadi — ishonch 75% bilan cheklandi")
     if verified_changes:
-        # Tekshiruv hal qiluvchi belgini o'zgartirdi. Tanlangan nomning tayanchi
-        # qolmagan bo'lsa — mezon jadvalining yangi 1-o'rnini olamiz (taxminiy).
+        # Tekshiruv hal qiluvchi belgini o'zgartirdi. Uch holat:
+        #  (a) tanlangan nomning tayanchi qolmadi → jadvalning yangi 1-o'rni;
+        #  (b) nom jadvalda yo'q, lekin tekshiruv klinik/yo'llanma gipotezasini
+        #      qo'llab-quvvatladi → gipoteza nomi (3-keys: «tomir proliferatsiyasi:
+        #      bor» topildi, nom esa SCAP bo'lib qolaverdi);
+        #  (c) aks holda nom qoladi, ammo taxminiy.
+        # Har holda tasdiqlangan belgi dalilga yoziladi va unga zid differensial
+        # olib tashlanadi — hisobot o'zini o'zi rad etmasin.
         ev = _dxc.check_name(rec.name, features)
-        top = _dxc.rank_candidates(features, 1)
+        ranked = _dxc.rank_candidates(features, 3, clinical_text, referral_text)
+        top = ranked[:1]
+        hinted = _dxc.referral_entities(referral_text)[:2] + _dxc.clinical_entities(
+            (clinical_text or "") + " " + (referral_text or ""))[:2]
         lost = ev is not None and (ev["essential_hits"] == 0 or ev["excluding_present"])
+        hinted_top = next((r for r in ranked if r["name"] in hinted), None)
+        swap = None
         if lost and top and not _same_entity(top[0]["name"], rec.name):
+            swap, why = top[0], "tayanchsiz qoldi"
+        elif ev is None and hinted_top is not None:
+            swap, why = hinted_top, "jadvalda yo'q, tekshiruv gipotezani qo'llab-quvvatladi"
+        if swap is not None:
             rec.notes.append(
-                f"tekshiruvdan keyin «{rec.name}» tayanchsiz qoldi — "
-                f"mezon jadvali bo'yicha «{top[0]['name']}» ga almashtirildi"
+                f"tekshiruvdan keyin «{rec.name}» {why} — "
+                f"mezon jadvali bo'yicha «{swap['name']}» ga almashtirildi"
             )
-            rec.name = top[0]["name"]
-            rec.malignant = bool(top[0]["malignant"])
+            rec.differentials = [d for d in rec.differentials
+                                 if not _same_entity(d.name, swap["name"])]
+            rec.differentials.insert(0, dxr.Differential(
+                name=rec.name, excluded_by="tekshiruvdan keyin mezonlari kamroq mos"))
+            rec.name = swap["name"]
+            rec.malignant = bool(swap["malignant"])
             rec.evidence = [
                 dxr.Evidence(feature=_dxc.feature_label(k), seen=True, detail="tekshiruvda tasdiqlandi")
-                for k in top[0]["essential_present"][:6]
+                for k in swap["essential_present"][:6]
+            ]
+        # Tasdiqlangan (yo'q → bor) belgilar dalilga; ularni rad etgan differensiallar olib tashlanadi
+        present = [c.split(":")[0].strip() for c in verified_changes if c.endswith(": bor")]
+        for label in present:
+            if not any(e.feature.lower() == label.lower() for e in rec.evidence):
+                rec.evidence.append(dxr.Evidence(feature=label, seen=True,
+                                                 detail="qayta tekshiruvda tasdiqlandi"))
+            rec.differentials = [
+                d for d in rec.differentials
+                if label.lower().split(" (")[0] not in (d.excluded_by or "").lower()
             ]
         rec.certainty = dxr.CERTAIN_PROVISIONAL
         rec.confidence_cap = min(rec.confidence_cap or 100, 60)
@@ -2205,8 +2266,31 @@ def _finish_record(rec, features, adj, names, verified_changes=None):
     rec = dxr.apply_guards(rec, features, _DX_REQUIRED_FEATURES, _descriptive_dx(features))
     if rec is None:
         return None, ""
+    # Klinik-gistologik muvofiqlik. 3-keys: yakka qizil oyoqchali tugun (bola,
+    # «Ангиома?») kesmada «Hailey–Hailey» deb o'qildi — tarqoq irsiy dermatoz.
+    # Patolog bunday holatda tashxisni qat'iy qo'ymaydi: nomuvofiqlikni yozadi,
+    # qayta kesma/qayta ko'rik so'raydi. Dastur ham shunday qiladi.
+    hint = _dxc.clinical_hint(clinical_text) or _dxc.clinical_hint(referral_text)
+    ent = _dxc.find_entity(rec.name)
+    if hint and ent and ent["presentation"] != "either" and ent["presentation"] != hint:
+        expected = _dxc.referral_entities(referral_text)[:2] + _dxc.clinical_entities(
+            (clinical_text or "") + " " + (referral_text or ""))[:2]
+        expected = [n for i, n in enumerate(expected) if n not in expected[:i]]
+        kind = "yakka o'choq/tugun" if hint == "solitary" else "tarqoq toshma"
+        rec.discordance = (
+            f"Klinik-gistologik NOMUVOFIQLIK: klinik ko'rinish — {kind}"
+            + (f" (kutilgan: {', '.join(expected[:2])})" if expected else "")
+            + f"; «{rec.name}» esa {'tarqoq dermatoz' if ent['presentation'] == 'eruption' else 'yakka o‘sma'}. "
+            "Kesmadagi belgilar shu tashxisga to'g'ri kelsa ham, klinik rasm unga mos emas — "
+            "qayta kesma (seriyali), qayta ko'rik va klinik ma'lumot bilan solishtirish tavsiya etiladi."
+        )
+        rec.certainty = dxr.CERTAIN_PROVISIONAL
+        rec.confidence_cap = min(rec.confidence_cap or 100, 45)
+        rec.notes.append(f"klinik nomuvofiqlik: {hint} vs {ent['presentation']} ({rec.name})")
     if isinstance(features, dict):
         features["_chosen_name"] = rec.name
+        features["_clinical_text"] = clinical_text or ""
+        features["_referral_text"] = referral_text or ""
     pct, why = _confidence_percent(features, adj, names)
     if rec.certainty == dxr.CERTAIN_DESCRIPTIVE:
         pct = min(pct, 40)          # tavsifiy nom — nozologiya emas
@@ -2263,7 +2347,10 @@ def _confidence_percent(features=None, adj=None, names=None):
     else:
         # Tejamkor yo'lda mustaqil guruhlar yo'q. O'rniga: modelning tanlovi
         # mezon jadvalining deterministik tartibi bilan kelishadimi.
-        top = _dxc.rank_candidates(features, 3) if isinstance(features, dict) else []
+        top = _dxc.rank_candidates(
+            features, 3, str(features.get("_clinical_text") or ""),
+            str(features.get("_referral_text") or ""),
+        ) if isinstance(features, dict) else []
         chosen = str((adj or {}).get("chosen") or "") if isinstance(adj, dict) else ""
         chosen = chosen or str((features or {}).get("_chosen_name") or "")
         if top and chosen:
@@ -5472,10 +5559,16 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
                     )
             _changes = []
             if economy and _rec.certainty != "tavsifiy":
-                _changes = _verify_decisive_features(_rec, features, _vision_parts, kwargs)
+                _changes = _verify_decisive_features(
+                    _rec, features, _vision_parts, kwargs,
+                    _referral_text(patient_context) + " " + (clinical_block or ""),
+                )
             if clinical_block:
                 _rec.clinical = _clinical_summary_line(clinical_block)
-            _rec, _text = _finish_record(_rec, features, adj, _names, _changes)
+            _rec, _text = _finish_record(
+                _rec, features, adj, _names, _changes,
+                clinical_text=clinical_block or "", referral_text=_referral_text(patient_context),
+            )
             if _text:
                 if isinstance(trace, dict):
                     trace["features"] = features
@@ -5835,6 +5928,9 @@ def parse_referral_image(pil_image):
         "sex": _referral_sex(data.get("sex")),
         "age": _referral_age(data.get("age"), data.get("referral_date")),
         "clinical_note": _truncate_field(data.get("clinical_note"), 200),
+        # Sxema tashxisni so'raydi, lekin natijaga o'tkazilmasdi — «Ангиома?»
+        # yo'llanmadan o'qilib, so'ng jimgina yo'qolardi.
+        "clinical_dx": _truncate_field(data.get("clinical_dx"), 300),
         "specimen_site": _referral_site(data),
         "ward": _truncate_field(data.get("clinic") or data.get("address"), 80),
         "sample_id": re.sub(r"[^A-Za-z0-9]", "", str(data.get("referral_no") or ""))[:40],

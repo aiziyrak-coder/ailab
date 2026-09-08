@@ -86,6 +86,7 @@ class DxRecord:
     confidence_cap: int = 0                         # qo'riqchi qo'ygan shift (0 — yo'q)
     criteria: dict = field(default_factory=dict)    # mezon jadvali bahosi (arxiv uchun)
     clinical: str = ""                              # tana suratidan klinik ko'rinish
+    discordance: str = ""                           # klinik-gistologik nomuvofiqlik
 
     # ── Yordamchilar ────────────────────────────────────────────────────
     def display_name(self):
@@ -120,6 +121,8 @@ class DxRecord:
         if self.clinical:
             # Shifokor klinik surat hisobga olinganini shu yerda ko'radi
             out.append("Klinik ko'rinish (tana surati): " + self.clinical)
+        if self.discordance:
+            out.append(self.discordance)
 
         out.append("")
         out.append(H_WHY)
