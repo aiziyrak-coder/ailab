@@ -111,6 +111,14 @@ python3 -m venv .venv
 pip install -q -U pip
 pip install -q -r requirements.txt
 
+# Keys arxivi va bilimlar bazasi keshi — xizmat www-data nomidan yozadi.
+# backend/data ilgari root'niki edi: arxiv «yoqiq» deb turar, lekin bitta
+# keys ham yozilmasdi (PermissionError jimgina yutilardi).
+mkdir -p "$APP/backend/data/cases"
+chown -R www-data:www-data "$APP/backend/data/cases"
+chown www-data:www-data "$APP/backend/data"
+chown www-data:www-data "$APP/backend/data/histology_kb" 2>/dev/null || true
+
 if [ ! -f .env ]; then
 python3 - << 'PYENV'
 import secrets

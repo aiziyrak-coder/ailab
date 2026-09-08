@@ -23,3 +23,4 @@ pygrabber>=0.2; sys_platform == 'win32'
 
 # Ixtiyoriy xato kuzatuv (SENTRY_DSN qo'yilganda)
 # sentry-sdk>=2.0,<3
+scikit-learn>=1.4    # leksik zaxira qidiruv (TF-IDF) — embedding tushganda kitoblar yo'qolmasin

@@ -130,6 +130,19 @@ def _prune():
             log.warning("keys arxivi: %s o'chmadi: %s", name, e)
 
 
+def _writable(root):
+    """Arxivga haqiqatan yozib bo'ladimi — «yoqiq» degani yetarli emas."""
+    try:
+        os.makedirs(root, exist_ok=True)
+        probe = os.path.join(root, ".yozuv_sinovi")
+        with open(probe, "w", encoding="utf-8") as f:
+            f.write("ok")
+        os.remove(probe)
+        return True
+    except Exception:
+        return False
+
+
 def stats():
     root = archive_dir()
     if not enabled():
@@ -140,4 +153,7 @@ def stats():
             p = os.path.join(root, month)
             if os.path.isdir(p):
                 n += sum(1 for d in os.listdir(p) if os.path.isdir(os.path.join(p, d)))
-    return {"enabled": True, "cases": n, "dir": root, "days": _retention_days()}
+    return {
+        "enabled": True, "cases": n, "dir": root, "days": _retention_days(),
+        "writable": _writable(root),
+    }
