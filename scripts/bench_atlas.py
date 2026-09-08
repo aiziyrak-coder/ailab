@@ -195,7 +195,9 @@ _JUDGE_SYSTEM = (
 )
 
 
-def judge(pred, label, model="gpt-4o"):
+def judge(pred, label, model=None):
+    """Model-hakam bahosi — (verdict, sabab). Arzon router modelida."""
+    model = model or os.environ.get("OPENAI_ROUTER_MODEL") or "gpt-4o-mini"
     """Model-hakam bahosi — (verdict, sabab)."""
     from lab_core import engine as eng
 
@@ -354,7 +356,10 @@ def main():
     ap.add_argument("--n", type=int, default=12)
     ap.add_argument("--kind", default="slide", choices=["slide", "clinical"])
     ap.add_argument("--seed", type=int, default=7)
-    ap.add_argument("--workers", type=int, default=3)
+    # Har keys — bir necha vision chaqiruv. 3 ta parallel ishchi bilan 14 keys
+    # butun kreditni yeb qo'ydi. Standart: 1 ishchi, va har keysdan keyin sarf
+    # jurnalga yoziladi (engine token hisobi).
+    ap.add_argument("--workers", type=int, default=1)
     ap.add_argument("--out", default="")
     ap.add_argument("--atlas", default=os.environ.get("HISTOLOGY_ATLAS_DIR") or os.path.join(
         os.environ.get("HISTOLOGY_KB_DIR")

@@ -193,6 +193,7 @@ def _falses(d):
 
 OBSERVE_TEMPLATE = {
     "not_tissue": False,
+    "organ": "teri|sut bezi|qovuq|prostata|qalqonsimon|oshqozon-ichak|endometrium|buyrak|o'pka|boshqa",
     "sample_quality": "yaxshi|o'rtacha|past",
     "magnification": "kichik|o'rta|yuqori",
     "layers_present": {"epidermis": False, "dermis": False, "subcutis": False, "adnexa": False},

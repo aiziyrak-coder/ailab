@@ -81,12 +81,28 @@ python scripts/bench_atlas.py --cases /opt/lab-fermi/backend/data/cases --model 
 Bazaviy natija (2026-09-08, eski arxitektura): **~25% aniq, ~50% qisman bilan**.
 Har o'zgarish shu raqamga solishtiriladi.
 
-## 5. Sozlamalar (`backend/.env`)
+## 5. Sarf (token) nazorati
+
+Har keys uchun sarf jurnalga yoziladi (`journalctl -u lab-fermi-gunicorn | grep token`)
+va arxivdagi `keys.json` ichida `tokens` maydonida turadi.
+
+Tejamkor quvur (standart): **keysga 2–3 chaqiruv** — ko'rik (≤6 rasm) + qaror (≤3 rasm),
+kerak bo'lsa yengil takror. Rasmlar 1280 px. Eski quvur 9–20 chaqiruv qilardi.
+
+Qattiq chegara: `OPENAI_MAX_CALLS_PER_CASE=6`, `OPENAI_MAX_TOKENS_PER_CASE=60000` —
+oshsa keys to'xtatilib, mezon jadvalidan deterministik (taxminiy) yozuv chiqadi.
+
+Benchmark ham sarflaydi: `--n 24` ≈ 24 keys × ~18k token. Kredit kam bo'lsa `--n 8`.
+
+## 6. Sozlamalar (`backend/.env`)
 
 | O'zgaruvchi | Ma'nosi |
 |---|---|
 | `HISTOLOGY_STRUCTURED=1` | tuzilgan tashxis yo'li (0 — eski matn yo'li) |
 | `CASE_ARCHIVE=1` | keys arxivi (0 — o'chiradi) |
 | `CASE_ARCHIVE_DAYS=180` | saqlash muddati |
-| `HISTOLOGY_OBSERVE_PASSES=3` | mustaqil ko'rik guruhlari soni |
+| `HISTOLOGY_ECONOMY=1` | tejamkor quvur (0 — eski to'liq quvur, 5–8× qimmat) |
+| `OPENAI_IMAGE_MAX_PX=1280` | rasm o'lchami (2048 — ikki barobar qimmat) |
+| `OPENAI_MAX_CALLS_PER_CASE=6` | keysga chaqiruv chegarasi |
+| `HISTOLOGY_OBSERVE_PASSES=1` | mustaqil ko'rik guruhlari soni (tejamkor: 1) |
 | `OPENAI_MODEL_ID=gpt-5.6-sol` | asosiy model |

@@ -1095,9 +1095,9 @@ def _report_max_images():
 
 def _observe_max_images():
     try:
-        v = int(os.environ.get("HISTOLOGY_OBSERVE_IMAGES", "8"))
+        v = int(os.environ.get("HISTOLOGY_OBSERVE_IMAGES", "6" if _economy_enabled() else "8"))
     except ValueError:
-        v = 8
+        v = 6
     return max(2, min(v, 16))
 
 
@@ -1216,9 +1216,9 @@ def _merge_observations(parts):
 def _observe_groups():
     """Ko'rik necha guruhga bo'linadi."""
     try:
-        v = int(os.environ.get("HISTOLOGY_OBSERVE_PASSES", "3"))
+        v = int(os.environ.get("HISTOLOGY_OBSERVE_PASSES", "1" if _economy_enabled() else "3"))
     except ValueError:
-        v = 3
+        v = 1
     return max(1, min(v, 5))
 
 
@@ -1247,6 +1247,7 @@ def _observe_histology(image_parts, patient_context=None):
             + _OBSERVE_SCHEMA
             + "\nEvery boolean must be a deliberate yes/no, not a default false. "
             "observations_uz: 4-8 short Uzbek sentences of what you actually see. "
+            "organ: the organ this tissue most likely comes from (teri if skin). "
             "Remember: NO diagnosis names anywhere."
         )
         picked = _spread_pick(image_parts, _observe_max_images())
@@ -1260,6 +1261,7 @@ def _observe_histology(image_parts, patient_context=None):
                         {"role": "user", "content": _vision_user(user, group)},
                     ],
                     {"max_tokens": 3500, "temperature": 0.0, "top_p": 0.1},
+                    label="ko'rik",
                 )
             except Exception as e:
                 log.warning("%s: ko'rik guruhi xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
@@ -1911,7 +1913,9 @@ def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
     if adj:
         blocks.append(_adjudication_block(adj))
     if kb_block:
-        blocks.append(kb_block)
+        # Mezon jadvali deterministik bilimni olib keladi; kitob matni — qo'shimcha.
+        # 15 ming belgilik blok har chaqiruvda ~4 ming token yeyardi.
+        blocks.append(_trim_block(kb_block, 6000 if _economy_enabled() else 15000))
     if organ_lock and organ_lock.get("organ"):
         blocks.append(f"Organ qulfi: {organ_lock['organ']} — boshqa organ tashxisi yozilmaydi.")
     ref = _referral_dx_block(patient_context)
@@ -1923,12 +1927,14 @@ def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
     )
     user_text = "\n\n".join(b for b in blocks if b)
 
-    parts = _spread_pick(list(image_parts or []), 6)
+    parts = _spread_pick(list(image_parts or []), 3 if _economy_enabled() else 6)
     try:
         raw = _complete_resilient(
             dxr.DECISION_SYSTEM, [user_text], parts,
             {**kwargs, "max_tokens": 2000, "temperature": 0.0}, "qaror",
         )
+    except CaseBudgetExceeded:
+        raise
     except Exception as e:
         log.warning("%s: qaror bosqichi xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
         return None
@@ -1944,6 +1950,67 @@ def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
     return rec
 
 
+def _trim_block(text, limit):
+    """Matnni paragraf chegarasida qisqartirish."""
+    t = text or ""
+    if len(t) <= limit:
+        return t
+    cut = t[:limit].rsplit("\n", 1)[0]
+    return cut + "\n(… qisqartirildi)"
+
+
+def _organ_from_observation(features, patient_context=None):
+    """Organ qulfi — alohida chaqiruvsiz: klinik yo'nalish yoki ko'rik javobi."""
+    p = _normalize_patient_context(patient_context)
+    forced = _organ_from_text(p.get("specimen_site")) or _organ_from_text(p.get("clinical_note"))
+    if forced:
+        return {"organ": forced, "confidence": "high", "reason_uz": "Klinik yo'nalish"}
+    organ = str((features or {}).get("organ") or "").strip().lower() if isinstance(features, dict) else ""
+    if organ:
+        mapped = _organ_from_text(organ) or organ
+        return {"organ": mapped, "confidence": "medium", "reason_uz": "Ko'rikdan"}
+    return {"organ": "teri", "confidence": "low", "reason_uz": "Standart: teri"}
+
+
+def _mismatch_from_observation(features, lab_type):
+    """Namuna tekshiruvi — ko'rikning not_tissue javobidan (alohida chaqiruvsiz)."""
+    if isinstance(features, dict) and features.get("not_tissue") is True:
+        return (
+            "Yuklangan rasm(lar)da to'qima kesmasi ko'rinmadi — bu mikroskop kadri emas "
+            "yoki tanlangan tahlil turiga mos emas. H&E kesma kadrini yuklang."
+        )
+    return None
+
+
+def _record_from_criteria(features):
+    """Model qaror bera olmaganda — mezon jadvalidan deterministik yozuv.
+
+    Bu «bo'sh qo'l bilan qaytmaslik» yo'li: ko'rilgan belgilar bo'yicha eng
+    mos nozologiya, taxminiy deb belgilangan holda. Model chaqiruvi yo'q.
+    """
+    from . import dx_record as dxr
+
+    rows = _dxc.rank_candidates(features, 3)
+    if not rows:
+        alt = _descriptive_dx(features)
+        if not alt:
+            return None
+        return dxr.DxRecord(name=alt, certainty=dxr.CERTAIN_DESCRIPTIVE, organ="teri")
+    top = rows[0]
+    rec = dxr.DxRecord(
+        name=top["name"], certainty=dxr.CERTAIN_PROVISIONAL,
+        malignant=bool(top["malignant"]), organ="teri",
+    )
+    for spec in top["essential_present"][:6]:
+        rec.evidence.append(dxr.Evidence(feature=_dxc.feature_label(spec), seen=True,
+                                         detail="ko'rikda belgilangan"))
+    for r in rows[1:3]:
+        miss = ", ".join(_dxc.feature_label(x) for x in r["essential_absent"][:2]) or "mezon kamroq mos"
+        rec.differentials.append(dxr.Differential(name=r["name"], excluded_by=miss))
+    rec.notes.append("model qaror bermadi — mezon jadvalidan deterministik yozuv")
+    return rec
+
+
 def _finish_record(rec, features, adj, names):
     """Qo'riqchilar + foiz + hisobot matni. Har doim to'liq ishlaydi."""
     from . import dx_record as dxr
@@ -1951,6 +2018,8 @@ def _finish_record(rec, features, adj, names):
     rec = dxr.apply_guards(rec, features, _DX_REQUIRED_FEATURES, _descriptive_dx(features))
     if rec is None:
         return None, ""
+    if isinstance(features, dict):
+        features["_chosen_name"] = rec.name
     pct, why = _confidence_percent(features, adj, names)
     if rec.certainty == dxr.CERTAIN_DESCRIPTIVE:
         pct = min(pct, 40)          # tavsifiy nom — nozologiya emas
@@ -2005,7 +2074,24 @@ def _confidence_percent(features=None, adj=None, names=None):
         elif agree < len(norm):
             caps.append(80)
     else:
-        score += 22.0  # o'lchanmagan — o'rtacha ball, jazo ham, mukofot ham emas
+        # Tejamkor yo'lda mustaqil guruhlar yo'q. O'rniga: modelning tanlovi
+        # mezon jadvalining deterministik tartibi bilan kelishadimi.
+        top = _dxc.rank_candidates(features, 3) if isinstance(features, dict) else []
+        chosen = str((adj or {}).get("chosen") or "") if isinstance(adj, dict) else ""
+        chosen = chosen or str((features or {}).get("_chosen_name") or "")
+        if top and chosen:
+            pos = next((i for i, r in enumerate(top) if _same_entity(chosen, r["name"])), None)
+            if pos == 0:
+                score += 40.0
+                why.append("mezon jadvali: 1-o'rin")
+            elif pos is not None:
+                score += 24.0
+                why.append(f"mezon jadvali: {pos + 1}-o'rin")
+            else:
+                score += 8.0
+                why.append("mezon jadvalidan tashqari")
+        else:
+            score += 22.0  # o'lchanmagan — o'rtacha ball
 
     # 2) Ko'rikda haqiqatan ko'rilgan belgilar
     n = len(_true_features(features)) if isinstance(features, dict) else 0
@@ -3852,9 +3938,11 @@ def _merge_prompt_with_microscope(base_prompt, microscope_prefix):
 # ─── OpenAI tahlil ────────────────────────────────────────────────────────────
 def _openai_image_max_px():
     try:
-        v = int(os.environ.get("OPENAI_IMAGE_MAX_PX", "2048"))
+        v = int(os.environ.get("OPENAI_IMAGE_MAX_PX", "1280"))
     except ValueError:
-        v = 2048
+        v = 1280
+    # 2048 px da har rasm ≈ 2000 token edi; 1280 px da ≈ 1100 — morfologiya
+    # 40× kadrda baribir o'qiladi, sarf esa deyarli ikki barobar kam.
     return max(960, min(v, 4096))
 
 
@@ -4078,7 +4166,108 @@ def _is_param_error(exc):
     )
 
 
-def _chat_complete(messages, kwargs, model=None):
+# ─── Token hisobi ────────────────────────────────────────────────────────────
+# Audit topgan xato: bitta keys 15–20 ta model chaqiruvi qilar, rasmlar har
+# chaqiruvda 2048 px da qayta yuborilar, `usage` esa hech qayerda o'qilmasdi —
+# sarf umuman hisoblanmagan. Endi har chaqiruvning HAQIQIY token soni
+# (resp.usage) keys bo'yicha yig'iladi, jurnalga yoziladi va chegaradan
+# oshsa keys to'xtatiladi — hisob minusga tushmasin.
+
+_case_meter = threading.local()
+
+
+def _meter_reset():
+    _case_meter.calls = 0
+    _case_meter.prompt = 0
+    _case_meter.completion = 0
+    _case_meter.log = []
+
+
+def _meter_state():
+    if not hasattr(_case_meter, "calls"):
+        _meter_reset()
+    return _case_meter
+
+
+def _meter_add(label, usage, n_images, text_chars):
+    m = _meter_state()
+    m.calls += 1
+    p = int(getattr(usage, "prompt_tokens", 0) or 0)
+    c = int(getattr(usage, "completion_tokens", 0) or 0)
+    if not p:            # usage kelmasa — taxmin (rasm ≈ 800, matn ≈ 4 belgi/token)
+        p = text_chars // 4 + n_images * 800
+    m.prompt += p
+    m.completion += c
+    m.log.append({"label": label, "prompt": p, "completion": c, "images": n_images})
+    log.info(
+        "%s: token — %s: %s+%s (rasm %s) | keys jami %s chaqiruv, %s token",
+        ZIYRAKAI_DISPLAY_NAME, label, p, c, n_images, m.calls, m.prompt + m.completion,
+    )
+
+
+def _meter_summary():
+    m = _meter_state()
+    return {"calls": m.calls, "prompt_tokens": m.prompt,
+            "completion_tokens": m.completion, "total_tokens": m.prompt + m.completion,
+            "stages": list(m.log)}
+
+
+def _max_calls_per_case():
+    try:
+        return max(1, int(os.environ.get("OPENAI_MAX_CALLS_PER_CASE", "6")))
+    except ValueError:
+        return 6
+
+
+def _max_tokens_per_case():
+    try:
+        return max(5000, int(os.environ.get("OPENAI_MAX_TOKENS_PER_CASE", "60000")))
+    except ValueError:
+        return 60000
+
+
+class CaseBudgetExceeded(RuntimeError):
+    """Keys uchun chaqiruv/token chegarasi tugadi."""
+
+
+def _budget_check(label):
+    m = _meter_state()
+    if m.calls >= _max_calls_per_case():
+        raise CaseBudgetExceeded(
+            f"keys chegarasi: {m.calls} chaqiruv ({_max_calls_per_case()} ruxsat) — {label}"
+        )
+    if m.prompt + m.completion >= _max_tokens_per_case():
+        raise CaseBudgetExceeded(
+            f"keys chegarasi: {m.prompt + m.completion} token "
+            f"({_max_tokens_per_case()} ruxsat) — {label}"
+        )
+
+
+def _message_stats(messages):
+    n_img, chars = 0, 0
+    for msg in messages or []:
+        c = msg.get("content")
+        if isinstance(c, str):
+            chars += len(c)
+        elif isinstance(c, list):
+            for part in c:
+                if not isinstance(part, dict):
+                    continue
+                if part.get("type") == "image_url":
+                    n_img += 1
+                elif part.get("type") == "text":
+                    chars += len(part.get("text") or "")
+    return n_img, chars
+
+
+def _economy_enabled():
+    """Tejamkor quvur: keysga ≤3 chaqiruv. 0 — eski to'liq quvur."""
+    v = (os.environ.get("HISTOLOGY_ECONOMY") or "1").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
+def _chat_complete(messages, kwargs, model=None, label=""):
+    _budget_check(label or "chaqiruv")
     max_retries = max(1, int(os.environ.get("OPENAI_MAX_RETRIES", "3")))
     base_delay = float(os.environ.get("OPENAI_RETRY_DELAY_SEC", "2"))
     model_id = (model or OPENAI_MODEL_ID).strip() or OPENAI_MODEL_ID
@@ -4111,6 +4300,8 @@ def _chat_complete(messages, kwargs, model=None):
                         text[:180],
                     )
                 _note_api_ok()
+                _n_img, _chars = _message_stats(messages)
+                _meter_add(label or "chaqiruv", getattr(resp, "usage", None), _n_img, _chars)
                 return text
             return (
                 "%s javob matni bo'sh yoki to'liq emas (finish_reason=%s). "
@@ -4497,7 +4688,10 @@ def _complete_resilient(system, user_texts, image_parts, kwargs, label=""):
                     {"role": "user", "content": content},
                 ],
                 kwargs,
+                label=label or "chaqiruv",
             )
+        except CaseBudgetExceeded:
+            raise
         except Exception as e:
             log.warning("%s: %s chaqiruv xato: %s", ZIYRAKAI_DISPLAY_NAME, label, e)
             return last
@@ -4968,7 +5162,20 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
                 "%s: to'plamda H&E kesmasi topilmadi — klinik suratlar bilan ishlanmoqda",
                 ZIYRAKAI_DISPLAY_NAME,
             )
-    if image_parts:
+    _meter_reset()
+    economy = lab_type == "histology" and _economy_enabled() and _structured_enabled()
+    if image_parts and economy:
+        # TEJAMKOR YO'L: namuna tekshiruvi, organ va ko'rik — BITTA chaqiruv.
+        # Ilgari uchta alohida chaqiruv edi (har biriga rasmlar qayta yuborilardi).
+        t0 = time.time()
+        features = _observe_histology(_vision_parts, patient_context)
+        organ_lock = _organ_from_observation(features, patient_context)
+        mismatch = _mismatch_from_observation(features, lab_type)
+        log.info("%s: ko'rik (tejamkor, 1 chaqiruv) %.1fs", ZIYRAKAI_DISPLAY_NAME, time.time() - t0)
+        if mismatch:
+            log.warning("%s: specimen mismatch lab=%s — tahlil to'xtatildi", ZIYRAKAI_DISPLAY_NAME, lab_type)
+            return mismatch
+    elif image_parts:
         # Namuna turi tekshiruvi va organ qulfi bir-biriga bog'liq emas — parallel bajariladi
         t0 = time.time()
         with ThreadPoolExecutor(max_workers=3) as pool:
@@ -5006,7 +5213,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
     # kitoblar aynan shu yerda ishlashi kerak.
     adj_block = ""
     adj = None      # hisobot oxirida ishonchlilik foiziga ham kerak bo'ladi
-    if lab_type == "histology" and isinstance(features, dict):
+    if lab_type == "histology" and isinstance(features, dict) and not economy:
         cands = list(_group_dx_names(features, kwargs))
         cands.extend(_dx_terms_for_atlas(patient_context))
         # Deterministik mezon jadvali — ko'rilgan belgilardan hisoblangan nomzodlar
@@ -5017,21 +5224,46 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
     # Tuzilgan qaror — asosiy yo'l. Matn qayta o'qilmaydi, hisobot shu
     # yozuvdan chiqariladi, shuning uchun sarlavha yoki foiz yo'qolmaydi.
     if lab_type == "histology" and _structured_enabled() and isinstance(features, dict):
-        _rec = _decide_diagnosis(
-            features, adj, kb_block, kwargs, organ_lock, patient_context, _vision_parts
-        )
-        if _rec is not None:
-            _stable, _names = _dx_stability(features, kwargs)
-            if _stable is False:
-                log.warning(
-                    "%s: tashxis barqaror emas: %s",
-                    ZIYRAKAI_DISPLAY_NAME, " | ".join(_names[:3]),
+        try:
+            _rec = _decide_diagnosis(
+                features, adj, kb_block, kwargs, organ_lock, patient_context, _vision_parts
+            )
+        except CaseBudgetExceeded as e:
+            log.warning("%s: %s", ZIYRAKAI_DISPLAY_NAME, e)
+            _rec = None
+        if _rec is None and economy:
+            # Ikkinchi, yengilroq urinish (kamroq rasm), so'ng — mezon jadvalidan
+            # deterministik yozuv. Eski 8 chaqiruvli matn zanjiriga QAYTILMAYDI.
+            try:
+                _rec = _decide_diagnosis(
+                    features, adj, kb_block[:2500], kwargs, organ_lock, patient_context,
+                    _vision_parts[:1],
                 )
+            except CaseBudgetExceeded as e:
+                log.warning("%s: %s", ZIYRAKAI_DISPLAY_NAME, e)
+            if _rec is None:
+                _rec = _record_from_criteria(features)
+        if _rec is not None:
+            _names = []
+            if not economy:
+                _stable, _names = _dx_stability(features, kwargs)
+                if _stable is False:
+                    log.warning(
+                        "%s: tashxis barqaror emas: %s",
+                        ZIYRAKAI_DISPLAY_NAME, " | ".join(_names[:3]),
+                    )
             _rec, _text = _finish_record(_rec, features, adj, _names)
             if _text:
                 if isinstance(trace, dict):
                     trace["features"] = features
                     trace["record"] = _rec.to_dict()
+                    trace["tokens"] = _meter_summary()
+                _m = _meter_summary()
+                log.info(
+                    "%s: keys sarfi — %s chaqiruv, %s token (so'rov %s, javob %s)",
+                    ZIYRAKAI_DISPLAY_NAME, _m["calls"], _m["total_tokens"],
+                    _m["prompt_tokens"], _m["completion_tokens"],
+                )
                 log.info(
                     "%s: hisobot tayyor (tuzilgan) imgs=%s belgi=%s %.1fs",
                     ZIYRAKAI_DISPLAY_NAME, n_img, len(_text), time.time() - t_start,

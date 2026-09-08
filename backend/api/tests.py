@@ -1128,10 +1128,11 @@ class StructuredPipelineMockTests(TestCase):
 
         calls = []
 
-        def fake(messages, kwargs, model=None):
+        def fake(messages, kwargs, model=None, label=""):
             calls.append(messages)
             return reply
 
+        eng._meter_reset()          # har sinov — yangi keys byudjeti
         old = eng._chat_complete
         eng._chat_complete = fake
         # Rasm bilan — rad etilganda «matn qisqartirilgan, rasmsiz» urinish bo'lsin
@@ -1173,6 +1174,101 @@ class StructuredPipelineMockTests(TestCase):
         rec, calls = self._with_model("I'm sorry, I can't assist with that.")
         self.assertIsNone(rec)
         self.assertGreaterEqual(len(calls), 2)   # yengilroq urinish bo'ldi
+
+
+class TokenBudgetTests(TestCase):
+    """Sarf hisobi va keys chegarasi — hisob minusga tushmasin."""
+
+    def test_message_stats_count_images_and_text(self):
+        from lab_core import engine as eng
+
+        msgs = [{"role": "system", "content": "abcd" * 10},
+                {"role": "user", "content": [{"type": "text", "text": "xy" * 5},
+                                             {"type": "image_url", "image_url": {"url": "u"}},
+                                             {"type": "image_url", "image_url": {"url": "v"}}]}]
+        self.assertEqual(eng._message_stats(msgs), (2, 50))
+
+    def test_case_budget_stops_runaway_calls(self):
+        from lab_core import engine as eng
+
+        eng._meter_reset()
+        for i in range(eng._max_calls_per_case()):
+            eng._meter_add("sinov", None, 1, 400)
+        with self.assertRaises(eng.CaseBudgetExceeded):
+            eng._budget_check("ortiqcha")
+        s = eng._meter_summary()
+        self.assertEqual(s["calls"], eng._max_calls_per_case())
+        self.assertGreater(s["total_tokens"], 0)
+        eng._meter_reset()
+        eng._budget_check("yangi keys")     # reset dan keyin yana ruxsat
+
+
+class EconomyPipelineMockTests(TestCase):
+    """Tejamkor quvur: keysga ≤3 chaqiruv, hisobot to'liq, sarf yozib boriladi."""
+
+    def _fake(self, calls):
+        from lab_core import dx_criteria as dxc
+
+        obs = json.loads(dxc.observe_schema_json())
+        obs.update({"not_tissue": False, "organ": "teri", "sample_quality": "yaxshi",
+                    "dominant_pattern": "psoriasiform", "not_assessable_uz": [],
+                    "observations_uz": ["rete cho'zilgan"]})
+        for k in ("regular_elongated_rete", "parakeratosis", "munro_microabscess",
+                  "suprapapillary_thinning"):
+            obs["epidermis"][k] = True
+        decision = json.dumps({"diagnosis": "Psoriasis vulgaris", "organ": "teri",
+                               "layer": "epidermis", "evidence": [
+                                   {"feature": "Munro mikroabsessi", "detail": "3 ta"},
+                                   {"feature": "Parakeratoz", "detail": "tutash"}],
+                               "facts": ["Mitoz: 0/10 HPF"]})
+
+        def fake(messages, kwargs, model=None, label=""):
+            calls.append(label)
+            sysm = messages[0].get("content") or ""
+            if "histopathology image reader" in sysm:
+                return json.dumps(obs)
+            return decision
+        return fake
+
+    def test_two_calls_full_report_and_token_trace(self):
+        from PIL import Image
+        from lab_core import engine as eng
+
+        calls = []
+        old_chat, old_client = eng._chat_complete, eng.openai_client
+        env_old = {k: os.environ.get(k) for k in ("HISTOLOGY_ECONOMY", "HISTOLOGY_KB", "HISTOLOGY_ATLAS")}
+        os.environ.update({"HISTOLOGY_ECONOMY": "1", "HISTOLOGY_KB": "0", "HISTOLOGY_ATLAS": "0"})
+        eng._chat_complete, eng.openai_client = self._fake(calls), object()
+        try:
+            imgs = [Image.new("RGB", (900, 700), (170, 110, 190)) for _ in range(4)]
+            trace = {}
+            out = eng._openai_generate(["prompt"] + imgs, "histology",
+                                       {"specimen_site": "tirsak terisi"}, trace=trace)
+        finally:
+            eng._chat_complete, eng.openai_client = old_chat, old_client
+            for k, v in env_old.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        self.assertEqual(calls, ["ko'rik", "qaror"], calls)
+        self.assertTrue(out.startswith("#### TASHXIS"))
+        self.assertIn("YAKUNIY XULOSA: Psoriasis vulgaris", out)
+        self.assertRegex(out, r"Ishonchlilik: \d{1,2}%")
+        self.assertIn("tokens", trace)
+        self.assertEqual(trace["record"]["name"], "Psoriasis vulgaris")
+
+    def test_criteria_fallback_when_the_model_gives_nothing(self):
+        from lab_core import engine as eng
+        from lab_core import dx_record as dxr
+
+        f = {"sample_quality": "yaxshi", "epidermis": {"koilocytes": True, "papillomatosis": True,
+                                                       "hyperkeratosis": True}}
+        rec = eng._record_from_criteria(f)
+        self.assertIsNotNone(rec)
+        self.assertIn("Verruca", rec.name)
+        self.assertEqual(rec.certainty, dxr.CERTAIN_PROVISIONAL)
+        self.assertTrue(rec.evidence)
 
 
 class LexicalFallbackTests(TestCase):
