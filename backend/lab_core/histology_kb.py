@@ -155,7 +155,7 @@ SOURCES = {
         "domain": "skin",
         "tier": 1,
         "clinic": True,
-        "weight": 0.14,
+        "weight": 0.07,
         "prefix": "Дерматология руководство клинико-морфологическое. ",
     },
     "atlas_book_ru": {
@@ -163,7 +163,7 @@ SOURCES = {
         "domain": "skin",
         "tier": 1,
         "clinic": True,
-        "weight": 0.13,
+        "weight": 0.07,
         "prefix": "Атлас дерматологии клинический и морфологический. ",
     },
     "nash_atlas_ru": {
@@ -171,7 +171,7 @@ SOURCES = {
         "domain": "skin",
         "tier": 1,
         "clinic": True,
-        "weight": 0.13,
+        "weight": 0.06,
         "prefix": "Наш атлас дерматологии. ",
     },
     "eczema_mono_ru": {
@@ -179,7 +179,7 @@ SOURCES = {
         "domain": "skin",
         "tier": 1,
         "clinic": True,
-        "weight": 0.13,
+        "weight": 0.07,
         "prefix": "Экзематозные спонгиотические дерматозы монография. ",
     },
     "anogenital_ru": {
@@ -187,7 +187,7 @@ SOURCES = {
         "domain": "skin",
         "tier": 1,
         "clinic": True,
-        "weight": 0.13,
+        "weight": 0.06,
         "prefix": "Аногенитальные дерматозы. ",
     },
     "internal_skin_ru": {
@@ -195,7 +195,7 @@ SOURCES = {
         "domain": "skin",
         "tier": 1,
         "clinic": True,
-        "weight": 0.11,
+        "weight": 0.05,
         "prefix": "Внутренние болезни кожные проявления. ",
     },
     "dermatoscopy_ru": {
@@ -203,7 +203,7 @@ SOURCES = {
         "domain": "skin",
         "tier": 1,
         "clinic": True,
-        "weight": 0.11,
+        "weight": 0.05,
         "prefix": "Дерматоскопия. ",
     },
     "junqueira": {
@@ -248,7 +248,7 @@ GENERAL_SOURCES = frozenset(k for k, v in SOURCES.items() if v["domain"] == "gen
 CLINIC_SOURCES = frozenset(k for k, v in SOURCES.items() if v.get("clinic"))
 
 # Har tahlilda klinika kitoblariga kafolatlangan joy (organ = teri bo'lganda)
-CLINIC_MIN_HITS = _env_int("HISTOLOGY_KB_CLINIC_MIN", 7, 0, 20)
+CLINIC_MIN_HITS = _env_int("HISTOLOGY_KB_CLINIC_MIN", 6, 0, 20)
 
 
 def is_clinic_source(code):
@@ -431,6 +431,27 @@ def index_stats():
 
 
 _CLINIC_FLAG = {"mtime": None, "value": False}
+_CLINIC_MASK = {"mtime": None, "arr": None}
+
+
+def _clinic_mask(chunks):
+    """Klinika kutubxonasi parchalari uchun mantiqiy maska (keshlanadi)."""
+    emb_p, chunks_p, _ = _paths()
+    try:
+        mtime = max(os.path.getmtime(emb_p), os.path.getmtime(chunks_p))
+    except OSError:
+        mtime = None
+    if _CLINIC_MASK["mtime"] == mtime and _CLINIC_MASK["arr"] is not None:
+        return _CLINIC_MASK["arr"]
+    arr = np.fromiter(
+        ((c.get("source") or "") in CLINIC_SOURCES for c in chunks),
+        dtype=bool,
+        count=len(chunks),
+    )
+    with _lock:
+        _CLINIC_MASK["mtime"] = mtime
+        _CLINIC_MASK["arr"] = arr
+    return arr
 
 
 def index_has_clinic():
@@ -584,6 +605,37 @@ def save_index(chunks, embeddings, meta):
 
 
 # ─── Qidiruv ──────────────────────────────────────────────────────────────────
+# Klinika kutubxonasi rus tilida — tashxis atamalarining ruscha mos qatori.
+# Kalit `_DX_TERM_HINTS` dagi kalit bilan bir xil.
+_DX_TERM_RU = {
+    "melanom": "меланома кожи гистология атипичные меланоциты педжетоидное распространение уровень инвазии Бреслоу",
+    "melanocyt": "меланоцитарное образование невус гистология атипия созревание гнёзда",
+    "nevus": "меланоцитарный невус пограничный смешанный внутридермальный гистология",
+    "dermatofibrom": "дерматофиброма доброкачественная фиброзная гистиоцитома коллагеновые волокна гистология",
+    "dfsp": "выбухающая дерматофибросаркома муарный рисунок CD34 гистология",
+    "basal cell": "базальноклеточный рак кожи базалиома палисадообразное расположение ретракция стромы гистология",
+    "bcc": "базалиома базальноклеточная карцинома гистологическая картина",
+    "squamous": "плоскоклеточный рак кожи роговые жемчужины атипия кератиноцитов инвазия гистология",
+    "scc": "плоскоклеточный рак in situ болезнь Боуэна атипия на всю толщу эпидермиса",
+    "keratosis": "себорейный кератоз актинический кератоз роговые кисты акантоз солнечный эластоз гистология",
+    "verruca": "бородавка вульгарная койлоциты папилломатоз гипергранулёз ВПЧ гистология",
+    "papillom": "папиллома фиброваскулярная ножка папилломатоз гистология",
+    "psoriaz": "псориаз паракератоз микроабсцессы Мунро регулярный акантоз истончение надсосочковых пластинок",
+    "lichen": "красный плоский лишай лихеноидная реакция полосовидный инфильтрат тельца Сиватта гистология",
+    "granulom": "кольцевидная гранулёма саркоидоз некробиоз палисадообразная гранулёма гистология",
+    "vaskulit": "васкулит лейкоцитокластический фибриноидный некроз стенки сосуда нейтрофилы гистология",
+    "vasculit": "васкулит поражение стенки сосудов фибриноидный некроз гистология",
+    "gemangiom": "гемангиома сосудистая пролиферация дольковая капиллярная пиогенная гранулёма гистология",
+    "hemangio": "гемангиома сосудистое образование эндотелий гистология",
+    "angio": "ангиосаркома саркома Капоши сосудистая пролиферация расслоение коллагена гистология",
+    "kaposi": "саркома Капоши веретеновидные клетки щелевидные сосуды HHV8 гистология",
+    "limfom": "лимфома кожи грибовидный микоз эпидермотропизм микроабсцессы Потрие гистология",
+    "lymphom": "Т-клеточная лимфома кожи атипичные лимфоциты эпидермотропизм гистология",
+    "adneks": "опухоли придатков кожи трихоэпителиома пиломатриксома гидраденома гистология",
+    "cyst": "эпидермальная киста трихилеммальная киста роговые массы гистология",
+    "kist": "эпидермоидная киста волосяная киста зернистый слой гистология",
+}
+
 def _dx_terms_from_draft(draft):
     """Qoralamadagi tashxis atamalari → maqsadli mezon qidiruvi."""
     if not draft:
@@ -594,10 +646,14 @@ def _dx_terms_from_draft(draft):
     hits = []
     for key, expand in _DX_TERM_HINTS:
         if key in focus or key in low[:3000]:
-            hits.append(expand)
+            hits.append((expand, _DX_TERM_RU.get(key, "")))
         if len(hits) >= 3:
             break
     return hits
+
+
+GENERIC_QUERIES_SKIN = 3
+GENERIC_QUERIES_OTHER = 2
 
 
 def _query_parts(organ_lock, patient_context=None, draft=None):
@@ -638,16 +694,19 @@ def _query_parts(organ_lock, patient_context=None, draft=None):
     if site:
         parts.append(f"{base} {site} histopathology differential diagnosis criteria")
 
-    for term in _dx_terms_from_draft(draft):
+    for term, term_ru in _dx_terms_from_draft(draft):
         parts.append(f"{term} histopathology diagnostic criteria differential")
+        if term_ru:
+            # Rus kitoblariga aynan shu tashxis bo'yicha tushish uchun
+            parts.append(f"{term_ru} патоморфология критерии диагноза дифференциальный диагноз")
 
-    if draft and len(parts) < (8 if is_skin else 6):
+    if draft and len(parts) < (12 if is_skin else 6):
         low = re.sub(r"\s+", " ", draft[:2500])
         m = re.search(r"aniq\s+tashxis(.{0,1000})", low, flags=re.I)
         hint = m.group(0) if m else low[:600]
         parts.append(f"{base} {hint} WHO criteria differential")
 
-    return parts[: 8 if is_skin else 6]
+    return parts[: 12 if is_skin else 6]
 
 
 def _source_bonus(code, organ):
@@ -667,7 +726,87 @@ def _source_bonus(code, organ):
     return -0.06
 
 
-def retrieve(queries, k=None, organ=None, per_source_max=None):
+# Klinika kitoblarida klinik tavsif ham, patomorfologiya ham bor. Mikroskop
+# tahlilida morfologiya bo'lgan parcha kerak — shu atamalar bo'yicha ajratiladi.
+_HISTO_TERMS = re.compile(
+    r"патоморфолог|гистолог|гистопатолог|эпидермис|дерм[ае]|"
+    r"акантоз|акантолиз|гиперкератоз|паракератоз|спонгиоз|инфильтрат|кератиноцит|"
+    r"меланоцит|базальн\w* слой|зернист\w* слой|шиповат|сосочков|атипи|митоз|ядр[оа]|"
+    r"гранулем|некроз|васкулит|акантолитич|дискератоз|экзоцитоз|лимфоцитарн\w* инфильтр|"
+    r"epidermis|dermis|acanthosis|spongiosis|parakeratosis|"
+    r"keratinocyte|melanocyte|infiltrate|histolog|mitos|atypia|dyskeratos|lichenoid",
+    re.I,
+)
+
+_HISTO_CACHE = {"mtime": None, "arr": None}
+
+
+MORPH_STRONG = 0.04   # morfologiya yozilgan parcha
+MORPH_WEAK = 0.01
+MORPH_NONE = -0.05    # sof klinik tavsif — mikroskop tahlilida foydasi kam
+
+
+def _histo_weights_path():
+    return os.path.join(kb_dir(), "morph_weights.npz")
+
+
+def _compute_histo_array(chunks):
+    arr = np.zeros(len(chunks), dtype=np.float32)
+    find = _HISTO_TERMS.findall
+    for i, c in enumerate(chunks):
+        n = len(find(c.get("text") or ""))
+        arr[i] = MORPH_STRONG if n >= 3 else (MORPH_WEAK if n >= 1 else MORPH_NONE)
+    return arr
+
+
+def _histo_bonus_array(chunks):
+    """Har parcha uchun morfologiya og'irligi.
+
+    35 ming parchani har safar skanerlash sekin — natija xotirada va diskda
+    (morph_weights.npz) saqlanadi, indeks o'zgarsa qayta hisoblanadi.
+    """
+    emb_p, chunks_p, _ = _paths()
+    try:
+        mtime = max(os.path.getmtime(emb_p), os.path.getmtime(chunks_p))
+    except OSError:
+        mtime = None
+    if _HISTO_CACHE["mtime"] == mtime and _HISTO_CACHE["arr"] is not None:
+        return _HISTO_CACHE["arr"]
+
+    arr = None
+    cache_f = _histo_weights_path()
+    try:
+        if os.path.isfile(cache_f):
+            data = np.load(cache_f)
+            if (
+                int(data["n"]) == len(chunks)
+                and float(data["mtime"]) == float(mtime or 0)
+                and data["w"].shape[0] == len(chunks)
+            ):
+                arr = data["w"].astype(np.float32)
+    except Exception as e:
+        log.warning("histology_kb: morfologiya keshi o'qilmadi: %s", e)
+
+    if arr is None:
+        t0 = __import__("time").time()
+        arr = _compute_histo_array(chunks)
+        try:
+            np.savez(cache_f, w=arr, n=len(chunks), mtime=float(mtime or 0))
+        except OSError as e:
+            log.warning("histology_kb: morfologiya keshi yozilmadi: %s", e)
+        log.info(
+            "histology_kb: morfologiya og'irligi hisoblandi n=%s %.1fs",
+            len(chunks),
+            __import__("time").time() - t0,
+        )
+
+    with _lock:
+        _HISTO_CACHE["mtime"] = mtime
+        _HISTO_CACHE["arr"] = arr
+    return arr
+
+
+def retrieve(queries, k=None, organ=None, per_source_max=None, specific_from=None):
     if not kb_enabled() or not index_ready():
         return []
     emb, chunks = _load_index()
@@ -684,6 +823,11 @@ def retrieve(queries, k=None, organ=None, per_source_max=None):
 
     scores = emb @ qv.T
     best = scores.max(axis=1)
+    # Umumiy ("skin biopsy epidermis…") so'rovlar har qanday bobga mos keladi.
+    # Klinika kvotasi mavzuga oid so'rovlar bo'yicha tanlanadi: rus morfologiya
+    # qatori, namuna joyi va qoralamadagi tashxis atamalari.
+    cut = 2 if specific_from is None else max(0, int(specific_from))
+    specific = scores[:, cut:].max(axis=1) if scores.shape[1] > cut else best
 
     # Manba bonusi (organga qarab)
     bonus = np.zeros_like(best)
@@ -694,6 +838,8 @@ def retrieve(queries, k=None, organ=None, per_source_max=None):
             cache[code] = _source_bonus(code, organ)
         bonus[i] = cache[code]
     ranked = best + bonus
+    # Mikroskop tahlili — morfologiya yozilgan parchani klinik tavsifdan ustun qo'yamiz
+    ranked = ranked + _histo_bonus_array(chunks)
 
     # Nomzodlar (k dan ko'proq — kvota uchun)
     cand = max(k * 10, 120)
@@ -735,13 +881,29 @@ def retrieve(queries, k=None, organ=None, per_source_max=None):
 
     # 1-bosqich: klinika kutubxonasiga kafolatlangan joy — dastur avvalo
     # o'z kitoblaridan mezon oladi, so'ng xalqaro kanon bilan tekshiradi.
-    clinic_target = min(CLINIC_MIN_HITS, max(0, k - 3))
+    # Avval morfologiya yozilgan parchalar; yetmasa — qolgan klinika parchalari.
+    clinic_target = min(CLINIC_MIN_HITS, max(0, k - 4))
     if clinic_target and index_has_clinic():
-        for i in idx:
+        morph = _histo_bonus_array(chunks)
+        mask = _clinic_mask(chunks)
+        # Faqat klinika parchalari orasidan tanlanadi — kanon bu bosqichda
+        # o'rin egallamaydi (aks holda kvota bo'sh qolib ketardi).
+        clinic_rank = np.where(mask, specific + bonus + morph, -1e9)
+        cand_c = min(max(clinic_target * 20, 200), clinic_rank.shape[0])
+        cidx = np.argpartition(-clinic_rank, cand_c - 1)[:cand_c]
+        cidx = cidx[np.argsort(-clinic_rank[cidx])]
+        for strict in (True, False):
+            for i in cidx:
+                if len(out) >= clinic_target:
+                    break
+                i = int(i)
+                if not mask[i]:
+                    continue
+                if strict and morph[i] < MORPH_STRONG:
+                    continue
+                _take(i)
             if len(out) >= clinic_target:
                 break
-            if (chunks[int(i)].get("source") or "") in CLINIC_SOURCES:
-                _take(i)
 
     # 2-bosqich: qolgan joylar — eng yuqori ballli parchalar (har qanday manba)
     for i in idx:
@@ -823,7 +985,8 @@ def histology_kb_prompt_block(organ_lock=None, patient_context=None, draft=None)
     queries = _query_parts(organ_lock, patient_context, draft)
     # Teri — asosiy yo'nalish: kitob mezonlaridan ko'proq parcha olinadi
     k = TOP_K + 4 if organ == "teri" else TOP_K
-    hits = retrieve(queries, k=k, organ=organ)
+    generic_n = GENERIC_QUERIES_SKIN if organ == "teri" else GENERIC_QUERIES_OTHER
+    hits = retrieve(queries, k=k, organ=organ, specific_from=generic_n)
     if not hits:
         return ""
     log.info(
@@ -843,7 +1006,9 @@ def warm_index(background=True):
 
     def _load():
         try:
-            _load_index()
+            _, chunks = _load_index()
+            if chunks:
+                _histo_bonus_array(chunks)
         except Exception as e:
             log.warning("histology_kb: warmup xato: %s", e)
 
