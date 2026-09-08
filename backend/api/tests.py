@@ -1272,7 +1272,8 @@ class EconomyPipelineMockTests(TestCase):
                     os.environ.pop(k, None)
                 else:
                     os.environ[k] = v
-        self.assertEqual(calls, ["ko'rik", "qaror"], calls)
+        # ko'rik → qaror → hal qiluvchi belgilar tekshiruvi: 3 chaqiruv, ortiq emas
+        self.assertEqual(calls, ["ko'rik", "qaror", "tekshiruv"], calls)
         self.assertTrue(out.startswith("#### TASHXIS"))
         self.assertIn("YAKUNIY XULOSA: Psoriasis vulgaris", out)
         self.assertRegex(out, r"Ishonchlilik: \d{1,2}%")
@@ -1290,6 +1291,63 @@ class EconomyPipelineMockTests(TestCase):
         self.assertIn("Verruca", rec.name)
         self.assertEqual(rec.certainty, dxr.CERTAIN_PROVISIONAL)
         self.assertTrue(rec.evidence)
+
+
+class DecisiveFeatureVerificationTests(TestCase):
+    """Hal qiluvchi belgilar qayta tekshiriladi — bitta ko'rikning shovqini
+    to'g'ridan-to'g'ri tashxisga o'tmasin (psoriaz → «Hailey–Hailey 87%» holati)."""
+
+    def _psoriasis_misread(self):
+        # Ko'rik Kogoj pustulasini akantoliz deb o'qidi
+        return {"sample_quality": "yaxshi", "dominant_pattern": "pustular-acantholytic",
+                "epidermis": {"acantholysis": True, "regular_elongated_rete": True,
+                              "parakeratosis": True, "neutrophils_in_corneum": True,
+                              "spongiform_pustule": True, "intraepidermal_vesicle": True},
+                "dermis": {"dilated_tortuous_capillaries": True}, "cytology": {}}
+
+    def test_a_single_feature_winner_does_not_get_full_confidence(self):
+        from lab_core import engine as eng
+
+        f = {"sample_quality": "yaxshi", "epidermis": {"acantholysis": True}, "cytology": {}}
+        f["_chosen_name"] = "Hailey-Hailey kasalligi"
+        pct, why = eng._confidence_percent(f, None, [])
+        self.assertLess(pct, 55, why)
+
+    def test_verification_flip_rewrites_the_name(self):
+        from lab_core import engine as eng
+        from lab_core import dx_record as dxr
+
+        f = self._psoriasis_misread()
+        rec = dxr.from_json({"diagnosis": "Hailey-Hailey kasalligi", "evidence": [
+            {"feature": "akantoliz", "detail": "x"}, {"feature": "pufakcha", "detail": "y"}]})
+        keys = eng._decisive_features(rec, f)
+        self.assertIn("acantholysis", keys)
+
+        def fake(messages, kwargs, model=None, label=""):
+            return json.dumps({k: ("yo'q" if k == "acantholysis" else "bor") for k in keys})
+
+        eng._meter_reset()
+        old = eng._chat_complete
+        eng._chat_complete = fake
+        try:
+            img = [{"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,/9j/"}}]
+            changes = eng._verify_decisive_features(rec, f, img, {"temperature": 0.0})
+        finally:
+            eng._chat_complete = old
+        self.assertTrue(changes)
+        self.assertFalse(eng._feature_true(f, "acantholysis"))
+        rec, text = eng._finish_record(rec, f, None, [], changes)
+        self.assertIn("psoriaz", rec.name.lower())
+        self.assertLessEqual(rec.confidence, 60)
+        self.assertIn("YAKUNIY XULOSA:", text)
+
+    def test_acantholytic_names_are_excluded_by_psoriasis_findings(self):
+        from lab_core import dx_criteria as dxc
+
+        f = self._psoriasis_misread()
+        top = dxc.rank_candidates(f, 3)
+        self.assertTrue(top)
+        self.assertNotIn("hailey", top[0]["name"].lower(), [r["name"] for r in top])
 
 
 class LexicalFallbackTests(TestCase):

@@ -1243,9 +1243,12 @@ def _observe_histology(image_parts, patient_context=None):
             f"{n_all} field(s) from ONE case; the images below are a spread across them. "
             "Scan each at low power first (architecture, symmetry, borders, layers), then at "
             "high power (cells, nuclei, mitoses, stroma, inflammation). "
-            "Fill this JSON exactly, same keys, no extra keys:\n"
+            "Use this JSON shape and these keys (no extra keys):\n"
             + _OBSERVE_SCHEMA
-            + "\nEvery boolean must be a deliberate yes/no, not a default false. "
+            + "\nTo keep the answer short, OMIT boolean keys whose value is false — an omitted "
+            "boolean means false. Write only the booleans that are TRUE, plus every "
+            "non-boolean field. "
+            "\nEvery decision must be a deliberate yes/no from the images, not a default. "
             "observations_uz: 4-8 short Uzbek sentences of what you actually see. "
             "organ: the organ this tissue most likely comes from (teri if skin). "
             "Remember: NO diagnosis names anywhere."
@@ -2011,10 +2014,166 @@ def _record_from_criteria(features):
     return rec
 
 
-def _finish_record(rec, features, adj, names):
+# ─── Hal qiluvchi belgilarni qayta tekshirish ────────────────────────────────
+# Kuzatilgan xato: bir xil kesma ikki o'tkazishda «spongioform pustula» va
+# «akantoliz» deb o'qildi — ikkinchisi psoriazni Hailey–Hailey ga aylantirib,
+# 87% ishonch berdi. Bitta ko'rikdagi shovqin to'g'ridan-to'g'ri tashxisga
+# o'tib ketadi. Patolog bunday joyda kattalashtirib QAYTA QARAYDI — aynan shu
+# belgiga. Shu qadam: tanlangan tashxisning tayanch belgilari va uni rad
+# etadigan/muqobilni qo'llaydigan belgilar uchun aniq ta'rifli savol.
+# Narxi — kichik chaqiruv (≈2.5k kirish, ~150 chiqish).
+
+_VERIFY_SYSTEM = (
+    "You are a dermatopathologist re-examining ONE H&E field to settle specific "
+    "findings. For each feature below answer strictly from what is visible. "
+    "Use the definitions given — they exist because these features are confused. "
+    "Return ONE JSON object: {\"<key>\": \"bor\"|\"yo'q\"|\"noaniq\", ...}, keys exactly "
+    "as given, nothing else. Answer 'noaniq' only if the field truly cannot show it."
+)
+
+# Chalkashadigan belgilar uchun ta'rif — savolda beriladi
+_VERIFY_DEFS = {
+    "acantholysis": "TRUE acantholysis: keratinocytes lose intercellular bridges and round up "
+                    "as separate cells (dilapidated brick wall / tombstones). NOT a neutrophil "
+                    "pustule, NOT spongiosis.",
+    "spongiform_pustule": "Kogoj pustule: neutrophils within a sponge-like epidermal meshwork in "
+                          "the upper spinous layer; keratinocytes still attached.",
+    "spongiosis": "Intercellular oedema widening spaces between keratinocytes, bridges visible.",
+    "munro_microabscess": "Neutrophils collected inside PARAKERATOTIC stratum corneum.",
+    "regular_elongated_rete": "Rete ridges elongated to a similar length in a regular pattern.",
+    "pagetoid_spread": "Melanocytes scattered singly in upper epidermal layers.",
+    "peripheral_palisading": "Nuclei lined up like a fence at the edge of basaloid islands.",
+    "horn_cysts": "Round keratin-filled cysts within the epithelial proliferation.",
+    "koilocytes": "Keratinocytes with perinuclear halo and shrunken, wrinkled nucleus.",
+    "band_like_infiltrate": "Dense lichenoid lymphocytic band hugging the junction.",
+    "vacuolar_change": "Vacuoles in basal keratinocytes at the junction.",
+    "necrobiosis": "Altered, smudged, hypocellular collagen surrounded by histiocytes.",
+    "granuloma": "Organised aggregate of epithelioid histiocytes.",
+    "leukocytoclasia": "Nuclear dust of fragmented neutrophils around vessels.",
+    "subepidermal_blister": "Cleft/blister BELOW the epidermis with an intact roof.",
+    "intraepidermal_vesicle": "Fluid space WITHIN the epidermis.",
+    "epidermotropism": "Atypical lymphocytes in epidermis without spongiosis.",
+    "full_thickness_atypia": "Atypical keratinocytes through the whole epidermal thickness.",
+    "storiform_pattern": "Cartwheel/pinwheel arrangement of spindle cells.",
+    "collagen_trapping": "Collagen bundles caught between tumour cells at the edge.",
+}
+
+
+def _verify_enabled():
+    v = (os.environ.get("HISTOLOGY_VERIFY") or "1").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
+def _decisive_features(rec, features):
+    """Qayta tekshiriladigan belgilar: tanlovning tayanchi + uni rad etuvchilar
+    + eng yaqin muqobillarning yo'q deb topilgan majburiy belgilari."""
+    keys = []
+    ev = _dxc.check_name(rec.name, features)
+    if ev:
+        keys += [k for k in ev["essential_present"] if "=" not in k][:3]
+        keys += [k for k in ev["excluding_present"] if "=" not in k][:2]
+    for r in _dxc.rank_candidates(features, 3):
+        if ev and r["name"] == ev["name"]:
+            continue
+        keys += [k for k in r["essential_absent"] if "=" not in k][:2]
+        keys += [k for k in r["essential_present"] if "=" not in k][:1]
+    out = []
+    for k in keys:
+        if k not in out and k in _FEATURE_UZ:
+            out.append(k)
+    return out[:8]
+
+
+def _verify_decisive_features(rec, features, image_parts, kwargs):
+    """Hal qiluvchi belgilarni bitta rasmda qayta so'rash; features yangilanadi.
+    Qaytaradi: o'zgargan belgilar ro'yxati."""
+    """None — tekshiruv o'tmadi (ikkinchi ko'z yo'q); [] — o'tdi, o'zgarish yo'q."""
+    if rec is None or not isinstance(features, dict) or not image_parts or not _verify_enabled():
+        return None
+    keys = _decisive_features(rec, features)
+    if not keys:
+        return []
+    lines = []
+    for k in keys:
+        d = _VERIFY_DEFS.get(k, "")
+        lines.append(f"- {k} ({_FEATURE_UZ.get(k, k)}): {d}" if d else f"- {k} ({_FEATURE_UZ.get(k, k)})")
+    user = (
+        "Re-examine this field and settle the following findings:\n" + "\n".join(lines)
+        + "\nJSON only, keys exactly as listed."
+    )
+    try:
+        # Fikrlovchi model javob oldidan token sarflaydi — 300 yetmadi, javob bo'sh keldi
+        raw = _complete_resilient(
+            _VERIFY_SYSTEM, [user], list(image_parts[:1]),
+            {**kwargs, "max_tokens": 800, "temperature": 0.0}, "tekshiruv",
+        )
+    except CaseBudgetExceeded as e:
+        log.warning("%s: %s", ZIYRAKAI_DISPLAY_NAME, e)
+        return None
+    data = _parse_observation(raw)
+    if not isinstance(data, dict):
+        log.warning("%s: tekshiruv javobi o'qilmadi: %r", ZIYRAKAI_DISPLAY_NAME, _preview(raw))
+        return None
+    changed = []
+    for k in keys:
+        v = str(data.get(k) or "").strip().lower().replace("‘", "'").replace("’", "'")
+        if v not in ("bor", "yo'q"):
+            continue
+        new = v == "bor"
+        old = _feature_true(features, k)
+        if new != old:
+            _set_feature(features, k, new)
+            changed.append(f"{_FEATURE_UZ.get(k, k)}: {'bor' if new else 'yo`q'}")
+    features.pop("_group_names", None)
+    if changed:
+        log.info("%s: tekshiruv — o'zgardi: %s", ZIYRAKAI_DISPLAY_NAME, "; ".join(changed))
+    else:
+        log.info("%s: tekshiruv — %s belgi tasdiqlandi", ZIYRAKAI_DISPLAY_NAME, len(keys))
+    return changed
+
+
+def _set_feature(features, key, value):
+    for g in ("epidermis", "junction", "dermis", "glandular", "cytology", "special"):
+        sub_ = features.get(g)
+        if isinstance(sub_, dict) and key in sub_:
+            sub_[key] = bool(value)
+            return
+    for g, table in (("epidermis", _dxc.EPIDERMIS), ("junction", _dxc.JUNCTION),
+                     ("dermis", _dxc.DERMIS), ("cytology", _dxc.CYTOLOGY_BOOL),
+                     ("special", _dxc.SPECIAL)):
+        if key in table:
+            features.setdefault(g, {})[key] = bool(value)
+            return
+
+
+def _finish_record(rec, features, adj, names, verified_changes=None):
     """Qo'riqchilar + foiz + hisobot matni. Har doim to'liq ishlaydi."""
     from . import dx_record as dxr
 
+    if verified_changes is None and _economy_enabled() and _verify_enabled():
+        # Ikkinchi ko'z bo'lmadi — bitta ko'rikka to'liq ishonib bo'lmaydi
+        rec.confidence_cap = min(rec.confidence_cap or 100, 75)
+        rec.notes.append("hal qiluvchi belgilar tekshiruvi o'tmadi — ishonch 75% bilan cheklandi")
+    if verified_changes:
+        # Tekshiruv hal qiluvchi belgini o'zgartirdi. Tanlangan nomning tayanchi
+        # qolmagan bo'lsa — mezon jadvalining yangi 1-o'rnini olamiz (taxminiy).
+        ev = _dxc.check_name(rec.name, features)
+        top = _dxc.rank_candidates(features, 1)
+        lost = ev is not None and (ev["essential_hits"] == 0 or ev["excluding_present"])
+        if lost and top and not _same_entity(top[0]["name"], rec.name):
+            rec.notes.append(
+                f"tekshiruvdan keyin «{rec.name}» tayanchsiz qoldi — "
+                f"mezon jadvali bo'yicha «{top[0]['name']}» ga almashtirildi"
+            )
+            rec.name = top[0]["name"]
+            rec.malignant = bool(top[0]["malignant"])
+            rec.evidence = [
+                dxr.Evidence(feature=_dxc.feature_label(k), seen=True, detail="tekshiruvda tasdiqlandi")
+                for k in top[0]["essential_present"][:6]
+            ]
+        rec.certainty = dxr.CERTAIN_PROVISIONAL
+        rec.confidence_cap = min(rec.confidence_cap or 100, 60)
+        rec.notes.append("tekshiruv belgilarni o'zgartirdi: " + "; ".join(verified_changes[:4]))
     rec = dxr.apply_guards(rec, features, _DX_REQUIRED_FEATURES, _descriptive_dx(features))
     if rec is None:
         return None, ""
@@ -2081,11 +2240,14 @@ def _confidence_percent(features=None, adj=None, names=None):
         chosen = chosen or str((features or {}).get("_chosen_name") or "")
         if top and chosen:
             pos = next((i for i, r in enumerate(top) if _same_entity(chosen, r["name"])), None)
+            # Bitta belgi bilan 1-o'ringa chiqqan nomzod to'liq ball olmasin:
+            # ball tayanch belgilar soniga qarab (3 ta va undan ko'p — to'liq).
+            weight = min(1.0, top[pos]["essential_hits"] / 3.0) if pos is not None else 0.0
             if pos == 0:
-                score += 40.0
-                why.append("mezon jadvali: 1-o'rin")
+                score += 40.0 * weight
+                why.append(f"mezon jadvali: 1-o'rin ({top[0]['essential_hits']} tayanch)")
             elif pos is not None:
-                score += 24.0
+                score += 24.0 * weight
                 why.append(f"mezon jadvali: {pos + 1}-o'rin")
             else:
                 score += 8.0
@@ -5271,7 +5433,10 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
                         "%s: tashxis barqaror emas: %s",
                         ZIYRAKAI_DISPLAY_NAME, " | ".join(_names[:3]),
                     )
-            _rec, _text = _finish_record(_rec, features, adj, _names)
+            _changes = []
+            if economy and _rec.certainty != "tavsifiy":
+                _changes = _verify_decisive_features(_rec, features, _vision_parts, kwargs)
+            _rec, _text = _finish_record(_rec, features, adj, _names, _changes)
             if _text:
                 if isinstance(trace, dict):
                     trace["features"] = features
