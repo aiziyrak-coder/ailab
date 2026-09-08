@@ -71,6 +71,8 @@ EPIDERMIS = {
     "necrotic_keratinocytes": "yakka nekrotik keratinotsitlar",
     "confluent_epidermal_necrosis": "epidermisning tutash nekrozi",
     "neutrophils_in_corneum": "shox qavatda neytrofillar",
+    "epidermal_collarette": "epidermal kollaret (polip chekkasida epidermis qayrilgan)",
+    "polypoid_exophytic": "polipoid / oyoqchali ekzofit tuzilma",
 }
 
 JUNCTION = {
@@ -595,9 +597,11 @@ CRITERIA = [
       ["vascular_proliferation"], ["tumour_nodule", "symmetry=simmetrik"],
       ["slit_like_vascular_spaces", "promontory_sign", "pleomorphism>=o'rta", "storiform_pattern"],
       min_essential=1),
-    E("Piogen granuloma", ["piogen", "pyogenic", "пиогенн", "botriomikom", "angiom"], "vaskulyar o'sma",
-      ["lobular_capillary_proliferation"],
-      ["ulceration", "neutrophils", "papillary_dermal_edema"],
+    E("Piogen granuloma", ["piogen", "pyogenic", "пиогенн", "botriomikom", "angiom",
+      "lobulyar kapillyar", "lobular capillary"], "vaskulyar o'sma",
+      ["lobular_capillary_proliferation", "vascular_proliferation"],
+      ["epidermal_collarette", "polypoid_exophytic", "ulceration", "neutrophils",
+       "papillary_dermal_edema", "extravasated_erythrocytes"],
       ["slit_like_vascular_spaces", "promontory_sign", "storiform_pattern"], min_essential=1),
     E("Kaposi sarkomasi", ["kaposi", "капоши"], "vaskulyar o'sma",
       ["slit_like_vascular_spaces", "spindle_cells", "promontory_sign"],

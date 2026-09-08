@@ -87,6 +87,8 @@ class DxRecord:
     criteria: dict = field(default_factory=dict)    # mezon jadvali bahosi (arxiv uchun)
     clinical: str = ""                              # tana suratidan klinik ko'rinish
     discordance: str = ""                           # klinik-gistologik nomuvofiqlik
+    gestalt_agreement: str = ""                     # umumiy ko'rinish bilan kelishuv
+    gestalt_bonus: int = 0
 
     # ── Yordamchilar ────────────────────────────────────────────────────
     def display_name(self):
@@ -123,6 +125,8 @@ class DxRecord:
             out.append("Klinik ko'rinish (tana surati): " + self.clinical)
         if self.discordance:
             out.append(self.discordance)
+        if self.gestalt_agreement and self.gestalt_agreement != "mos":
+            out.append("Umumiy ko'rinish bilan " + self.gestalt_agreement)
 
         out.append("")
         out.append(H_WHY)

@@ -1243,11 +1243,18 @@ class EconomyPipelineMockTests(TestCase):
                                    {"feature": "Parakeratoz", "detail": "tutash"}],
                                "facts": ["Mitoz: 0/10 HPF"]})
 
+        gestalt = json.dumps({"gestalt": "psoriasiform plaque", "diagnosis": "Psoriasis vulgaris",
+                              "confidence": "high", "decisive_features": ["Munro", "regular rete"],
+                              "alternatives": [{"name": "Ekzema", "why_less_likely": "no spongiosis"}],
+                              "clinicopathologic_fit": "fits"})
+
         def fake(messages, kwargs, model=None, label=""):
             calls.append(label)
             sysm = messages[0].get("content") or ""
             if "histopathology image reader" in sysm:
                 return json.dumps(obs)
+            if "senior dermatopathologist signing out" in sysm:
+                return gestalt
             return decision
         return fake
 
@@ -1272,8 +1279,10 @@ class EconomyPipelineMockTests(TestCase):
                     os.environ.pop(k, None)
                 else:
                     os.environ[k] = v
-        # ko'rik → qaror → hal qiluvchi belgilar tekshiruvi: 3 chaqiruv, ortiq emas
-        self.assertEqual(calls, ["ko'rik", "qaror", "tekshiruv"], calls)
+        # umumiy ko'rinish → ko'rik → qaror → tekshiruv: 4 chaqiruv, ortiq emas
+        self.assertEqual(calls, ["umumiy ko'rinish", "ko'rik", "qaror", "tekshiruv"], calls)
+        self.assertGreaterEqual(trace["record"]["confidence"], 70)   # gestalt mos → bonus
+        self.assertEqual(trace["gestalt"]["diagnosis"], "Psoriasis vulgaris")
         self.assertTrue(out.startswith("#### TASHXIS"))
         self.assertIn("YAKUNIY XULOSA: Psoriasis vulgaris", out)
         self.assertRegex(out, r"Ishonchlilik: \d{1,2}%")
@@ -1467,6 +1476,31 @@ class ClinicalReasoningTests(TestCase):
         self.assertNotIn("tomir proliferatsiyasi ko'rinmadi", text)
         self.assertIn("taxminiy", text)
         self.assertLessEqual(rec.confidence, 60)
+
+    def test_immaterial_verification_changes_do_not_cap_a_correct_answer(self):
+        """PG to'g'ri, gestalt mos; tekshiruv «bazal vakuolizatsiya: bor» dedi —
+        PG uchun ahamiyatsiz, shift tushmasin."""
+        from lab_core import dx_record as dxr
+        from lab_core import engine as eng
+
+        f = {"sample_quality": "o'rtacha", "cytology": {},
+             "epidermis": {"acanthosis": True, "ulceration": True, "polypoid_exophytic": True,
+                           "epidermal_collarette": True},
+             "dermis": {"lobular_capillary_proliferation": True, "vascular_proliferation": True,
+                        "neutrophils": True, "papillary_dermal_edema": True}}
+        rec = dxr.from_json({"diagnosis": "Lobulyar kapillyar gemangioma (piogen granuloma)",
+                             "organ": "teri", "evidence": [
+                                 {"feature": "Polipoid arxitektura", "detail": "x"},
+                                 {"feature": "Tomir proliferatsiyasi", "detail": "y"},
+                                 {"feature": "Yara", "detail": "z"}]})
+        gestalt = {"diagnosis": "Lobular capillary hemangioma (pyogenic granuloma)",
+                   "confidence": "moderate"}
+        rec, text = eng._finish_record(
+            rec, f, None, [], ["bazal qavat vakuolizatsiyasi: bor"],
+            clinical_text=self.CLIN, referral_text=self.REF, gestalt=gestalt)
+        self.assertEqual(rec.gestalt_agreement, "mos")
+        self.assertGreaterEqual(rec.confidence, 70, rec.confidence_why)
+        self.assertNotIn("taxminiy", text)
 
     def test_after_verification_the_vascular_lesion_wins(self):
         from lab_core import dx_criteria as dxc

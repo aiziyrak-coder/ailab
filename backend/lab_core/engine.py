@@ -1904,9 +1904,14 @@ def _structured_enabled():
     return v not in ("0", "false", "no", "off")
 
 
+def _hypothesis_text(patient_context, gestalt=None):
+    """Yo'llanma + klinik izoh + umumiy ko'rinish nomlari — gipoteza matni."""
+    return " ".join(x for x in [_referral_text(patient_context)] + _gestalt_names(gestalt) if x)
+
+
 def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
                       patient_context=None, image_parts=None,
-                      clinical_block="", clinical_parts=None):
+                      clinical_block="", clinical_parts=None, gestalt=None):
     """Yakuniy tashxisni tuzilgan yozuv sifatida olish. Bo'lmasa None."""
     from . import dx_record as dxr
 
@@ -1917,7 +1922,10 @@ def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
         return None
 
     blocks = [feats]
-    ref_text = _referral_text(patient_context)
+    ref_text = _hypothesis_text(patient_context, gestalt)
+    gb = _gestalt_block(gestalt)
+    if gb:
+        blocks.append(gb)
     crit = _dxc.criteria_block(features, clinical_text=clinical_block, referral_text=ref_text)
     if crit:
         blocks.append(crit)
@@ -1981,6 +1989,154 @@ def _referral_text(patient_context):
     p = _normalize_patient_context(patient_context)
     return " ".join(x for x in (p.get("clinical_dx"), p.get("clinical_note"),
                                 p.get("specimen_site")) if x)
+
+
+# ─── Umumiy ko'rinish (gestalt) — patologning birinchi qadami ────────────────
+# 3-keys darsi: 124 belgili ro'yxat bilan boshlaganda model tafsilotga g'arq
+# bo'lib, yakka polipoid tomirli tugunni «akantoliz», «bezli», «bazaloid» deb
+# o'qidi — to'rt o'tkazishda to'rt xil. O'sha kadrlarning MONTAJI (kichik
+# kattalashtirish o'rnida) + tana surati + yo'llanma bilan bitta to'g'ri savol
+# bir zumda «lobulyar kapillyar gemangioma, ishonch yuqori» dedi. Patolog ham
+# avval «bu qanday lezyon?» deydi, keyin belgilarni sanaydi. Endi quvur ham.
+
+_GESTALT_SYSTEM = (
+    "You are a senior dermatopathologist signing out a case. Work the way you do at the "
+    "microscope: FIRST the scanning-magnification gestalt (what kind of lesion is this: "
+    "inflammatory vs neoplastic; epidermal, melanocytic, adnexal, vascular, fibrous, "
+    "lymphoid, infectious; polypoid/exophytic vs flat; symmetric vs not), THEN the "
+    "confirming features, THEN clinicopathologic correlation. Be decisive but honest: "
+    "if the fields cannot support a diagnosis, say so and name what would settle it. "
+    "Return ONE JSON object only."
+)
+
+_GESTALT_SCHEMA = (
+    '{"gestalt": "one sentence: lesion category and architecture at low power", '
+    '"diagnosis": "single most likely diagnosis — Latin or Uzbek name as used in reports", '
+    '"confidence": "low|moderate|high", '
+    '"decisive_features": ["3-5 features that carry the diagnosis, each tied to what is visible"], '
+    '"alternatives": [{"name": "...", "why_less_likely": "..."}], '
+    '"clinicopathologic_fit": "does the histology fit the clinical picture? one sentence", '
+    '"what_would_settle_it": "if not certain: which field, level or stain would settle it"}'
+)
+
+
+def _montage(pils, cols=6, tile=(320, 180), max_tiles=36):
+    """Barcha kesma kadrlaridan bitta varaq — kichik kattalashtirish o'rnini bosadi."""
+    pils = list(pils or [])[:max_tiles]
+    if not pils:
+        return None
+    rows = -(-len(pils) // cols)
+    sheet = Image.new("RGB", (cols * tile[0], rows * tile[1]), (245, 245, 245))
+    for i, im in enumerate(pils):
+        t = im.copy()
+        t.thumbnail(tile)
+        sheet.paste(t, ((i % cols) * tile[0], (i // cols) * tile[1]))
+    return _resize_img(sheet, 1600)
+
+
+def _gestalt_stage(slide_pils, detail_parts, clinical_parts, patient_context, kwargs,
+                   clinical_block=""):
+    """Umumiy ko'rinish: montaj + 3 tafsilot + tana surati → yetakchi tashxis."""
+    sheet = _montage(slide_pils)
+    if sheet is None:
+        return None
+    p = _normalize_patient_context(patient_context)
+    who = ", ".join(x for x in (
+        f"age {p.get('age')}" if p.get("age") else "",
+        p.get("sex") or "", f"site: {p.get('specimen_site')}" if p.get("specimen_site") else "",
+    ) if x)
+    lines = [f"Case: {who or 'no demographics'}."]
+    if p.get("clinical_dx"):
+        lines.append(f"Clinician's impression: {p['clinical_dx']}.")
+    if p.get("clinical_note"):
+        lines.append(f"Clinical note: {p['clinical_note']}.")
+    if clinical_block:
+        lines.append("Clinical appearance from the photograph: " + _clinical_summary_line(clinical_block))
+    n_detail = len(detail_parts or [])
+    lines.append(
+        f"Image 1: contact sheet of ALL {min(len(slide_pils), 36)} H&E fields (scanning overview). "
+        + (f"Images 2-{1 + n_detail}: representative fields at higher power. " if n_detail else "")
+        + ("Last image: clinical photograph." if clinical_parts else "")
+    )
+    lines.append("Return exactly this JSON:\n" + _GESTALT_SCHEMA)
+    parts = [{"type": "image_url", "image_url": {"url": _pil_to_data_url(sheet), "detail": "high"}}]
+    parts += list(detail_parts or [])
+    if clinical_parts:
+        parts.append({"type": "image_url", "image_url": {
+            "url": (clinical_parts[0].get("image_url") or {}).get("url", ""), "detail": "low"}})
+    try:
+        raw = _complete_resilient(
+            _GESTALT_SYSTEM, ["\n".join(lines)], parts,
+            {**kwargs, "max_tokens": 2500, "temperature": 0.0}, "umumiy ko'rinish",
+        )
+    except CaseBudgetExceeded as e:
+        log.warning("%s: %s", ZIYRAKAI_DISPLAY_NAME, e)
+        return None
+    data = _parse_observation(raw)
+    if not isinstance(data, dict) or not str(data.get("diagnosis") or "").strip():
+        log.warning("%s: umumiy ko'rinish o'qilmadi: %r", ZIYRAKAI_DISPLAY_NAME, _preview(raw))
+        return None
+    data["_sheet"] = sheet
+    log.info(
+        "%s: umumiy ko'rinish — %r (%s): %s",
+        ZIYRAKAI_DISPLAY_NAME, str(data.get("diagnosis"))[:50], data.get("confidence"),
+        str(data.get("gestalt"))[:90],
+    )
+    return data
+
+
+def _gestalt_names(g):
+    if not isinstance(g, dict):
+        return []
+    out = [str(g.get("diagnosis") or "").strip()]
+    for a in (g.get("alternatives") or [])[:3]:
+        if isinstance(a, dict) and a.get("name"):
+            out.append(str(a["name"]).strip())
+    return [n for n in out if n]
+
+
+def _gestalt_block(g):
+    """Qaror bosqichi uchun: senior o'qish — ustuvor, lekin belgilar bilan tekshiriladi."""
+    if not isinstance(g, dict):
+        return ""
+    lines = ["#### UMUMIY KO'RINISH (kichik kattalashtirish, barcha kadrlar montaji — senior o'qish)"]
+    lines.append(f"Lezyon: {str(g.get('gestalt') or '').strip()}")
+    lines.append(f"Yetakchi tashxis: {g.get('diagnosis')} (ishonch: {g.get('confidence') or 'noaniq'})")
+    feats = [str(x).strip() for x in (g.get("decisive_features") or []) if str(x).strip()]
+    if feats:
+        lines.append("Hal qiluvchi belgilar: " + "; ".join(feats[:5]))
+    for a in (g.get("alternatives") or [])[:3]:
+        if isinstance(a, dict) and a.get("name"):
+            lines.append(f"Muqobil: {a['name']} — {str(a.get('why_less_likely') or '').strip()[:160]}")
+    if g.get("clinicopathologic_fit"):
+        lines.append(f"Klinik moslik: {str(g['clinicopathologic_fit']).strip()[:200]}")
+    if g.get("what_would_settle_it"):
+        lines.append(f"Hal qiluvchi qadam: {str(g['what_would_settle_it']).strip()[:200]}")
+    lines.append(
+        "Bu o'qish USTUVOR: yakuniy tashxis shu bo'lsin, faqat ko'rilgan belgilar unga "
+        "aniq zid bo'lsa boshqa nom yozing va nima uchun, ayting."
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _record_from_gestalt(g):
+    """Qaror chaqiruvi o'tmasa — umumiy ko'rinishdan yozuv (taxminiy)."""
+    from . import dx_record as dxr
+
+    if not isinstance(g, dict) or not str(g.get("diagnosis") or "").strip():
+        return None
+    rec = dxr.DxRecord(name=str(g["diagnosis"]).strip()[:160], organ="teri",
+                       certainty=dxr.CERTAIN_PROVISIONAL)
+    for f in (g.get("decisive_features") or [])[:5]:
+        t = str(f).strip()
+        if t:
+            rec.evidence.append(dxr.Evidence(feature=t[:80], seen=True, detail="umumiy ko'rinishda"))
+    for a in (g.get("alternatives") or [])[:3]:
+        if isinstance(a, dict) and a.get("name"):
+            rec.differentials.append(dxr.Differential(
+                name=str(a["name"])[:80], excluded_by=str(a.get("why_less_likely") or "")[:160]))
+    rec.notes.append("qaror chaqiruvi o'tmadi — umumiy ko'rinish yozuvi")
+    return rec
 
 
 def _trim_block(text, limit):
@@ -2205,8 +2361,29 @@ def _clinical_summary_line(block):
     return text[:260].rsplit(" ", 1)[0] + ("…" if len(text) > 260 else "") if text else ""
 
 
+def _material_changes(name, changes, ranked):
+    """Tekshiruv o'zgarishlaridan tashxisga ta'sir qiladiganlari."""
+    keys = set()
+    ent = _dxc.find_entity(name)
+    if ent:
+        keys |= {k for k in ent["essential"] + ent["excluding"] if "=" not in k}
+    for r in (ranked or [])[:2]:
+        if ent and r["name"] == ent["name"]:
+            continue
+        alt = _dxc.find_entity(r["name"])
+        if alt:
+            keys |= {k for k in alt["essential"] if "=" not in k}
+    labels = {_FEATURE_UZ.get(k, k).lower() for k in keys}
+    out = []
+    for c in changes or []:
+        label = c.split(":")[0].strip().lower()
+        if any(label == l or label.split(" (")[0] == l.split(" (")[0] for l in labels):
+            out.append(c)
+    return out
+
+
 def _finish_record(rec, features, adj, names, verified_changes=None, clinical_text="",
-                   referral_text=""):
+                   referral_text="", gestalt=None):
     """Qo'riqchilar + foiz + hisobot matni. Har doim to'liq ishlaydi."""
     from . import dx_record as dxr
 
@@ -2260,9 +2437,18 @@ def _finish_record(rec, features, adj, names, verified_changes=None, clinical_te
                 d for d in rec.differentials
                 if label.lower().split(" (")[0] not in (d.excluded_by or "").lower()
             ]
-        rec.certainty = dxr.CERTAIN_PROVISIONAL
-        rec.confidence_cap = min(rec.confidence_cap or 100, 60)
-        rec.notes.append("tekshiruv belgilarni o'zgartirdi: " + "; ".join(verified_changes[:4]))
+        # Faqat AHAMIYATLI o'zgarish shift qo'yadi: tanlangan nozologiyaning
+        # majburiy/rad etuvchi belgisi yoki eng yaqin muqobilning majburiy
+        # belgisi. 3-keys: PG to'g'ri tanlangan edi, tekshiruv «bazal
+        # vakuolizatsiya: bor» dedi — PG uchun ahamiyatsiz, ammo 60% shifti tushdi.
+        material = _material_changes(rec.name, verified_changes, ranked)
+        if swap is not None or material:
+            rec.certainty = dxr.CERTAIN_PROVISIONAL
+            rec.confidence_cap = min(rec.confidence_cap or 100, 60)
+            rec.notes.append("tekshiruv hal qiluvchi belgini o'zgartirdi: " + "; ".join(material[:4]))
+        else:
+            rec.notes.append("tekshiruv ikkinchi darajali belgilarni o'zgartirdi: "
+                             + "; ".join(verified_changes[:4]))
     rec = dxr.apply_guards(rec, features, _DX_REQUIRED_FEATURES, _descriptive_dx(features))
     if rec is None:
         return None, ""
@@ -2287,6 +2473,27 @@ def _finish_record(rec, features, adj, names, verified_changes=None, clinical_te
         rec.certainty = dxr.CERTAIN_PROVISIONAL
         rec.confidence_cap = min(rec.confidence_cap or 100, 45)
         rec.notes.append(f"klinik nomuvofiqlik: {hint} vs {ent['presentation']} ({rec.name})")
+    # Umumiy ko'rinish bilan kelishuv: senior o'qish va yakuniy nom bir xil bo'lsa
+    # ishonch ko'tariladi; zid bo'lsa — ikki o'qish bir-biriga qarama-qarshi,
+    # bu ochiq aytiladi va ishonch cheklanadi.
+    if isinstance(gestalt, dict) and str(gestalt.get("diagnosis") or "").strip():
+        gdx = str(gestalt["diagnosis"]).strip()
+        ge, re_ = _dxc.find_entity(gdx), _dxc.find_entity(rec.name)
+        same = _same_entity(gdx, rec.name) or (ge is not None and re_ is not None and ge is re_)
+        if same:
+            rec.gestalt_agreement = "mos"
+            rec.gestalt_bonus = {"high": 12, "moderate": 8}.get(
+                str(gestalt.get("confidence") or "").lower(), 0)
+            if isinstance(features, dict):
+                features["_gestalt_agrees"] = True
+        else:
+            rec.gestalt_agreement = f"zid: umumiy ko'rinish «{gdx}» dedi"
+            rec.confidence_cap = min(rec.confidence_cap or 100, 60)
+            rec.certainty = dxr.CERTAIN_PROVISIONAL
+            rec.notes.append(f"umumiy ko'rinish «{gdx}», qaror «{rec.name}» — kelishmadi")
+            if not any(_same_entity(d.name, gdx) for d in rec.differentials):
+                rec.differentials.insert(0, dxr.Differential(
+                    name=gdx[:80], excluded_by="umumiy ko'rinishda yetakchi edi — belgilar bilan kelishmadi"))
     if isinstance(features, dict):
         features["_chosen_name"] = rec.name
         features["_clinical_text"] = clinical_text or ""
@@ -2294,6 +2501,9 @@ def _finish_record(rec, features, adj, names, verified_changes=None, clinical_te
     pct, why = _confidence_percent(features, adj, names)
     if rec.certainty == dxr.CERTAIN_DESCRIPTIVE:
         pct = min(pct, 40)          # tavsifiy nom — nozologiya emas
+    if getattr(rec, "gestalt_bonus", 0):
+        pct += rec.gestalt_bonus
+        why += "; umumiy ko'rinish mos"
     if rec.confidence_cap:
         pct = min(pct, rec.confidence_cap)   # mezon qo'riqchisi qo'ygan shift
     dxr.set_confidence(rec, pct, why)
@@ -2358,11 +2568,14 @@ def _confidence_percent(features=None, adj=None, names=None):
             # Bitta belgi bilan 1-o'ringa chiqqan nomzod to'liq ball olmasin:
             # ball tayanch belgilar soniga qarab (3 ta va undan ko'p — to'liq).
             weight = min(1.0, top[pos]["essential_hits"] / 3.0) if pos is not None else 0.0
+            agreed = bool((features or {}).get("_gestalt_agrees"))
             if pos == 0:
                 score += 40.0 * weight
                 why.append(f"mezon jadvali: 1-o'rin ({top[0]['essential_hits']} tayanch)")
             elif pos is not None:
-                score += 24.0 * weight
+                # Umumiy ko'rinish va qaror bir nomga kelgan bo'lsa, jadvalda
+                # 2–3-o'rin — mustaqil uchinchi manbaning qo'llab-quvvatlashi
+                score += (32.0 if agreed else 24.0) * max(weight, 0.7 if agreed else 0.0)
                 why.append(f"mezon jadvali: {pos + 1}-o'rin")
             else:
                 score += 8.0
@@ -5467,12 +5680,22 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
                 ZIYRAKAI_DISPLAY_NAME,
             )
     _meter_ensure()
+    gestalt = None
     economy = lab_type == "histology" and _economy_enabled() and _structured_enabled()
     if image_parts and economy:
-        # TEJAMKOR YO'L: namuna tekshiruvi, organ va ko'rik — BITTA chaqiruv.
-        # Ilgari uchta alohida chaqiruv edi (har biriga rasmlar qayta yuborilardi).
+        # TEJAMKOR YO'L. Avval UMUMIY KO'RINISH (montaj + tafsilot + tana surati) —
+        # patologning birinchi qadami; so'ng ko'rik — belgilar, montaj ham unda.
         t0 = time.time()
-        features = _observe_histology(_vision_parts, patient_context)
+        _slide_pils = [im for im, sc in zip(_prepped, _scores) if sc >= SLIDE_SCORE_MIN] or _prepped
+        gestalt = _gestalt_stage(
+            _slide_pils, _spread_pick(_vision_parts, 3), clinical_parts, patient_context,
+            kwargs, clinical_block,
+        )
+        _obs_parts = list(_vision_parts)
+        if gestalt and gestalt.get("_sheet") is not None:
+            _obs_parts = [{"type": "image_url", "image_url": {
+                "url": _pil_to_data_url(gestalt["_sheet"]), "detail": "high"}}] + _obs_parts
+        features = _observe_histology(_obs_parts, patient_context)
         organ_lock = _organ_from_observation(features, patient_context)
         mismatch = _mismatch_from_observation(features, lab_type)
         log.info("%s: ko'rik (tejamkor, 1 chaqiruv) %.1fs", ZIYRAKAI_DISPLAY_NAME, time.time() - t0)
@@ -5531,7 +5754,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
         try:
             _rec = _decide_diagnosis(
                 features, adj, kb_block, kwargs, organ_lock, patient_context, _vision_parts,
-                clinical_block=clinical_block, clinical_parts=clinical_parts,
+                clinical_block=clinical_block, clinical_parts=clinical_parts, gestalt=gestalt,
             )
         except CaseBudgetExceeded as e:
             log.warning("%s: %s", ZIYRAKAI_DISPLAY_NAME, e)
@@ -5547,7 +5770,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
             except CaseBudgetExceeded as e:
                 log.warning("%s: %s", ZIYRAKAI_DISPLAY_NAME, e)
             if _rec is None:
-                _rec = _record_from_criteria(features)
+                _rec = _record_from_gestalt(gestalt) or _record_from_criteria(features)
         if _rec is not None:
             _names = []
             if not economy:
@@ -5561,19 +5784,22 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
             if economy and _rec.certainty != "tavsifiy":
                 _changes = _verify_decisive_features(
                     _rec, features, _vision_parts, kwargs,
-                    _referral_text(patient_context) + " " + (clinical_block or ""),
+                    _hypothesis_text(patient_context, gestalt) + " " + (clinical_block or ""),
                 )
             if clinical_block:
                 _rec.clinical = _clinical_summary_line(clinical_block)
             _rec, _text = _finish_record(
                 _rec, features, adj, _names, _changes,
-                clinical_text=clinical_block or "", referral_text=_referral_text(patient_context),
+                clinical_text=clinical_block or "",
+                referral_text=_hypothesis_text(patient_context, gestalt), gestalt=gestalt,
             )
             if _text:
                 if isinstance(trace, dict):
                     trace["features"] = features
                     trace["record"] = _rec.to_dict()
                     trace["tokens"] = _meter_summary()
+                    if gestalt:
+                        trace["gestalt"] = {k: v for k, v in gestalt.items() if k != "_sheet"}
                 _m = _meter_summary()
                 log.info(
                     "%s: keys sarfi — %s chaqiruv, %s token (so'rov %s, javob %s)",
