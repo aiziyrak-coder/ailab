@@ -70,6 +70,10 @@ MIN_CHUNK_CHARS = 280
 # alohida monografiyalar yig'ma to'plamlardan oldin turadi — aks holda kitob
 # o'z nomi ostida deyarli bo'sh ko'rinadi.
 PRIORITY_ORDER = [
+    "roeken_atlas_ru",
+    "platonova_atlas_ru",
+    "clinical_derm_ru",
+    "dermatoscopy2_ru",
     "internal_skin_ru",
     "eczema_mono_ru",
     "anogenital_ru",
@@ -113,6 +117,11 @@ MAX_SECTION_CHARS = 100_000
 
 # Tashxis mezoni bo'lmagan bo'limlar — indeksga kirmaydi (adabiyot ro'yxati
 # tahlil paytida "kitob mezoni" bo'lib chiqib qolardi).
+# Skanerlangan kitobda "ЛИТЕРАТУРА" sarlavhasi butun matnni yutib yuborishi
+# mumkin (keyingi sarlavha topilmasa). Haqiqiy adabiyot ro'yxati bundan kichik —
+# katta bo'lak tashlanmaydi, u shunchaki bob ajratgichi emas.
+SKIP_SECTION_MAX_CHARS = 40_000
+
 SKIP_SECTION_WORDS = (
     "список литератур", "литература", "оглавление", "содержание",
     "указатель", "список сокращен", "сокращения", "аббревиатур",
@@ -224,7 +233,7 @@ def build_chunks(source: str, files: list[Path], seen: set[str], stats: dict) ->
         # Sahifa raqami o'rniga hujjat ichidagi ketma-ketlik
         made = []
         for section, body in split_sections(raw):
-            if _is_skippable_section(section):
+            if _is_skippable_section(section) and len(body) <= SKIP_SECTION_MAX_CHARS:
                 continue
             if section and len(body) > MAX_SECTION_CHARS:
                 section = None

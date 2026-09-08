@@ -108,11 +108,15 @@ Indeksdagi manbalar:
 
 | Kitob | Parcha | Bo'lim |
 |-------|--------|--------|
-| Дерматология — руководство «до и после» | 10 574 | 396 |
+| Дерматология — руководство «до и после» | 10 611 | 398 |
 | Книга АТЛАС «до и после» | 4 951 | 283 |
 | Монография: экзематозные (спонгиотические) дерматозы | 1 386 | 48 |
+| Атлас по дерматологии, М. Рёкен (OCR) | 653 | 2 |
 | Аногенитальные дерматозы | 590 | 48 |
 | Изменения кожи при заболеваниях внутренних органов | 421 | 29 |
+| Клиническая дерматология (OCR) | 208 | 67 |
+| Дерматоскопия, atlas (OCR) | 172 | 3 |
+| Дерматовенерология. Атлас, Платонова–Бакулев–Утц | 108 | 26 |
 | НАШ АТЛАС | 106 | 71 |
 | Дерматоскопия, 10-bob | 20 | 19 |
 
@@ -158,6 +162,16 @@ qulf sessiyada saqlanadi, "Bo'limni qulflash" bilan yopiladi.
 ### Matnli kitoblarni (.doc / .docx / .pdf) o'qitish
 
 Arxivdagi kitoblar avval matnga aylantiriladi, so'ng indeksga qo'shiladi:
+
+Skanerlangan (matn qatlami yo'q) PDF avval OCR qilinadi:
+
+```bash
+python scripts/ocr_books_to_text.py --plan --map "C:/.../kitob.pdf=roeken_atlas_ru"
+python scripts/ocr_books_to_text.py --map "C:/.../kitob.pdf=roeken_atlas_ru"
+```
+
+OCR natijasi `data/histology_kb/cache/ocr_*.jsonl` da saqlanadi — qayta ishga
+tushirish bepul. So'ng odatdagi o'qitish:
 
 ```bash
 python scripts/ingest_book_texts.py --text-dir D:/AILab/_kb_text --plan   # hisob-kitob
