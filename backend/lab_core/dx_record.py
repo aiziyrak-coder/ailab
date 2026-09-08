@@ -85,6 +85,7 @@ class DxRecord:
     notes: list = field(default_factory=list)       # qo'riqchi izohlari (jurnal)
     confidence_cap: int = 0                         # qo'riqchi qo'ygan shift (0 — yo'q)
     criteria: dict = field(default_factory=dict)    # mezon jadvali bahosi (arxiv uchun)
+    clinical: str = ""                              # tana suratidan klinik ko'rinish
 
     # ── Yordamchilar ────────────────────────────────────────────────────
     def display_name(self):
@@ -116,6 +117,9 @@ class DxRecord:
         out.append(meta)
         if self.caution:
             out.append(self.caution)
+        if self.clinical:
+            # Shifokor klinik surat hisobga olinganini shu yerda ko'radi
+            out.append("Klinik ko'rinish (tana surati): " + self.clinical)
 
         out.append("")
         out.append(H_WHY)

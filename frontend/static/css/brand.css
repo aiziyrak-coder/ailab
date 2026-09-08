@@ -1318,3 +1318,56 @@ h1, h2, h3 {
   background: #fdece4;
   border-bottom: 1px solid #f0c3ab;
 }
+
+/* ── Klinik rasm eskizlari ──────────────────────────────────────────────── */
+/* Ilgari faqat fayl nomi chiqardi — shifokor rasm qabul qilinganini ko'rmasdi. */
+
+.clinical-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0 2px;
+}
+
+.clinical-thumb {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--rd-line);
+  background: var(--rd-mist-2);
+}
+
+.clinical-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.clinical-thumb .btn-x {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  line-height: 1;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.clinical-thumb .clinical-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 2px 5px;
+  font-size: 0.6rem;
+  line-height: 1.3;
+  color: #fff;
+  background: rgba(26, 26, 26, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

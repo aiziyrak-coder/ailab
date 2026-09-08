@@ -928,14 +928,22 @@ function renderClinicalList() {
     return;
   }
   box.hidden = false;
+  // Eskizlar \u2014 shifokor rasm qabul qilinganini ko'rsin (ilgari faqat fayl nomi edi)
+  const esc = s => String(s || 'rasm').replace(/[<>&"]/g, '');
   box.innerHTML =
     '<div class="clinical-head"><span>' + clinicalFiles.length +
-    ' ta klinik rasm</span><button type="button" class="btn-x" onclick="clearClinicalFiles()">\u2715 Tozalash</button></div>' +
-    clinicalFiles.map((f, i) =>
-      '<div class="clinical-item"><span>' + (f.name || 'rasm').replace(/[<>&]/g, '') +
-      '</span><button type="button" class="btn-x" onclick="removeClinicalFile(' + i +
-      ')" aria-label="O\u2018chirish">\u2715</button></div>'
-    ).join('');
+    ' ta klinik rasm \u2014 tahlilda kesma bilan birga hisobga olinadi</span>' +
+    '<button type="button" class="btn-x" onclick="clearClinicalFiles()">\u2715 Tozalash</button></div>' +
+    '<div class="clinical-grid">' +
+    clinicalFiles.map((f, i) => {
+      if (!f._url) { try { f._url = URL.createObjectURL(f); } catch (_e) { f._url = ''; } }
+      return '<div class="clinical-thumb" title="' + esc(f.name) + '">' +
+        (f._url ? '<img src="' + f._url + '" alt="' + esc(f.name) + '">' : '') +
+        '<span class="clinical-name">' + esc(f.name) + '</span>' +
+        '<button type="button" class="btn-x" onclick="removeClinicalFile(' + i +
+        ')" aria-label="O\u2018chirish">\u2715</button></div>';
+    }).join('') +
+    '</div>';
 }
 
 function appendClinicalToFormData(fd) {

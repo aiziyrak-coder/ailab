@@ -1899,7 +1899,8 @@ def _structured_enabled():
 
 
 def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
-                      patient_context=None, image_parts=None):
+                      patient_context=None, image_parts=None,
+                      clinical_block="", clinical_parts=None):
     """Yakuniy tashxisni tuzilgan yozuv sifatida olish. Bo'lmasa None."""
     from . import dx_record as dxr
 
@@ -1924,6 +1925,14 @@ def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
     ref = _referral_dx_block(patient_context)
     if ref:
         blocks.append(ref)
+    if clinical_block:
+        blocks.append(clinical_block)
+        blocks.append(
+            "Klinik ko'rinish (tana surati) morfologiya bilan mos kelsa — buni "
+            "«evidence» ichida alohida qator qilib ayting (feature: «Klinik moslik»); "
+            "mos kelmasa — «differentials» yoki «facts» da nima uchun, ayting. "
+            "Klinik surat gistologik belgi EMAS."
+        )
     blocks.append(
         "Yuqoridagilarga tayanib yakuniy tashxisni JSON shaklida qaytaring. "
         "Rasmlar ham berilgan — dalil tafsilotini ulardan oling."
@@ -1931,6 +1940,13 @@ def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
     user_text = "\n\n".join(b for b in blocks if b)
 
     parts = _spread_pick(list(image_parts or []), 3 if _economy_enabled() else 6)
+    if clinical_parts:
+        # Tana surati past sifatda (≈85 token) — model kesma bilan solishtira oladi
+        parts = parts + [
+            {"type": "image_url", "image_url": {"url": (p.get("image_url") or {}).get("url", ""),
+                                                "detail": "low"}}
+            for p in list(clinical_parts)[:2]
+        ]
     try:
         raw = _complete_resilient(
             dxr.DECISION_SYSTEM, [user_text], parts,
@@ -2144,6 +2160,18 @@ def _set_feature(features, key, value):
         if key in table:
             features.setdefault(g, {})[key] = bool(value)
             return
+
+
+def _clinical_summary_line(block):
+    """Klinik blokdan hisobot uchun qisqa satr (sarlavha va ko'rsatmasiz)."""
+    body = []
+    for line in (block or "").splitlines():
+        t = line.strip()
+        if not t or t.startswith("###") or t.startswith("Bu klinik kontekst"):
+            continue
+        body.append(t)
+    text = " ".join(" ".join(body).split())
+    return text[:260].rsplit(" ", 1)[0] + ("…" if len(text) > 260 else "") if text else ""
 
 
 def _finish_record(rec, features, adj, names, verified_changes=None):
@@ -3272,7 +3300,9 @@ def _clinical_appearance(clinical_parts, patient_context=None):
     # javob toshma tavsifi bo'lmaydi — bunday matn promptga kiritilmaydi.
     if not re.search(
         r"toshma|papula|blyashka|dog'|yara|tugun|pufak|qichim|qizar|po'st|"
-        r"tangacha|eroziya|qobiq|infiltrat|o'choq|teri|lezion",
+        r"tangacha|eroziya|qobiq|infiltrat|o'choq|teri|lezion|makula|eritema|"
+        r"pigment|qizil|pushti|jigarrang|shish|chegara|rang|o'lcham|diametr|"
+        r"yuza|qavat|yaltir|quruq|nam|zich|yumshoq",
         out,
         re.I,
     ):
@@ -5266,8 +5296,14 @@ def _recovery_report(features, organ_lock, patient_context, kwargs, image_parts=
 
 
 def _openai_generate(content_list, lab_type="histology", patient_context=None,
-                     ref_parts=None, ref_block="", trace=None):
-    """trace berilsa — ko'rik va tashxis yozuvi unga qo'yiladi (arxiv uchun)."""
+                     ref_parts=None, ref_block="", trace=None,
+                     clinical_block="", clinical_parts=None):
+    """trace berilsa — ko'rik va tashxis yozuvi unga qo'yiladi (arxiv uchun).
+
+    clinical_block / clinical_parts — bemor tanasidagi surat tavsifi va rasmi.
+    Audit topgan xato: bu tavsif faqat full_prompt ichida turar, uni esa eski
+    matn yo'li o'qirdi — yangi qaror bosqichi klinik suratni umuman ko'rmasdi.
+    """
     if openai_client is None:
         raise RuntimeError(
             "%s sozlanmagan: xizmat kaliti o'rnatilmagan — administrator .env faylida "
@@ -5407,7 +5443,8 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
     if lab_type == "histology" and _structured_enabled() and isinstance(features, dict):
         try:
             _rec = _decide_diagnosis(
-                features, adj, kb_block, kwargs, organ_lock, patient_context, _vision_parts
+                features, adj, kb_block, kwargs, organ_lock, patient_context, _vision_parts,
+                clinical_block=clinical_block, clinical_parts=clinical_parts,
             )
         except CaseBudgetExceeded as e:
             log.warning("%s: %s", ZIYRAKAI_DISPLAY_NAME, e)
@@ -5436,6 +5473,8 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
             _changes = []
             if economy and _rec.certainty != "tavsifiy":
                 _changes = _verify_decisive_features(_rec, features, _vision_parts, kwargs)
+            if clinical_block:
+                _rec.clinical = _clinical_summary_line(clinical_block)
             _rec, _text = _finish_record(_rec, features, adj, _names, _changes)
             if _text:
                 if isinstance(trace, dict):
@@ -5845,6 +5884,7 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None,
         # Klinik rasmlar alohida ko'riladi: ular kesma emas, shuning uchun
         # morfologik ko'rikka aralashmaydi — faqat kontekst beradi.
         clinical_block = ""
+        c_parts = []
         if clinical_images:
             c_parts = [
                 {
@@ -5873,7 +5913,8 @@ def do_analyze(pil_images, lab_type, custom_prompt=None, microscope_prefix=None,
 
         trace = {}
         text = _openai_generate(
-            content, lab_type, patient_context, atlas_parts, atlas_block, trace
+            content, lab_type, patient_context, atlas_parts, atlas_block, trace,
+            clinical_block=clinical_block, clinical_parts=c_parts,
         )
         lines = [l.strip() for l in text.split('\n') if l.strip()]
 

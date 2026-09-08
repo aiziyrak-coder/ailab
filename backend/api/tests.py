@@ -1280,6 +1280,45 @@ class EconomyPipelineMockTests(TestCase):
         self.assertIn("tokens", trace)
         self.assertEqual(trace["record"]["name"], "Psoriasis vulgaris")
 
+    def test_clinical_photo_reaches_the_decision_and_the_report(self):
+        """Klinik surat tavsifi qaror so'roviga kiradi va hisobotda ko'rinadi —
+        ilgari u faqat eski matn yo'lidagi full_prompt ichida qolib ketardi."""
+        from PIL import Image
+        from lab_core import engine as eng
+
+        calls, seen = [], {}
+
+        base = self._fake(calls)
+
+        def fake(messages, kwargs, model=None, label=""):
+            if label == "qaror":
+                seen["user"] = json.dumps(messages[-1]["content"], ensure_ascii=False)
+                seen["images"] = eng._message_stats(messages)[0]
+            return base(messages, kwargs, model, label)
+
+        old_chat, old_client = eng._chat_complete, eng.openai_client
+        env_old = {k: os.environ.get(k) for k in ("HISTOLOGY_ECONOMY", "HISTOLOGY_KB", "HISTOLOGY_ATLAS")}
+        os.environ.update({"HISTOLOGY_ECONOMY": "1", "HISTOLOGY_KB": "0", "HISTOLOGY_ATLAS": "0"})
+        eng._chat_complete, eng.openai_client = fake, object()
+        try:
+            imgs = [Image.new("RGB", (900, 700), (170, 110, 190)) for _ in range(2)]
+            clin = [{"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,/9j/", "detail": "low"}}]
+            block = ("### KLINIK KO'RINISH (bemor tanasidagi rasm — kesma EMAS)\n"
+                     "Tirsakda kumushsimon tangachali qizil blyashkalar, chegarasi aniq.\n"
+                     "Bu klinik kontekst: hisobga ol.\n")
+            out = eng._openai_generate(["prompt"] + imgs, "histology", {"specimen_site": "tirsak"},
+                                       clinical_block=block, clinical_parts=clin)
+        finally:
+            eng._chat_complete, eng.openai_client = old_chat, old_client
+            for k, v in env_old.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        self.assertIn("kumushsimon tangachali", seen["user"])
+        self.assertGreaterEqual(seen["images"], 2)        # kesma + klinik surat
+        self.assertIn("Klinik ko'rinish (tana surati): Tirsakda", out)
+
     def test_criteria_fallback_when_the_model_gives_nothing(self):
         from lab_core import engine as eng
         from lab_core import dx_record as dxr
