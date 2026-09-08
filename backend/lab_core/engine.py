@@ -1709,7 +1709,68 @@ def _cap_confidence(text, max_level):
     return re.sub(r"Ishonch:\s*([A-Za-z'‘’o]+)", fix, text or "", flags=re.I)
 
 
-def _mark_provisional(text, features, reason):
+# Ko'rik pattern nomini ingliz tilida qaytaradi; hisobot o'zbekcha bo'lgani
+# uchun eng ko'p uchraydigan atamalar o'giriladi.
+_PATTERN_UZ = (
+    ("psoriasiform", "psoriaziform"),
+    ("spongiotic", "spongiotik"),
+    ("lichenoid", "lixenoid"),
+    ("interface", "interfeys"),
+    ("granulomatous", "granulomatoz"),
+    ("papillomatous", "papillomatoz"),
+    ("acanthotic", "akantotik"),
+    ("acanthosis", "akantoz"),
+    ("hyperkeratotic", "giperkeratotik"),
+    ("hyperkeratosis", "giperkeratoz"),
+    ("parakeratosis", "parakeratoz"),
+    ("verrucous", "verrukoz"),
+    ("nodular", "nodulyar"),
+    ("cystic", "kistoz"),
+    ("fibrous", "fibroz"),
+    ("spindle cell", "duksimon hujayrali"),
+    ("basaloid", "bazaloid"),
+    ("squamous", "yassi hujayrali"),
+    ("melanocytic", "melanotsitar"),
+    ("vascular", "vaskulyar"),
+    ("inflammatory", "yallig'lanishli"),
+    ("lymphoid", "limfoid"),
+    ("lymphocytic", "limfotsitar"),
+    ("infiltrate", "infiltrat"),
+    ("dermatitis", "dermatit"),
+    ("epidermal", "epidermal"),
+    ("dermal", "dermal"),
+    ("lesion", "lezyon"),
+    ("proliferation", "proliferatsiya"),
+    ("thickened epidermis", "qalinlashgan epidermis"),
+    ("with", "va"),
+)
+
+
+def _pattern_uz(text):
+    out = (text or "").strip()
+    low = out.lower()
+    for en, uz in _PATTERN_UZ:
+        if en in low:
+            low = low.replace(en, uz)
+    return low.strip().capitalize()
+
+
+def _descriptive_dx(features):
+    """Ko'rikdagi pattern asosida tavsifiy tashxis nomi.
+
+    Klinik gipoteza (masalan yo'llanmadagi «psoriaz») morfologiya bilan
+    tasdiqlanmasa, o'sha nomni tashxis o'rnida qoldirib bo'lmaydi — hisobot
+    o'zini o'zi rad etadi. Bunday holda ko'rilgan pattern nomlanadi.
+    """
+    pattern = _strip_atypia_claim(
+        _truncate_field((features or {}).get("dominant_pattern"), 80)
+    )
+    if not pattern:
+        return ""
+    return f"Tavsifiy morfologiya: {_pattern_uz(pattern)}"
+
+
+def _mark_provisional(text, features, reason, rename=False):
     """Dalil kam bo'lsa tashxis NOMINI saqlab, uni taxminiy deb belgilash.
 
     Ilgari bu funksiya nomni butunlay «Aniq tashxis uchun yetarli emas» ga
@@ -1735,6 +1796,11 @@ def _mark_provisional(text, features, reason):
                 out.append(line)
                 continue
             name = line.strip()
+            if rename:
+                # Nom ko'rikka zid — uni saqlab qolish mumkin emas
+                alt = _descriptive_dx(features)
+                if alt:
+                    name = alt
             low = name.lower()
             if "taxminiy" not in low:
                 name = name.rstrip(" .") + " — taxminiy"
@@ -1769,6 +1835,24 @@ _SEC_RE = {
 
 
 _WRAPPER_LINE_RE = re.compile(r"^\s*={3,}.*?={3,}\s*$", re.M)
+
+
+def _strip_preamble(text):
+    """Hisobotdan oldingi bo'sh gaplarni olib tashlash.
+
+    Model ba'zan "Quyidagi ma'lumotlar asosida tahlil qilaman:" kabi kirish
+    qatori bilan boshlaydi — bu hisobot emas, shifokorga keraksiz.
+    """
+    if not text:
+        return text
+    m = re.search(r"^\s*#+\s*\S", text, flags=re.M)
+    if not m or m.start() == 0:
+        return text.strip()
+    head = text[: m.start()].strip()
+    # Faqat qisqa kirish tashlanadi; uzun matn hisobotning o'zi bo'lishi mumkin
+    if len(head) <= 300 and "####" not in head:
+        return text[m.start():].strip()
+    return text.strip()
 
 
 def _strip_wrappers(text):
@@ -1869,6 +1953,55 @@ def _tautology_lines(section):
     return bad
 
 
+# "<nom> emas, chunki ..." — muqobilni rad etish qatori
+_DENY_LINE_RE = re.compile(r"^\s*[-•\u2022]?\s*(.{3,60}?)\s+emas\b[,:]?\s*(.*)$", re.I)
+
+
+def _dx_name_only(dx_block):
+    """Tashxis bo'limidan faqat kasallik nomini olish."""
+    for line in (dx_block or "").splitlines():
+        t = line.strip(" -•\t")
+        if not t:
+            continue
+        low = t.lower()
+        if low.startswith("diqqat") or low.startswith("taxminiy") or ":" in t.split(" ")[0]:
+            continue
+        if low.startswith(("organ/", "organ ", "ishonch", "malignite", "daraja")):
+            continue
+        # "Psoriaz — benign — taxminiy" → "Psoriaz"
+        name = re.split(r"\s+[—–-]\s+", t)[0]
+        return name.strip(" .")
+    return ""
+
+
+def _deny_lines(section):
+    """[(rad etilgan nom, sabab)] — «X emas, chunki Y» qatorlari."""
+    out = []
+    for line in (section or "").splitlines():
+        m = _DENY_LINE_RE.match(line.strip())
+        if not m:
+            continue
+        name = m.group(1).strip(" .,:—–-")
+        reason = re.sub(r"^\s*chunki\s*", "", m.group(2).strip(), flags=re.I).strip(" .")
+        if name and len(name) <= 60:
+            out.append((name, reason))
+    return out
+
+
+def _same_entity(a, b):
+    """Ikki nom bir kasallikni bildiradimi (qisqartma va variant hisobga olinadi)."""
+    na, nb = _normalize_dx_name(a), _normalize_dx_name(b)
+    if not na or not nb:
+        return False
+    if na == nb:
+        return True
+    sa, sb = set(na.split()), set(nb.split())
+    if not sa or not sb:
+        return False
+    # bittasi ikkinchisining ichida (masalan "psoriaz" va "psoriaz vulgaris")
+    return sa <= sb or sb <= sa
+
+
 def _find_contradictions(text, features=None):
     """Hisobotdagi aniq ichki zidliklar ro'yxati (bo'sh = toza)."""
     if not text:
@@ -1878,8 +2011,10 @@ def _find_contradictions(text, features=None):
     fakt = _report_section(text, "fakt")
     out = []
 
-    # Tashxis o'rnida nom bo'lishi shart — "aniqlanmadi" javob emas
-    if _NO_NAME_RE.search(tashxis):
+    # Tashxis o'rnida nom bo'lishi shart — "aniqlanmadi" javob emas.
+    # Faqat NOM qatoriga qaraladi: barqarorlik ogohlantirishida ham
+    # "yetarli emas" iborasi bor va u yolg'on signal berardi.
+    if _NO_NAME_RE.search(_dx_name_only(tashxis) or tashxis[:0]):
         out.append(
             "TASHXIS bo'limida kasallik nomi yo'q — «yetarli emas / aniqlanmadi» "
             "o'rniga eng ehtimolli nomni yozib, «Ishonch: past» qo'ying."
@@ -1906,6 +2041,34 @@ def _find_contradictions(text, features=None):
                     f"Tashxisda «atipiyasiz» deyilgan, FAKT da esa mitoz "
                     f"{m.group(0).strip()} — bu son atipiyasiz tavsifga mos kelmaydi."
                 )
+
+    # Hisobot o'z tashxisini rad etmasin: "Psoriaz" deb qo'yib, pastda
+    # "Psoriaz emas" deb yozish — o'qigan odam uchun mantiqsiz.
+    dx_name = _dx_name_only(tashxis)
+    denies = _deny_lines(nega)
+    if dx_name:
+        for name, _reason in denies:
+            if _same_entity(dx_name, name):
+                out.append(
+                    f"TASHXIS «{dx_name}» deb qo'yilgan, lekin asosda «{name} emas» "
+                    "deyilgan — bittasini tanlang: yo nomni o'zgartiring, yo shu "
+                    "rad etish qatorini olib tashlang."
+                )
+                break
+
+    # Har xil kasallik bir xil sabab bilan rad etilmasin
+    seen_reasons = {}
+    for name, reason in denies:
+        key = _normalize_dx_name(reason)
+        if not key or len(key) < 8:
+            continue
+        if key in seen_reasons and not _same_entity(seen_reasons[key], name):
+            out.append(
+                f"«{seen_reasons[key]}» va «{name}» bir xil sabab bilan rad etilgan "
+                "— har bir muqobil o'ziga xos ajratuvchi belgi bilan rad etilsin."
+            )
+            break
+        seen_reasons[key] = name
 
     taut = _tautology_lines(nega)
     if taut:
@@ -2353,6 +2516,11 @@ def _referral_dx_block(patient_context=None):
         "Bir nechta gipoteza berilgan bo'lsa, HAR BIRINI ko'rib chiq: qaysi biri "
         "morfologiyaga mos kelishini ayt, qolganini nima uchun rad "
         "etayotganingni KO'RILGAN belgi bilan asosla.\n"
+        "MUHIM: agar morfologiya gipotezani TASDIQLAMASA, o'sha gipoteza nomini "
+        "TASHXIS qatoriga YOZMA. Bunday holda ko'ringan patternni nomla "
+        "(masalan «Akantotik-papillomatoz epidermal lezyon») va nega klinik "
+        "gipoteza tasdiqlanmaganini asosda tushuntir. Hisobot o'zi qo'ygan "
+        "tashxisni pastda rad etmasin.\n"
     )
 
 
@@ -4252,9 +4420,11 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
                 report = retry
             else:
                 # Tuzatib bo'lmadi — asossiz nomni chiqarish mumkin emas
-                log.warning("%s: zid tashxis tuzatilmadi — taxminiy deb belgilandi",
-                            ZIYRAKAI_DISPLAY_NAME)
-                report = _mark_provisional(report, features, conflict)
+                log.warning(
+                    "%s: zid tashxis tuzatilmadi — tavsifiy nomga almashtirildi",
+                    ZIYRAKAI_DISPLAY_NAME,
+                )
+                report = _mark_provisional(report, features, conflict, rename=True)
 
     # Yakuniy imzo tekshiruvi: mezon, sonlar, differensial, tasdiqlash, cheklovlar
     if lab_type == "histology" and not from_recovery and _usable(report, MIN_REPORT_CHARS):
@@ -4285,6 +4455,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
             report = _add_stability_note(report, _stable, _names)
 
     if _usable(report, 400):
+        report = _strip_preamble(report)
         if lab_type == "histology":
             report = _strip_other_organ_differential(report)
         log.info(
