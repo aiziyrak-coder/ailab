@@ -1,6 +1,7 @@
 /* MedLab — klinik laboratoriya stansiyasi (printga tegmaydi) */
 :root {
-  --display: "Outfit", "Plus Jakarta Sans", sans-serif;
+  /* Outfit index.html da yuklanmaydi edi — tugmalar tizim shriftiga tushib qolardi */
+  --display: "Montserrat", "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
   --lab-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   --lab-metal: #f2f6f5;
   --lab-steel: #8b918f;

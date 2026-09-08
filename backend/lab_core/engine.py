@@ -1489,7 +1489,9 @@ def _force_insufficient(text, features, reason):
     """
     if not text:
         return text
-    pattern = _truncate_field((features or {}).get("dominant_pattern"), 90)
+    pattern = _strip_atypia_claim(
+        _truncate_field((features or {}).get("dominant_pattern"), 90)
+    )
     head = _INSUFFICIENT_DX + (f" — tavsifiy ko'rinish: {pattern}" if pattern else "")
     reason_line = f"Sabab: {reason}"
 
@@ -1521,6 +1523,237 @@ def _force_insufficient(text, features, reason):
     if "Malignite qo'yish huquqi" not in joined:
         joined = joined.replace(head, head + "\nMalignite qo'yish huquqi: YO'Q", 1)
     return joined
+
+
+# ─── Hisobot ichidagi ziddiyatlar ─────────────────────────────────────────────
+# Foydalanuvchi shikoyati: hisobot bir bo'limda o'lchagan narsani boshqasida
+# "baholanmagan" deydi, tekshiruv taklif qilib turib "shart emas" deb yozadi,
+# "atipiyasiz" deb turib mitoz sanaydi. Bunday hisobot mantiqsiz ko'rinadi va
+# shifokorning ishonchini yo'qotadi. Quyidagi tekshiruvlar shu zidliklarni
+# topadi; topilsa hisobot bir marta qayta yozdiriladi.
+
+_SEC_RE = {
+    "tashxis": r"#+\s*(?:aniq\s+)?tashxis\b",
+    "nega": r"#+\s*nega\s+shu\s+tashxis\b",
+    "fakt": r"#+\s*fakt\b",
+    "boshqasi": r"#+\s*nega\s+boshqasi\b",
+    "tasdiq": r"#+\s*tasdiqlash\b",
+    "baholanmagan": r"#+\s*baholanmagan\b",
+}
+
+
+_WRAPPER_LINE_RE = re.compile(r"^\s*={3,}.*?={3,}\s*$", re.M)
+
+
+def _strip_wrappers(text):
+    """Model ba'zan «==== HISOBOT ====» chegara qatorlarini ham nusxalaydi."""
+    if not text:
+        return text
+    out = _WRAPPER_LINE_RE.sub("", text)
+    return re.sub(r"\n{3,}", "\n\n", out).strip()
+
+
+# «atipiyasiz» kabi sifatlash tashxis sarlavhasida turib, FAKT dagi mitoz va
+# pleomorfizm bilan ziddiyat hosil qilardi. Dalil yetarli emas deb yopilayotgan
+# hisobotda atipiya haqida umuman da'vo bo'lmasligi kerak.
+_ATYPIA_QUALIFIER_RE = re.compile(
+    r"\s*[,;—-]?\s*(atipiyasiz|atipiya\s+yo'q|atipik\s+emas|atipiyali|atipiya\s+bor)\s*",
+    re.I,
+)
+
+
+def _strip_atypia_claim(text):
+    return _ATYPIA_QUALIFIER_RE.sub(" ", text or "").strip(" ,;—-")
+
+
+def _report_section(text, key):
+    """Hisobotning bitta bo'limi (sarlavhasiz)."""
+    pat = _SEC_RE.get(key)
+    if not pat or not text:
+        return ""
+    m = re.search(pat + r"[^\n]*\n(.*?)(?=\n#+\s|\Z)", text, flags=re.I | re.S)
+    return (m.group(1) if m else "").strip()
+
+
+_NO_EXTRA_TEST_RE = re.compile(
+    r"qo'shimcha\s+tekshiruv\s+(?:shart|kerak|zarur)\s+emas|"
+    r"qo'shimcha\s+(?:bo'yash|tekshiruv)ga?\s+hojat\s+yo'q|"
+    r"ihc\s+(?:shart|kerak)\s+emas",
+    re.I,
+)
+_TEST_STEP_RE = re.compile(
+    r"\bihc\b|immunogisto|\bcd\d+\b|\bs100\b|sox10|melan|\bp63\b|\bpas\b|"
+    r"qo'shimcha\s+kesma|chuqurroq\s+kesma|qayta\s+bo'yash|serial\s+kesma|"
+    r"klinik\s+ma'lumot\s+so'ra",
+    re.I,
+)
+_NO_ATYPIA_RE = re.compile(r"atipiyasiz|atipiya\s+yo'q|atipik\s+emas|atipiya:\s*yo'q", re.I)
+# "pleomorfizm o'rta" ham, "o'rta pleomorfizm" ham uchraydi
+_PLEO_STRONG_RE = re.compile(
+    r"pleomorfizm[^\n]{0,24}?(o'rta|kuchli|yuqori|belgili)"
+    r"|(o'rta|kuchli|yuqori|belgili)[^\n]{0,16}?pleomorfizm",
+    re.I,
+)
+_MITOSIS_RE = re.compile(r"mitoz[^\n]*?(\d+)\s*(?:[-–—]\s*(\d+))?\s*/\s*10\s*hpf", re.I)
+_MARGIN_MEASURED_RE = re.compile(
+    r"chekka[^\n]*?(tegib\s+turadi|toza|erkin|musbat|manfiy|\d+\s*mm)", re.I
+)
+_MARGIN_UNASSESSED_RE = re.compile(r"chekka[^\n]*?(baholanmadi|baholanmagan|baholab bo'lmaydi)", re.I)
+_WORD_RE = re.compile(r"[a-zа-яo'‘’\w]{4,}", re.I)
+
+
+def _tautology_lines(section):
+    """«X — KO'RINDI: X mavjud» qatorlari — yangi ma'lumot bermaydi."""
+    bad = []
+    for line in (section or "").splitlines():
+        line = line.strip(" -•\t")
+        if not line or ":" not in line:
+            continue
+        head, _, tail = line.partition(":")
+        name = re.split(r"—|–|-{1,2}\s", head)[0]
+        name_words = {w.lower() for w in _WORD_RE.findall(name)}
+        tail_words = {w.lower() for w in _WORD_RE.findall(tail)}
+        if not name_words or not tail_words:
+            continue
+        extra = tail_words - name_words - {
+            "mavjud", "bor", "ko'rinadi", "kuzatiladi", "aniqlandi", "korinadi",
+            "hujayra", "hujayralar", "belgi", "belgilar",
+        }
+        if len(extra) <= 1 and len(tail_words) <= 6:
+            bad.append(line[:110])
+    return bad
+
+
+def _find_contradictions(text, features=None):
+    """Hisobotdagi aniq ichki zidliklar ro'yxati (bo'sh = toza)."""
+    if not text:
+        return []
+    tashxis = _report_section(text, "tashxis")
+    nega = _report_section(text, "nega")
+    fakt = _report_section(text, "fakt")
+    tasdiq = _report_section(text, "tasdiq")
+    baho = _report_section(text, "baholanmagan")
+    out = []
+
+    if _NO_EXTRA_TEST_RE.search(tasdiq) and _TEST_STEP_RE.search(tasdiq):
+        out.append(
+            "TASDIQLASH bo'limida ham aniq tekshiruv taklif qilingan, ham "
+            "«qo'shimcha tekshiruv shart emas» deyilgan — bittasini tanlang."
+        )
+
+    if _MARGIN_MEASURED_RE.search(fakt) and _MARGIN_UNASSESSED_RE.search(baho):
+        out.append(
+            "FAKT da chekka o'lchangan, BAHOLANMAGAN da esa «chekka baholanmadi» "
+            "deyilgan — ikkisi bir vaqtda to'g'ri bo'lolmaydi."
+        )
+
+    no_atypia = _NO_ATYPIA_RE.search(tashxis) or _NO_ATYPIA_RE.search(nega)
+    if no_atypia:
+        if _PLEO_STRONG_RE.search(fakt):
+            out.append(
+                "Tashxisda «atipiyasiz» deyilgan, FAKT da esa pleomorfizm "
+                "o'rta/kuchli deb yozilgan."
+            )
+        m = _MITOSIS_RE.search(fakt)
+        if m:
+            hi = int(m.group(2) or m.group(1) or 0)
+            if hi > 2:
+                out.append(
+                    f"Tashxisda «atipiyasiz» deyilgan, FAKT da esa mitoz "
+                    f"{m.group(0).strip()} — bu son atipiyasiz tavsifga mos kelmaydi."
+                )
+
+    taut = _tautology_lines(nega)
+    if taut:
+        out.append(
+            "NEGA SHU TASHXIS bo'limida belgi nomi takrorlangan, yangi ma'lumot "
+            "yo'q: " + "; ".join(taut[:3])
+        )
+
+    low_dx = tashxis.lower()
+    if ("yetarli emas" in low_dx) and tasdiq and not _TEST_STEP_RE.search(tasdiq):
+        out.append(
+            "Tashxis «yetarli emas» deb yopilgan, lekin TASDIQLASH da aniq "
+            "keyingi qadam ko'rsatilmagan."
+        )
+    return out
+
+
+_COHERENCE_SYSTEM = (
+    "Siz — patomorfologiya kafedrasi mudirisiz. Sizga imzo qo'yilishi kerak "
+    "bo'lgan hisobot va undagi ANIQ ichki ziddiyatlar ro'yxati beriladi. "
+    "Vazifangiz: hisobotni shu ziddiyatlarsiz qayta yozish.\n"
+    "Qat'iy shartlar:\n"
+    "— YANGI topilma o'ylab topmang. Faqat hisobotdagi o'lchangan faktlarga "
+    "tayaning; zid bo'lgan joyda FAKT bo'limidagi o'lchov ustun turadi.\n"
+    "— TASHXIS qatoridagi sifatlashni ham tuzating: agar FAKT da pleomorfizm "
+    "yoki mitoz bo'lsa, sarlavhada «atipiyasiz» deb yozilmasin (sifatlashni "
+    "olib tashlang yoki o'lchovga moslang). Tashxis NOMINI o'zgartirmang.\n"
+    "— Belgi nomini takrorlamang: har bir asos qayerda, qanday, qancha "
+    "ekanini aytsin.\n"
+    "— TASDIQLASH da yo aniq qadamlar, yo «shart emas» — ikkalasi emas.\n"
+    "— O'sha 6 bo'lim, o'sha til (o'zbek), 2000–4500 belgi.\n"
+    "— Faqat yakuniy hisobotni qaytaring, izohsiz."
+)
+
+
+def _coherence_pass(text, kwargs, features=None, lab_type="histology"):
+    """Ziddiyat topilsa hisobotni bir marta qayta yozdirish.
+
+    Model javob bermasa yoki natija yomon bo'lsa — asl matn qoladi (hisobot
+    yo'qolmaydi), lekin jurnalga yoziladi.
+    """
+    if lab_type != "histology" or not text:
+        return text
+    if (os.environ.get("HISTOLOGY_COHERENCE") or "1").strip().lower() in ("0", "false", "no", "off"):
+        return text
+    issues = _find_contradictions(text, features)
+    if not issues:
+        return text
+    log.warning(
+        "%s: hisobotda %s ta ichki ziddiyat — qayta yozilmoqda: %s",
+        ZIYRAKAI_DISPLAY_NAME, len(issues), " | ".join(i[:70] for i in issues),
+    )
+    # Ko'rik natijasi berilsa, takroriy asosni haqiqiy o'lchov bilan
+    # almashtirish mumkin bo'ladi ("mavjud" o'rniga qayerda, qanday, qancha).
+    feats = _features_prompt_block(features) if features else ""
+    user = (
+        ((feats + "\n\n") if feats else "")
+        + "==== HISOBOT ====\n" + text[:9000] + "\n==== HISOBOT TUGADI ====\n\n"
+        "TOPILGAN ZIDDIYATLAR:\n"
+        + "\n".join(f"{i}) {t}" for i, t in enumerate(issues, 1))
+        + "\n\nShu ziddiyatlarni yo'qotib, hisobotni to'liq qayta yozing. "
+        "Takroriy asosni yuqoridagi ko'rik natijasidagi o'lchov bilan "
+        "almashtiring: qayerda, qanday joylashgan, qancha."
+    )
+    fix_kwargs = dict(kwargs or {})
+    fix_kwargs["temperature"] = 0.0
+    try:
+        out = _chat_complete(
+            [
+                {"role": "system", "content": _COHERENCE_SYSTEM},
+                {"role": "user", "content": user},
+            ],
+            fix_kwargs,
+        )
+    except Exception as e:
+        log.warning("%s: mantiq tuzatuvi xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
+        return text
+    out = _strip_wrappers(out)
+    if not _usable(out, MIN_REPORT_CHARS) or _looks_like_refusal(out):
+        log.warning("%s: mantiq tuzatuvi yaroqsiz — asl hisobot saqlandi", ZIYRAKAI_DISPLAY_NAME)
+        return text
+    left = _find_contradictions(out, features)
+    if len(left) >= len(issues):
+        log.warning(
+            "%s: qayta yozish yaxshilamadi (%s → %s) — asl hisobot saqlandi",
+            ZIYRAKAI_DISPLAY_NAME, len(issues), len(left),
+        )
+        return text
+    log.info(
+        "%s: ziddiyat %s → %s ga tushdi", ZIYRAKAI_DISPLAY_NAME, len(issues), len(left)
+    )
+    return out
 
 
 def _apply_evidence_rules(text, features, lab_type="histology"):
@@ -1632,6 +1865,34 @@ CHIQISH (qat'iy): faqat 6 bo'lim, jami 2000–4500 belgi.
 #### BAHOLANMAGAN
 Yulduzcha ** yo'q. Jadval yo'q. Ehtimollik foizi yo'q. Boshqa sarlavha yo'q.
 Har qator ma'lumot tashisin: son, daraja yoki aniq morfologik atama bo'lsin.
+
+MANTIQ QOIDALARI — hisobot o'z ichida zid bo'lmasin (buzilsa hisobot qaytariladi):
+1) TAKROR YO'Q. «NEGA SHU TASHXIS» da belgi nomini qaytarma. Noto'g'ri:
+   «Duksimon hujayralar — KO'RINDI: duksimon hujayralar mavjud».
+   To'g'ri: «Duksimon hujayralar — KO'RINDI: dermada bir-biriga parallel
+   dastalar, yadrolar cho'ziq, sitoplazma eozinofil, kollagen orasiga kirgan».
+   Ya'ni QAYERDA, QANDAY joylashgan, QANCHA — yangi ma'lumot bo'lsin.
+2) TASDIQLASH bo'limi YOKI aniq qadamlar ro'yxati, YOKI «qo'shimcha tekshiruv
+   shart emas» — ikkalasi birga YOZILMAYDI. Qadam yozsang, «shart emas» dema.
+3) FAKT da o'lchagan narsani BAHOLANMAGAN ga yozma. Chekkani FAKT da
+   «tegib turadi» desang, BAHOLANMAGAN da «chekka baholanmadi» deb yozma —
+   bittasini tanla.
+4) ATIPIYA izchil bo'lsin. Tashxis qatorida «atipiyasiz» desang, FAKT da
+   pleomorfizm «o'rta/kuchli» yoki mitoz 2/10HPF dan ko'p bo'lmasin. Aksincha
+   ham: pleomorfizm va mitoz bo'lsa, «atipiyasiz» dema.
+5) BAHOLANMAGAN da sabab TASVIRGA oid bo'lsin («kadrga tushmagan»,
+   «fokusdan chiqqan», «kesma yo'nalishi ko'rinmaydi»), topilma haqidagi
+   xulosa bo'lmasin.
+6) Tashxis «yetarli emas» bo'lsa ham, TASDIQLASH da nima qilish kerakligi
+   ANIQ yozilsin (qaysi bo'yash, qaysi kattalashtirish, qaysi qo'shimcha kesma).
+7) «NEGA BOSHQASI EMAS» da har bir muqobil FAKT dagi o'lchov bilan rad etilsin.
+   Noto'g'ri: «Melanoma — pagetoid tarqalish yo'q».
+   To'g'ri: «Melanoma — epidermisda melanotsitar uya ham, pagetoid ko'tarilish
+   ham ko'rinmadi; hujayralar faqat dermada, S100 talab qilinmaydi».
+   Ya'ni qaysi KO'RILGAN belgi bu tashxisni rad etayotganini ayting.
+8) TASHXIS qatorida bitta nom bo'lsin. «A yoki B» deb qoldirmang: agar
+   ajratib bo'lmasa, ustun variantni yozing va TASDIQLASH da ajratish
+   yo'lini ko'rsating.
 """
 
 
@@ -3425,6 +3686,12 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None):
 
     if lab_type == "histology" and features:
         report = _apply_evidence_rules(report, features, lab_type)
+
+    # Imzo oldidan oxirgi qadam: hisobot o'z ichida zid bo'lmasin.
+    # _apply_evidence_rules tashxis qatorini almashtirgan bo'lishi mumkin —
+    # shuning uchun tekshiruv aynan shundan keyin turadi.
+    if lab_type == "histology" and not from_recovery and _usable(report, MIN_REPORT_CHARS):
+        report = _coherence_pass(report, kwargs, features, lab_type)
 
     if _usable(report, 400):
         if lab_type == "histology":

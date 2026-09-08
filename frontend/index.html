@@ -11,10 +11,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" href="/static/img/favicon.png" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=r6">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=r6">
-  <link rel="stylesheet" href="/static/css/mobile.css?v=r6">
-  <link rel="stylesheet" href="/static/css/brand.css?v=r6">
+  <link rel="stylesheet" href="/static/css/style.css?v=r8">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=r8">
+  <link rel="stylesheet" href="/static/css/mobile.css?v=r8">
+  <link rel="stylesheet" href="/static/css/brand.css?v=r8">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -81,6 +81,19 @@
 
       <div class="card">
         <div class="card-title">Bemor</div>
+
+        <div class="referral-row" id="referralRow">
+          <button type="button" class="btn-referral" id="referralBtn"
+                  onclick="document.getElementById('referralInput').click()"
+                  title="Yo‘llanma varaqasini suratga oling — bemor kartasi avtomatik to‘ladi">
+            <span class="btn-referral-icon" aria-hidden="true">⬚</span>
+            Yo‘llanmadan to‘ldirish
+          </button>
+          <input type="file" id="referralInput" accept="image/*" style="display:none"
+                 onchange="handleReferralSelect(event)">
+          <span class="referral-hint" id="referralHint">Yo‘llanma rasmini yuklang — quyidagi maydonlar avtomatik to‘ladi</span>
+        </div>
+
         <form class="acc-form" autocomplete="off" onsubmit="return false;">
           <label class="req acc-span"><span>F.I.Sh.</span> <input id="accName" maxlength="120" required placeholder="Bemor familiyasi, ismi — oldingi bemor avto-to‘ldiriladi"></label>
           <label class="req"><span>Yosh</span> <input id="accAge" type="number" min="0" max="120" required placeholder="—"></label>
@@ -220,16 +233,6 @@
           <input type="file" id="fileInput" accept="image/*,video/*,.avi,.mp4,.mov,.mkv,.webm"
                  style="display:none" onchange="handleFileSelect(event)" multiple>
 
-          <div class="referral-row" id="referralRow">
-            <button type="button" class="btn-referral" id="referralBtn"
-                    onclick="document.getElementById('referralInput').click()"
-                    title="Yo'llanma varaqasini suratga oling — bemor kartasi avtomatik to'ladi">
-              Yo‘llanmadan to‘ldirish
-            </button>
-            <input type="file" id="referralInput" accept="image/*" style="display:none"
-                   onchange="handleReferralSelect(event)">
-            <span class="referral-hint" id="referralHint">Yo‘llanma rasmini yuklang — maydonlar avtomatik to‘ladi</span>
-          </div>
           <div id="filePreview" class="file-preview" style="display:none">
             <div class="preview-header">
               <span id="previewCount" class="preview-count"></span>
@@ -565,8 +568,8 @@
 <div id="toast"></div>
 <script src="/static/js/uz_localities.js?v=off59"></script>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=r6"></script>
-<script src="/static/js/ux.js?v=r6"></script>
-<script src="/static/js/referral.js?v=r6"></script>
+<script src="/static/js/app.js?v=r8"></script>
+<script src="/static/js/ux.js?v=r8"></script>
+<script src="/static/js/referral.js?v=r8"></script>
 </body>
 </html>

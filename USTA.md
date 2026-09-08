@@ -48,7 +48,23 @@ Klinikaning 7 ta kitob arxivi matnga aylantirildi (.doc → Word COM, .docx → 
 `/api/kb/*` API va tahlilda klinika kitoblariga kafolatlangan kvota
 (`CLINIC_MIN_HITS`, standart 7 parcha) qo'shildi.
 
-### 6-bosqich — qolgan sohalar  <- HOZIR SHU YERDA
+### 6-bosqich — dizayn va hisobot mantiqi ✅
+- **Shrift**: to'rt oila aralashgan edi (Inter, Montserrat, yuklanmagan Outfit,
+  Arial). `--display` Montserrat ga o'tkazildi, matn bitta oilaga keltirildi.
+- **Qalinlik**: deyarli har element 700–800 edi. Shkala: 400 qiymat, 500
+  ikkinchi daraja, 600 yorliq/tugma, 700 faqat brend nomi.
+- **Oraliqlar**: 3–8px edi, kartalar tegib turardi. Panel 14px, karta 14/16px,
+  forma 12px, sarlavha 10/18px.
+- **Sticky panel**: "Tahlil boshlash" shaffof sticky edi va mikroskop qatorining
+  ustiga chiqardi — endi o'z foni va chegarasi bor.
+- **Yo'llanmadan to'ldirish** rasm panelining ostidan bemor kartasining boshiga
+  ko'chirildi (ish oqimi shu yerdan boshlanadi).
+- **Hisobot mantiqi**: `_find_contradictions` + `_coherence_pass` qo'shildi.
+  Topadi: taklif+«shart emas», FAKT/BAHOLANMAGAN chekka zidligi, «atipiyasiz»
+  vs mitoz/pleomorfizm, takroriy asos, qadamlar ko'rsatilmagan «yetarli emas».
+  Sinov: foydalanuvchi yuborgan hisobotda 5 ta ziddiyat → 0 ga tushdi.
+
+### 7-bosqich — qolgan sohalar  <- HOZIR SHU YERDA
 Sinaladi: haqiqiy rasm bilan to'liq tahlil oqimi (ko'rik → kitob → hisobot),
 kamera/telefon rejimi, chop etish maketi, ko'p foydalanuvchi holati, backend
 chekka holatlari (bir vaqtda ikki tahlil, sessiya tugashi, katta fayl).

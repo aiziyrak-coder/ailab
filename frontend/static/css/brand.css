@@ -576,3 +576,338 @@ body.auth-page-body { background: var(--rd-mist) !important; }
   background: var(--rd-gold) !important;
   color: #ffffff !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TIPOGRAFIKA VA ORALIQLAR — sayqal qatlami
+   Muammo: to'rt xil shrift aralashgan edi (Inter, Montserrat, yuklanmagan
+   Outfit va Arial), va deyarli har element 700–800 qalinlikda — matn "jirniy"
+   ko'rinardi. Oraliqlar 3–8px bo'lgani uchun kartalar bir-biriga tegib turardi.
+   Bu yerda bitta shrift oilasi va bitta qalinlik/oraliq shkalasi belgilanadi.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Bitta shrift oilasi ──────────────────────────────────────────────── */
+body,
+button,
+input,
+select,
+textarea,
+.btn,
+.btn-small,
+.btn-icon,
+.btn-referral,
+.btn-history,
+.btn-auth-logout,
+.status-pill,
+.case-pill,
+.lab-select,
+.micro-select,
+.src-tab,
+.hist-drawer,
+.upload-main,
+.wb-flow li {
+  font-family: var(--ios-font);
+}
+
+.header-title,
+.card-title,
+.result-title,
+.hist-head h2,
+.auth-card h1,
+h1, h2, h3 {
+  font-family: var(--rd-display);
+}
+
+/* Raqamlar — namuna ID, kattalashtirish, soat */
+.lab-mono,
+.micro-total-value,
+#wbTime,
+.header-id-search input,
+#accSampleId {
+  font-family: var(--lab-mono);
+}
+
+/* ─── Qalinlik shkalasi ────────────────────────────────────────────────────
+   400 — kiritilgan qiymat va matn
+   500 — ikkinchi darajali yozuv
+   600 — yorliq, tugma, karta sarlavhasi
+   700 — faqat brend nomi
+   ──────────────────────────────────────────────────────────────────────── */
+.acc-form input,
+.acc-form select,
+.acc-form textarea,
+.lab-select,
+.micro-select,
+.header-id-search input,
+.hist-search input,
+.upload-hint-line,
+.referral-hint,
+.field-hint,
+.info-msg {
+  font-weight: 400 !important;
+}
+
+.acc-form label > span,
+.card-title,
+.src-tab.active,
+.btn,
+.btn-small,
+.btn-referral,
+.btn-history,
+.btn-auth-logout,
+.btn-ziyrakai,
+.btn-green,
+.btn-red,
+.upload-main,
+.status-pill,
+.case-pill,
+.preview-count,
+.wb-flow li.on,
+.wb-flow li.done,
+.result-title {
+  font-weight: 600 !important;
+}
+
+.src-tab,
+.wb-flow li,
+.daftar-more > summary {
+  font-weight: 500 !important;
+}
+
+.header-title { font-weight: 700 !important; }
+
+/* Yorliqlar: kichik, katta harf, lekin qalin emas */
+.acc-form label > span {
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  color: var(--rd-ink-soft);
+  text-transform: uppercase;
+}
+
+.acc-form input,
+.acc-form select {
+  font-size: 0.9rem;
+}
+
+.card-title {
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+}
+
+/* ─── Oraliqlar (faqat keng ekran; telefon mobile.css da) ──────────────── */
+@media (min-width: 901px) {
+  .main-layout {
+    padding: 14px 16px !important;
+    gap: 14px !important;
+  }
+
+  .left-panel,
+  .right-panel,
+  .center-panel {
+    padding: 14px !important;
+    gap: 12px !important;
+  }
+
+  .left-panel > .card,
+  .right-panel > .card {
+    padding: 14px 16px !important;
+    gap: 10px !important;
+  }
+
+  .acc-form {
+    gap: 12px 12px !important;
+    padding-top: 10px !important;
+  }
+
+  .header {
+    padding: 10px 18px !important;
+    gap: 14px !important;
+  }
+
+  .header-status { gap: 10px !important; }
+
+  .workbar {
+    padding: 9px 18px !important;
+    gap: 16px !important;
+  }
+
+  .upload-zone { padding: 22px 16px !important; }
+
+  .capture-head { gap: 10px !important; }
+
+  .src-tabs { gap: 6px !important; }
+
+  .btn-pair,
+  .input-row { gap: 10px !important; }
+}
+
+/* ─── Yo'llanmadan to'ldirish — ish oqimining birinchi qadami ──────────────
+   Ilgari rasm yuklash panelining ostida, ko'rinmaydigan joyda edi. Endi bemor
+   kartasining boshida: yo'llanmani suratga oling → maydonlar to'ladi.
+   ──────────────────────────────────────────────────────────────────────── */
+.referral-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  background: var(--rd-gold-wash);
+  border: 1px solid var(--rd-gold-soft);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 2px;
+}
+
+.btn-referral {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 14px;
+  background: var(--rd-gold) !important;
+  border: 1px solid var(--rd-gold) !important;
+  color: #ffffff !important;
+  border-radius: 8px !important;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.btn-referral:hover:not(:disabled) {
+  background: var(--rd-gold-deep) !important;
+  border-color: var(--rd-gold-deep) !important;
+}
+
+.btn-referral-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.referral-hint {
+  /* style.css da yonma-yon joylashuv uchun flex:1 1 160px edi — ustunda
+     u 160px balandlikka cho'zilib, kartada bo'sh joy qoldirardi */
+  flex: 0 0 auto !important;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--rd-gold-deep);
+  text-align: center;
+}
+
+.referral-hint.is-ok {
+  color: #2f6b4f;
+  font-weight: 500 !important;
+}
+
+.referral-hint.is-err { color: #b4442f; }
+
+.referral-hint.is-busy { color: var(--rd-ink-soft); }
+
+
+/* Chap ustun: kartalar o'z balandligini oladi, panel esa aylanadi.
+   lab-pro.css da rasm kartasi `flex:1 1 auto; min-height:0; overflow:hidden`
+   edi — bemor kartasi (yo'llanma bloki bilan) o'sgach, u 78px gacha siqilib,
+   rasm yuklash maydoni butunlay ko'rinmay qolardi. */
+@media (min-width: 901px) {
+  .left-panel > .card,
+  .left-panel > .card.card-grow {
+    flex: 0 0 auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  .left-panel #paneUpload,
+  .left-panel #panePhone,
+  .left-panel #paneScope {
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  /* Ko'p fayl qo'shilganda ro'yxat panelni cho'zib yubormasin */
+  .left-panel #paneUpload.has-files #filePreview {
+    flex: 0 0 auto;
+    max-height: 220px;
+    overflow: hidden;
+  }
+
+  .left-panel #paneUpload.has-files .file-list {
+    max-height: 176px;
+    overflow-y: auto;
+  }
+}
+
+/* Chap ustunda yo'llanma bloki ixcham: tugma va izoh yonma-yon (joy tejaladi) */
+@media (min-width: 901px) {
+  .left-panel .referral-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .left-panel .btn-referral {
+    width: auto;
+    flex: 0 0 auto;
+    padding: 9px 14px;
+    font-size: 0.8rem;
+  }
+
+  .left-panel .referral-hint {
+    /* yonma-yon joylashuvda matn qisqarib, o'ralib turishi kerak */
+    flex: 1 1 auto !important;
+    min-width: 0;
+    text-align: left;
+    font-size: 0.7rem;
+  }
+}
+
+/* Sticky "Tahlil boshlash" paneli shaffof edi — aylantirilganda mikroskop
+   qatorining ustiga chiqib, matnlar bir-biriga tegib turardi. Endi u o'z foni,
+   yuqori chegarasi va soyasi bilan alohida panel bo'lib turadi. */
+@media (min-width: 901px) {
+  .left-panel .analyze-card {
+    background: #ffffff !important;
+    border-top: 1px solid var(--rd-line) !important;
+    padding: 10px 0 2px !important;
+    box-shadow: 0 -10px 14px -8px rgba(26, 26, 26, 0.12) !important;
+  }
+
+  /* Oxirgi element sticky panel ostida qolib ketmasin */
+  .left-panel { padding-bottom: 4px !important; }
+
+  .left-panel .micro-card { margin-bottom: 2px; }
+}
+
+/* Kattalashtirish ko'rsatkichi qora quti edi — yorug' mavzuda begona ko'rinardi */
+.left-panel .micro-total-mini {
+  background: var(--rd-gold-wash) !important;
+  border: 1px solid var(--rd-gold-soft) !important;
+  border-radius: 8px !important;
+}
+
+.left-panel .micro-total-mini .micro-total-value {
+  color: var(--rd-gold-deep) !important;
+}
+
+.left-panel .micro-total-mini .micro-total-label {
+  color: var(--rd-ink-soft) !important;
+}
+
+/* Ish holati ko'rsatkichi ham qora quti edi — yorug' mavzuga moslandi */
+.wb-inst {
+  background: var(--rd-gold-wash) !important;
+  color: var(--rd-gold-deep) !important;
+  border: 1px solid var(--rd-gold-soft) !important;
+  font-weight: 600 !important;
+}
+
+.wb-inst.live {
+  background: #eaf4ee !important;
+  color: #2f6b4f !important;
+  border-color: #cfe4d7 !important;
+}
+
+.wb-inst.busy {
+  background: #fdf1e6 !important;
+  color: #9a5b1f !important;
+  border-color: #f0dcc4 !important;
+}
