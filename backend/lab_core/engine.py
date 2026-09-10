@@ -1247,8 +1247,15 @@ def _observe_histology(image_parts, patient_context=None):
         user = (
             f"Clinical specimen site: {site}. "
             f"{n_all} field(s) from ONE case; the images below are a spread across them. "
-            "Scan each at low power first (architecture, symmetry, borders, layers), then at "
-            "high power (cells, nuclei, mitoses, stroma, inflammation). "
+            "Work in this fixed order (dermatopathology protocol): (1) name the inflammatory "
+            "pattern per Ackerman (or state it does not apply — neoplastic); (2) descend from "
+            "the stratum corneum through the granular, spinous and basal layers; (3) the "
+            "dermo-epidermal junction; (4) the papillary dermis — amorphous material, state of "
+            "collagen, mucin between fibres, vessels, perivascular and interstitial infiltrate and "
+            "its composition; (5) the reticular dermis — the same parameters, plus adnexa and any "
+            "periadnexal infiltrate and its composition; (6) subcutis if present; (7) overall: "
+            "pigment, atypical cells, pleomorphism, mitoses. Fill the 'description' object in "
+            "that order in short Uzbek sentences, then the boolean features. "
             "Use this JSON shape and these keys (no extra keys):\n"
             + _OBSERVE_SCHEMA
             + "\nTo keep the answer short, OMIT boolean keys whose value is false — an omitted "
@@ -1494,6 +1501,11 @@ def _features_prompt_block(features):
     gaps = features.get("not_assessable_uz")
     if isinstance(gaps, list) and gaps:
         lines.append("Baholab bo'lmadi: " + "; ".join(_truncate_field(g, 120) for g in gaps[:3] if g))
+    desc = _dxc.description_lines(features.get("description"))
+    if desc:
+        lines.append("Tizimli tavsif (Akkerman → yuqoridan pastga):")
+        for d in desc:
+            lines.append(f"- {_truncate_field(d, 220)}")
     obs = features.get("observations_uz")
     if isinstance(obs, list) and obs:
         lines.append("Ko'rik izohi:")
@@ -2005,8 +2017,11 @@ def _referral_text(patient_context):
 _GESTALT_SYSTEM = (
     "You are a senior dermatopathologist signing out a case. Work the way you do at the "
     "microscope: FIRST the scanning-magnification gestalt (what kind of lesion is this: "
-    "inflammatory vs neoplastic; epidermal, melanocytic, adnexal, vascular, fibrous, "
-    "lymphoid, infectious; polypoid/exophytic vs flat; symmetric vs not), THEN the "
+    "inflammatory vs neoplastic — if inflammatory, which of Ackerman's patterns: superficial "
+    "perivascular, superficial and deep perivascular, vasculitis, nodular/diffuse, intraepidermal "
+    "vesicular/pustular, subepidermal vesicular, folliculitis, fibrosing, panniculitis; if "
+    "neoplastic: epidermal, melanocytic, adnexal, vascular, fibrous, lymphoid; "
+    "polypoid/exophytic vs flat; symmetric vs not), THEN the "
     "confirming features, THEN clinicopathologic correlation. Be decisive but honest: "
     "if the fields cannot support a diagnosis, say so and name what would settle it. "
     "Return ONE JSON object only."
@@ -2014,6 +2029,7 @@ _GESTALT_SYSTEM = (
 
 _GESTALT_SCHEMA = (
     '{"gestalt": "one sentence: lesion category and architecture at low power", '
+    '"ackerman_pattern": "inflammatory pattern per Ackerman, or: qo‘llanilmaydi (neoplastik)", '
     '"diagnosis": "single most likely diagnosis — Latin or Uzbek name as used in reports", '
     '"confidence": "low|moderate|high", '
     '"decisive_features": ["3-5 features that carry the diagnosis, each tied to what is visible"], '
@@ -2070,15 +2086,28 @@ def _gestalt_stage(slide_pils, detail_parts, clinical_parts, patient_context, kw
     try:
         raw = _complete_resilient(
             _GESTALT_SYSTEM, ["\n".join(lines)], parts,
-            {**kwargs, "max_tokens": 2500, "temperature": 0.0}, "umumiy ko'rinish",
+            {**kwargs, "max_tokens": 4000, "temperature": 0.0}, "umumiy ko'rinish",
         )
     except CaseBudgetExceeded as e:
         log.warning("%s: %s", ZIYRAKAI_DISPLAY_NAME, e)
         return None
     data = _parse_observation(raw)
     if not isinstance(data, dict) or not str(data.get("diagnosis") or "").strip():
-        log.warning("%s: umumiy ko'rinish o'qilmadi: %r", ZIYRAKAI_DISPLAY_NAME, _preview(raw))
-        return None
+        # Bir marta qayta: qisqaroq javob so'raladi (kesilgan/yaroqsiz JSON holati)
+        log.warning("%s: umumiy ko'rinish o'qilmadi: %r — qayta urinish", ZIYRAKAI_DISPLAY_NAME, _preview(raw))
+        try:
+            raw = _complete_resilient(
+                _GESTALT_SYSTEM, ["\n".join(lines) + "\nKeep every value short (one clause)."],
+                parts[:1] + parts[-1:], {**kwargs, "max_tokens": 4000, "temperature": 0.0},
+                "umumiy ko'rinish (qayta)",
+            )
+        except CaseBudgetExceeded as e:
+            log.warning("%s: %s", ZIYRAKAI_DISPLAY_NAME, e)
+            return None
+        data = _parse_observation(raw)
+        if not isinstance(data, dict) or not str(data.get("diagnosis") or "").strip():
+            log.warning("%s: umumiy ko'rinish qayta ham o'qilmadi", ZIYRAKAI_DISPLAY_NAME)
+            return None
     data["_sheet"] = sheet
     log.info(
         "%s: umumiy ko'rinish — %r (%s): %s",
@@ -2104,6 +2133,8 @@ def _gestalt_block(g):
         return ""
     lines = ["#### UMUMIY KO'RINISH (kichik kattalashtirish, barcha kadrlar montaji — senior o'qish)"]
     lines.append(f"Lezyon: {str(g.get('gestalt') or '').strip()}")
+    if g.get("ackerman_pattern"):
+        lines.append(f"Yallig'lanish patterni (Akkerman): {str(g['ackerman_pattern']).strip()[:120]}")
     lines.append(f"Yetakchi tashxis: {g.get('diagnosis')} (ishonch: {g.get('confidence') or 'noaniq'})")
     feats = [str(x).strip() for x in (g.get("decisive_features") or []) if str(x).strip()]
     if feats:
@@ -2753,6 +2784,8 @@ def _finish_record(rec, features, adj, names, verified_changes=None, clinical_te
         features["_chosen_name"] = rec.name
         features["_clinical_text"] = clinical_text or ""
         features["_referral_text"] = referral_text or ""
+        if isinstance(features.get("description"), dict) and not rec.description:
+            rec.description = dict(features["description"])
         # Dalil qatorlariga kadr raqamlari: «koilotsitlar (kadr: 4, 9)»
         frames = features.get("_frames") or {}
         if frames:
@@ -6017,8 +6050,13 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
         mismatch = _mismatch_from_observation(features, lab_type)
         log.info("%s: ko'rik (tejamkor, 1 chaqiruv) %.1fs", ZIYRAKAI_DISPLAY_NAME, time.time() - t0)
         # Kadr-kadr qidiruv: gipotezalarni ajratuvchi belgilar HAMMA kadrlarda
-        if isinstance(features, dict) and gestalt and len(_vision_parts) >= 2:
-            _skeys = _survey_keys(gestalt, _referral_text(patient_context), clinical_block)
+        if isinstance(features, dict) and len(_vision_parts) >= 2:
+            _hyp = gestalt
+            if not _hyp:
+                _top = _dxc.rank_candidates(features, 2, clinical_block, _referral_text(patient_context))
+                _hyp = {"diagnosis": _top[0]["name"] if _top else "",
+                        "alternatives": [{"name": r["name"]} for r in _top[1:]]}
+            _skeys = _survey_keys(_hyp, _referral_text(patient_context), clinical_block)
             survey = _frame_survey(_skeys, _vision_parts, kwargs)
             if survey:
                 _sch = _apply_survey(features, survey)

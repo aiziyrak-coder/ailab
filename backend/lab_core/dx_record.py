@@ -27,6 +27,7 @@ from dataclasses import dataclass, field, asdict
 H_DX = "#### TASHXIS"
 H_WHY = "#### NEGA SHU TASHXIS"
 H_FACT = "#### FAKT (o'lchangan morfologiya)"
+H_DESC = "#### MIKROSKOPIK TAVSIF (Akkerman patterni → yuqoridan pastga)"
 
 FINAL_PREFIX = "YAKUNIY XULOSA: "
 
@@ -90,6 +91,7 @@ class DxRecord:
     gestalt_agreement: str = ""                     # umumiy ko'rinish bilan kelishuv
     gestalt_bonus: int = 0
     survey_line: str = ""                           # kadr-kadr qidiruv sanog'i
+    description: dict = field(default_factory=dict) # tizimli tavsif (protokol tartibida)
 
     # ── Yordamchilar ────────────────────────────────────────────────────
     def display_name(self):
@@ -143,6 +145,15 @@ class DxRecord:
             )
         for d in self.differentials[:5]:
             out.append("Rad etildi: " + d.line())
+
+        # Patolog protokoli: pattern → rog' qavat → … → pigment/atipiya. Shifokor
+        # o'zi o'rgangan tartibda o'qiydi va nima ko'rilganini tekshira oladi.
+        from .dx_criteria import description_lines
+        desc = description_lines(self.description)
+        if desc:
+            out.append("")
+            out.append(H_DESC)
+            out.extend(desc)
 
         out.append("")
         out.append(H_FACT)

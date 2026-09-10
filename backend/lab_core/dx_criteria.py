@@ -232,6 +232,80 @@ OBSERVE_TEMPLATE = {
 }
 
 
+# ─── Tizimli tavsif protokoli (patolog bergan tartib) ───────────────────────
+# Avval yallig'lanish PATTERNI (B. Akkerman), so'ng rog' qavatdan bazal
+# qavatgacha, epidermo-dermal chegara, so'rg'ichli derma (amorf modda,
+# kollagen, musin, tomirlar, perivaskulyar va interstitsial infiltrat va
+# tarkibi), to'rsimon derma (shu parametrlar + qo'shimchalar va ular
+# atrofidagi infiltrat), oxirida pigment, atipik hujayralar, pleomorfizm.
+ACKERMAN_PATTERNS = (
+    "yuzaki perivaskulyar dermatit",
+    "yuzaki va chuqur perivaskulyar dermatit",
+    "vaskulit",
+    "nodulyar va diffuz dermatit",
+    "intraepidermal pufakli/pustulali dermatit",
+    "subepidermal pufakli dermatit",
+    "follikulit va perifollikulit",
+    "fibrozlovchi dermatit",
+    "pannikulit",
+    "yallig'lanish patterni qo'llanilmaydi (neoplastik / o'sma)",
+)
+
+# (kalit, hisobotdagi sarlavha, modelga ko'rsatma)
+DESCRIPTION_FIELDS = (
+    ("inflammatory_pattern", "Yallig'lanish patterni (Akkerman)",
+     "one of: " + " | ".join(ACKERMAN_PATTERNS)),
+    ("stratum_corneum", "Rog' qavat",
+     "orthokeratosis/parakeratosis, compact or basket-weave, thickness, neutrophils, serum, crust"),
+    ("granular_layer", "Donador qavat", "present/absent, thickened (wedge) or thinned, keratohyalin"),
+    ("spinous_layer", "Tikanli qavat",
+     "acanthosis (regular/irregular/psoriasiform), spongiosis, acantholysis, dyskeratosis, "
+     "koilocytes, vesicles, exocytosis, atypia"),
+    ("basal_layer", "Bazal qavat",
+     "intact/vacuolar change, pigment, melanocyte number and nests, basaloid proliferation"),
+    ("dej", "Epidermo-dermal chegara",
+     "interface change, band-like infiltrate, subepidermal cleft/blister, basement membrane thickening, Civatte bodies"),
+    ("papillary_matrix", "So'rg'ichli derma — moddasi",
+     "amorphous material (yes/no, what), collagen fibres (normal/oedematous/homogenised/sclerotic), "
+     "mucin between fibres (yes/no)"),
+    ("papillary_vessels", "So'rg'ichli derma — tomirlar",
+     "dilated/tortuous, endothelial swelling, fibrinoid necrosis, extravasated red cells, proliferation"),
+    ("papillary_infiltrate", "So'rg'ichli derma — infiltrat",
+     "perivascular and/or interstitial; density; composition (lymphocytes, neutrophils, eosinophils, "
+     "plasma cells, histiocytes, mast cells, atypical cells)"),
+    ("reticular_matrix", "To'rsimon derma — moddasi",
+     "collagen (normal/thick/sclerotic/necrobiotic), mucin, amorphous deposits, elastosis, fibrosis"),
+    ("reticular_vessels_infiltrate", "To'rsimon derma — tomirlar va infiltrat",
+     "deep perivascular/interstitial/nodular/diffuse infiltrate; composition; vasculitis; granulomas"),
+    ("adnexa", "Teri qo'shimchalari",
+     "hair follicles, sebaceous and sweat glands: present/atrophic/plugged; periadnexal infiltrate and its composition"),
+    ("subcutis", "Teri osti yog' qavati", "present? septal/lobular panniculitis; if not in section say 'ko'rinmaydi'"),
+    ("pigment", "Pigment", "melanin: where (basal, melanophages, incontinence), amount; hemosiderin"),
+    ("atypia_pleomorphism", "Atipik hujayralar va pleomorfizm",
+     "atypical cells (where, what kind), nuclear pleomorphism grade, mitoses (typical/atypical, per 10 HPF)"),
+)
+
+OBSERVE_TEMPLATE["description"] = {
+    k: (f"{hint}" if k == "inflammatory_pattern" else "1–2 short Uzbek sentences: " + hint)
+    for k, _lab, hint in DESCRIPTION_FIELDS
+}
+
+
+def description_lines(desc):
+    """Hisobot uchun tizimli tavsif — protokol tartibida (bo'sh maydonlar tashlanadi)."""
+    if not isinstance(desc, dict):
+        return []
+    out = []
+    for key, label, _hint in DESCRIPTION_FIELDS:
+        v = " ".join(str(desc.get(key) or "").split())
+        if not v or v.lower() in ("noaniq", "-", "—", "yo'q", "n/a"):
+            continue
+        if v.startswith("1–2 short") or v.startswith("one of:"):
+            continue          # to'ldirilmagan shablon matni
+        out.append(f"{label}: {v[:320]}")
+    return out
+
+
 def observe_schema_json():
     return json.dumps(OBSERVE_TEMPLATE, ensure_ascii=False)
 

@@ -1233,7 +1233,10 @@ class EconomyPipelineMockTests(TestCase):
         obs = json.loads(dxc.observe_schema_json())
         obs.update({"not_tissue": False, "organ": "teri", "sample_quality": "yaxshi",
                     "dominant_pattern": "psoriasiform", "not_assessable_uz": [],
-                    "observations_uz": ["rete cho'zilgan"]})
+                    "observations_uz": ["rete cho'zilgan"],
+                    "description": {"inflammatory_pattern": "yuzaki perivaskulyar dermatit",
+                                    "stratum_corneum": "Tutash parakeratoz, Munro mikroabsesslari.",
+                                    "papillary_infiltrate": "Perivaskulyar limfotsitar, o'rtacha."}})
         for k in ("regular_elongated_rete", "parakeratosis", "munro_microabscess",
                   "suprapapillary_thinning"):
             obs["epidermis"][k] = True
@@ -1286,6 +1289,10 @@ class EconomyPipelineMockTests(TestCase):
         # tekshiruv kerak emas): 4 chaqiruv, ortiq emas
         self.assertEqual(calls, ["umumiy ko'rinish", "ko'rik", "kadr qidiruv 1-4", "qaror"], calls)
         self.assertIn("kadr: 1, 4", out)      # dalilda kadr raqami
+        # Patolog protokoli: tavsif bo'limi Akkerman patternidan boshlanadi
+        self.assertIn("#### MIKROSKOPIK TAVSIF", out)
+        self.assertIn("Yallig'lanish patterni (Akkerman): yuzaki perivaskulyar dermatit", out)
+        self.assertIn("Rog' qavat: Tutash parakeratoz", out)
         # gestalt + qaror + jadval 1-o'rin — uch manba kelishdi → kamida 65%
         self.assertGreaterEqual(trace["record"]["confidence"], 65)
         self.assertEqual(trace["gestalt"]["diagnosis"], "Psoriasis vulgaris")
