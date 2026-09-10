@@ -42,6 +42,18 @@ Mitoz: 0/10 HPF
 Chekka: baholab bo'lmaydi
 ```
 
+Hisobotda yana ikki bo'lim bor: **MIKROSKOPIK TAVSIF** — patolog protokoli bo'yicha
+(Akkerman yallig'lanish patterni → rog' qavat → donador → tikanli → bazal →
+epidermo-dermal chegara → so'rg'ichli derma: amorf modda, kollagen, musin, tomirlar,
+infiltrat va tarkibi → to'rsimon derma + qo'shimchalar → pigment, atipiya,
+pleomorfizm), va **Kadr sanog'i** — hal qiluvchi belgilar nechta kadrda va qaysilarida
+topilgani (masalan «koilotsitlar 10 (№7,8,9,11…)»).
+
+Quvur tartibi: klinik surat → **umumiy ko'rinish** (barcha kadrlar montaji + tana
+surati + yo'llanma) → ko'rik (tizimli tavsif + belgilar) → **kadr-kadr qidiruv**
+(gipotezalarni ajratuvchi belgilar har kadrda) → qaror → hisobot. Kadr ko'p bo'lsa
+(18+) keys 7 chaqiruv, ~55k token ≈ $0.35.
+
 - **Bitta nom, bitta foiz.** «Ishonch: past», «barqaror emas» kabi qatorlar yo'q.
 - Foiz o'lchangan narsalardan hisoblanadi: maydonlar kelishuvi, belgi soni,
   mezon mosligi, namuna sifati. **100% hech qachon chiqmaydi.**
