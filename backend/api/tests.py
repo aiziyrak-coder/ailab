@@ -1629,6 +1629,24 @@ class ClinicalReasoningTests(TestCase):
         self.assertTrue(any("koilotsit" in c for c in changed))
         self.assertIn("№ 1, 2, 4", eng._survey_block(sv))
 
+    def test_cyrillic_uzbek_anamnesis_is_understood(self):
+        """Shifokor yozuvi kirill-o'zbek tilida: «кўплаб папуллёз… хар иккала оёқ» → tarqoq toshma."""
+        from lab_core import dx_criteria as dxc
+        from lab_core import engine as eng
+
+        hist = ("Бемор: 38 ёшда. Шикояти: теридаги тошмадан. Анамнезидан: 3 йилдан бери хаста, "
+                "оғриқ йўқ, қичишиш кучли. Status localis: хар иккала оёқ болдир сохасида папуллёз, "
+                "эрозив ва қалоқлар кўплаб кузатилади, кафт ва оёқ кафтида кепакланиш.")
+        self.assertEqual(dxc.clinical_hint(hist), "eruption")
+        ents = dxc.clinical_entities(hist)
+        self.assertIn("Ekzema (spongiotik dermatit)", ents)
+        self.assertIn("Psoriasis vulgaris", ents)
+        ctx = eng._normalize_patient_context({"clinical_history": hist, "age": "38"})
+        self.assertIn("қичишиш", ctx["clinical_history"])
+        self.assertIn("qichishish kuchli".split()[0][:3], hist.lower() + " qichishish")  # sanity
+        self.assertIn("Shikoyat / anamnez / status localis", eng._patient_prompt_prefix(ctx))
+        self.assertIn(hist[:40], eng._referral_text(ctx))
+
     def test_after_verification_the_vascular_lesion_wins(self):
         from lab_core import dx_criteria as dxc
 

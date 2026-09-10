@@ -58,6 +58,8 @@ class AnalysisRecord(models.Model):
     ward = models.CharField(max_length=80, blank=True, default="")
     specimen_site = models.CharField(max_length=80, blank=True, default="")
     clinical_note = models.CharField(max_length=200, blank=True, default="")
+    # Shikoyat / anamnez / status localis — shifokorning erkin yozuvi (200 belgi sig'maydi)
+    clinical_history = models.TextField(blank=True, default="")
     region = models.CharField(max_length=40, blank=True, default="")
     locality = models.CharField(max_length=80, blank=True, default="")
     clinic = models.CharField(max_length=8, blank=True, default="")
@@ -90,6 +92,7 @@ class AnalysisRecord(models.Model):
         ward="",
         specimen_site="",
         clinical_note="",
+        clinical_history="",
         region="",
         locality="",
         clinic="",
@@ -127,6 +130,7 @@ class AnalysisRecord(models.Model):
                         ward=(ward or "")[:80],
                         specimen_site=(specimen_site or "")[:80],
                         clinical_note=(clinical_note or "")[:200],
+                        clinical_history=(clinical_history or "")[:2000],
                         region=(region or "")[:40],
                         locality=(locality or "")[:80],
                         clinic=(clinic or "")[:8],

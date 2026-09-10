@@ -1101,9 +1101,9 @@ def _report_max_images():
 
 def _observe_max_images():
     try:
-        v = int(os.environ.get("HISTOLOGY_OBSERVE_IMAGES", "6" if _economy_enabled() else "8"))
+        v = int(os.environ.get("HISTOLOGY_OBSERVE_IMAGES", "4" if _economy_enabled() else "8"))
     except ValueError:
-        v = 6
+        v = 4
     return max(2, min(v, 16))
 
 
@@ -1276,7 +1276,7 @@ def _observe_histology(image_parts, patient_context=None):
                         {"role": "system", "content": _HISTOLOGY_OBSERVE_SYSTEM},
                         {"role": "user", "content": _vision_user(user, group)},
                     ],
-                    {"max_tokens": 3500, "temperature": 0.0, "top_p": 0.1},
+                    _perception_kwargs({"max_tokens": 3500, "temperature": 0.0, "top_p": 0.1}),
                     label="ko'rik",
                 )
             except Exception as e:
@@ -1949,12 +1949,17 @@ def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
     if kb_block:
         # Mezon jadvali deterministik bilimni olib keladi; kitob matni — qo'shimcha.
         # 15 ming belgilik blok har chaqiruvda ~4 ming token yeyardi.
-        blocks.append(_trim_block(kb_block, 6000 if _economy_enabled() else 15000))
+        blocks.append(_trim_block(kb_block, 3500 if _economy_enabled() else 15000))
     if organ_lock and organ_lock.get("organ"):
         blocks.append(f"Organ qulfi: {organ_lock['organ']} — boshqa organ tashxisi yozilmaydi.")
     ref = _referral_dx_block(patient_context)
     if ref:
         blocks.append(ref)
+    _hist = _normalize_patient_context(patient_context).get("clinical_history")
+    if _hist:
+        blocks.append("### SHIKOYAT / ANAMNEZ / STATUS LOCALIS (shifokor yozuvi)\n" + _hist
+                      + "\nBu klinik kontekst: toshma tarqoqmi yoki yakka, davomiyligi, qichishish, "
+                      "avvalgi davolash — tashxis turi va differensialga ta'sir qiladi.")
     if clinical_block:
         blocks.append(clinical_block)
         blocks.append(
@@ -1969,13 +1974,18 @@ def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
     )
     user_text = "\n\n".join(b for b in blocks if b)
 
-    parts = _spread_pick(list(image_parts or []), 3 if _economy_enabled() else 6)
+    if _economy_enabled() and isinstance(gestalt, dict) and gestalt.get("_sheet") is not None:
+        # Qaror tuzilgan dalillar ustida ishlaydi; unga butun kesmaning montaji yetadi
+        parts = [{"type": "image_url", "image_url": {
+            "url": _pil_to_data_url(gestalt["_sheet"]), "detail": "high"}}]
+    else:
+        parts = _spread_pick(list(image_parts or []), 3 if _economy_enabled() else 6)
     if clinical_parts:
         # Tana surati past sifatda (≈85 token) — model kesma bilan solishtira oladi
         parts = parts + [
             {"type": "image_url", "image_url": {"url": (p.get("image_url") or {}).get("url", ""),
                                                 "detail": "low"}}
-            for p in list(clinical_parts)[:2]
+            for p in list(clinical_parts)[:1]
         ]
     try:
         raw = _complete_resilient(
@@ -2003,7 +2013,7 @@ def _referral_text(patient_context):
     """Yo'llanma va klinik izoh matni — gipoteza va ko'rinish turi uchun."""
     p = _normalize_patient_context(patient_context)
     return " ".join(x for x in (p.get("clinical_dx"), p.get("clinical_note"),
-                                p.get("specimen_site")) if x)
+                                p.get("clinical_history"), p.get("specimen_site")) if x)
 
 
 # ─── Umumiy ko'rinish (gestalt) — patologning birinchi qadami ────────────────
@@ -2069,6 +2079,9 @@ def _gestalt_stage(slide_pils, detail_parts, clinical_parts, patient_context, kw
         lines.append(f"Clinician's impression: {p['clinical_dx']}.")
     if p.get("clinical_note"):
         lines.append(f"Clinical note: {p['clinical_note']}.")
+    if p.get("clinical_history"):
+        lines.append("Complaint / history / status localis (from the clinician): "
+                     + p["clinical_history"][:900])
     if clinical_block:
         lines.append("Clinical appearance from the photograph: " + _clinical_summary_line(clinical_block))
     n_detail = len(detail_parts or [])
@@ -2376,7 +2389,7 @@ def _survey_keys(gestalt, referral_text="", clinical_text="", rec=None, limit=10
     return keys[:limit]
 
 
-def _frame_survey(keys, slide_parts, kwargs, batch=6):
+def _frame_survey(keys, slide_parts, kwargs, batch=9):
     """Har kadrda qaysi belgilar bor — {key: {"count": n, "frames": [1-based]}}.
     None — qidiruv o'tmadi."""
     parts = list(slide_parts or [])
@@ -2404,7 +2417,7 @@ def _frame_survey(keys, slide_parts, kwargs, batch=6):
             raw = _chat_complete(
                 [{"role": "system", "content": _SURVEY_SYSTEM},
                  {"role": "user", "content": content}],
-                {**kwargs, "max_tokens": 2000, "temperature": 0.0},
+                _perception_kwargs({**kwargs, "max_tokens": 2000, "temperature": 0.0}),
                 label=f"kadr qidiruv {start + 1}-{start + len(chunk)}",
             )
         except CaseBudgetExceeded as e:
@@ -3934,7 +3947,7 @@ def _clinical_appearance(clinical_parts, patient_context=None):
                 {"role": "system", "content": _CLINICAL_LOOK_SYSTEM},
                 {"role": "user", "content": _vision_user(user, picked)},
             ],
-            {"max_tokens": 400, "temperature": 0.0},
+            _perception_kwargs({"max_tokens": 400, "temperature": 0.0}),
             label="klinik surat",
         )
     except Exception as e:
@@ -4115,6 +4128,7 @@ def _normalize_patient_context(patient_context):
         ("ward", 80),
         ("specimen_site", 80),
         ("clinical_note", 200),
+        ("clinical_history", 2000),
         ("clinical_dx", 300),
         ("region", 40),
         ("locality", 80),
@@ -4205,6 +4219,8 @@ def _patient_prompt_prefix(patient_context, lab_type="histology"):
         lines.append(f"- Namuna joyi (klinik organ): {p['specimen_site']}")
     if p.get("clinical_note"):
         lines.append(f"- Klinik izoh: {p['clinical_note']}")
+    if p.get("clinical_history"):
+        lines.append(f"- Shikoyat / anamnez / status localis: {p['clinical_history']}")
     if p.get("priority"):
         lines.append(f"- Ustuvorlik: {p['priority']}")
     loc = " / ".join(x for x in (p.get("region"), p.get("locality"), p.get("clinic")) if x)
@@ -5120,6 +5136,17 @@ def _message_stats(messages):
     return n_img, chars
 
 
+def _perception_kwargs(kwargs):
+    """Ko'rik / qidiruv / klinik surat uchun: fikrlash sarfi past."""
+    # Sinovda «low» qidiruvni buzdi (uyalar 0→3, bazaloid 7→0). Standart — o'chiq;
+    # faqat OPENAI_PERCEPTION_REASONING=low bilan yoqiladi.
+    eff = (os.environ.get("OPENAI_PERCEPTION_REASONING") or "off").strip().lower()
+    out = dict(kwargs or {})
+    if eff and eff != "off":
+        out["reasoning_effort"] = eff
+    return out
+
+
 def _economy_enabled():
     """Tejamkor quvur: keysga ≤3 chaqiruv. 0 — eski to'liq quvur."""
     v = (os.environ.get("HISTOLOGY_ECONOMY") or "1").strip().lower()
@@ -5182,6 +5209,10 @@ def _chat_complete(messages, kwargs, model=None, label=""):
             if "seed" in err_s and "seed" in call_kwargs:
                 call_kwargs.pop("seed", None)
                 log.warning("%s: seed qo'llab-quvvatlanmadi — seedsiz qayta", ZIYRAKAI_DISPLAY_NAME)
+                continue
+            if "reasoning_effort" in err_s and "reasoning_effort" in call_kwargs:
+                call_kwargs.pop("reasoning_effort", None)
+                log.warning("%s: reasoning_effort qo'llab-quvvatlanmadi — usiz qayta", ZIYRAKAI_DISPLAY_NAME)
                 continue
             retry = bool(_OPENAI_RETRYABLE and isinstance(e, _OPENAI_RETRYABLE))
             if retry and attempt < max_retries - 1:
@@ -6038,7 +6069,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
         t0 = time.time()
         _slide_pils = [im for im, sc in zip(_prepped, _scores) if sc >= SLIDE_SCORE_MIN] or _prepped
         gestalt = _gestalt_stage(
-            _slide_pils, _spread_pick(_vision_parts, 3), clinical_parts, patient_context,
+            _slide_pils, _spread_pick(_vision_parts, 2), clinical_parts, patient_context,
             kwargs, clinical_block,
         )
         _obs_parts = list(_vision_parts)
@@ -6057,6 +6088,8 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
                 _hyp = {"diagnosis": _top[0]["name"] if _top else "",
                         "alternatives": [{"name": r["name"]} for r in _top[1:]]}
             _skeys = _survey_keys(_hyp, _referral_text(patient_context), clinical_block)
+            # 1024 px sinovda uyalar/bazaloidni noto'g'ri o'qidi — qidiruv to'liq
+            # o'lchamdagi kadrlarda qoladi (sifat sarfdan ustun)
             survey = _frame_survey(_skeys, _vision_parts, kwargs)
             if survey:
                 _sch = _apply_survey(features, survey)
@@ -6163,6 +6196,9 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
                 )
             if clinical_block:
                 _rec.clinical = _clinical_summary_line(clinical_block)
+            _hist = _normalize_patient_context(patient_context).get("clinical_history")
+            if _hist:
+                _rec.history = " ".join(_hist.split())[:300]
             _rec, _text = _finish_record(
                 _rec, features, adj, _names, _changes,
                 clinical_text=clinical_block or "",

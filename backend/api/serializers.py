@@ -139,6 +139,7 @@ class AnalyzeJsonSerializer(serializers.Serializer):
     ward = serializers.CharField(required=False, allow_blank=True, max_length=80, default="")
     specimen_site = serializers.CharField(required=False, allow_blank=True, max_length=80, default="")
     clinical_note = serializers.CharField(required=False, allow_blank=True, max_length=200, default="")
+    clinical_history = serializers.CharField(required=False, allow_blank=True, max_length=2000, default="")
     region = serializers.CharField(required=False, allow_blank=True, max_length=40, default="")
     locality = serializers.CharField(required=False, allow_blank=True, max_length=80, default="")
     clinic = serializers.CharField(required=False, allow_blank=True, max_length=8, default="")
@@ -175,6 +176,7 @@ class AnalysisRecordSerializer(serializers.ModelSerializer):
             "ward",
             "specimen_site",
             "clinical_note",
+            "clinical_history",
             "region",
             "locality",
             "clinic",

@@ -112,6 +112,8 @@ def _patient_context_from_request(request):
         "ward": g("ward", 80),
         "specimen_site": g("specimen_site", 80),
         "clinical_note": g("clinical_note", 200),
+        # Shikoyat / anamnez / status localis — shifokorning erkin yozuvi
+        "clinical_history": g("clinical_history", 2000),
         # Shifokor tanlagan yoki yozgan klinik tashxis(lar) — gipoteza
         "clinical_dx": g("clinical_dx", 300),
         "region": g("region", 40),
@@ -197,6 +199,7 @@ def _attach_analysis_record(request, lab_type, source, job_id, img_count=0, stat
             ward=ctx.get("ward") or "",
             specimen_site=ctx.get("specimen_site") or "",
             clinical_note=ctx.get("clinical_note") or "",
+            clinical_history=ctx.get("clinical_history") or "",
             region=ctx.get("region") or "",
             locality=ctx.get("locality") or "",
             clinic=ctx.get("clinic") or "",
@@ -892,6 +895,7 @@ class PatientLookupView(APIView):
                     "ward": rec.ward or "",
                     "specimen_site": rec.specimen_site or "",
                     "clinical_note": rec.clinical_note or "",
+                    "clinical_history": rec.clinical_history or "",
                     "region": rec.region or "",
                     "locality": rec.locality or "",
                     "clinic": rec.clinic or "",

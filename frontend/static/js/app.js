@@ -300,6 +300,7 @@ function patientPayload() {
     ward: valOf('accWard'),
     specimen_site: valOf('accSite'),
     clinical_note: valOf('accClinical'),
+    clinical_history: valOf('accHistory'),
     region: d.regionKey || d.region || '',
     locality: d.locality || '',
     clinic: d.clinic || '',
@@ -337,6 +338,7 @@ function rememberPatient(payload) {
     ward: p.ward || '',
     specimen_site: p.specimen_site || '',
     clinical_note: p.clinical_note || '',
+    clinical_history: p.clinical_history || '',
     region: p.region || '',
     locality: p.locality || '',
     clinic: p.clinic || '',
@@ -425,6 +427,7 @@ function applyPatientFields(p, opts) {
   set('accWard', p.ward);
   setAccSite(p.specimen_site, soft);
   set('accClinical', p.clinical_note);
+  set('accHistory', p.clinical_history);
   if (p.region || p.locality || p.clinic || p.facility_type) {
     const vil = document.getElementById('daftarViloyat');
     if (vil && p.region && (!soft || !vil.value)) {
@@ -2823,6 +2826,7 @@ async function openHistoryRecord(publicId) {
     ward: rec.ward,
     specimen_site: rec.specimen_site,
     clinical_note: rec.clinical_note,
+    clinical_history: rec.clinical_history || '',
     region: rec.region,
     locality: rec.locality,
     clinic: rec.clinic,
@@ -2836,6 +2840,7 @@ async function openHistoryRecord(publicId) {
     ward: rec.ward,
     specimen_site: rec.specimen_site,
     clinical_note: rec.clinical_note,
+    clinical_history: rec.clinical_history || '',
     region: rec.region,
     locality: rec.locality,
     clinic: rec.clinic,

@@ -92,6 +92,7 @@ class DxRecord:
     gestalt_bonus: int = 0
     survey_line: str = ""                           # kadr-kadr qidiruv sanog'i
     description: dict = field(default_factory=dict) # tizimli tavsif (protokol tartibida)
+    history: str = ""                               # shikoyat / anamnez / status localis
 
     # ── Yordamchilar ────────────────────────────────────────────────────
     def display_name(self):
@@ -126,6 +127,8 @@ class DxRecord:
         if self.clinical:
             # Shifokor klinik surat hisobga olinganini shu yerda ko'radi
             out.append("Klinik ko'rinish (tana surati): " + self.clinical)
+        if self.history:
+            out.append("Shikoyat / anamnez: " + self.history)
         if self.discordance:
             out.append(self.discordance)
         if self.gestalt_agreement and self.gestalt_agreement != "mos":

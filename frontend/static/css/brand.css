@@ -1379,3 +1379,19 @@ h1, h2, h3 {
 .btn-referral--doc { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
 .referral-hint { flex-basis: 100%; }
 .referral-hint a { color: var(--rd-gold-deep); font-weight: 600; text-decoration: underline; }
+
+
+/* ── Anamnez maydoni ───────────────────────────────────────────────────── */
+#accHistory {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  padding: 8px 10px;
+  border: 1px solid var(--rd-line);
+  border-radius: 8px;
+  background: #fff;
+}
+.acc-hint { display: block; margin-top: 4px; font-size: 0.66rem; color: var(--rd-ink-soft); }

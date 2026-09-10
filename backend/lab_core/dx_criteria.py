@@ -888,17 +888,21 @@ def evaluate(entity, features):
 _SOLITARY_WORDS = re.compile(
     r"yakka|bitta|solitar|solitary|tugun|nodul|o'sma|osma|papilloma|oyoqcha|"
     r"pedunk|polip|yakkam|единичн|одиночн|узел|узелок|опухол|ножк|полип|"
-    r"biopsiya.*(tugun|o'sma)|eksizion", re.I)
+    r"biopsiya.*(tugun|o'sma)|eksizion|iakka|tugun|nodul", re.I)
 _ERUPTION_WORDS = re.compile(
     r"toshma|tarqoq|ko'p o'choq|ko'p sonli|simmetrik|generalizat|blyashkalar|papulalar|"
-    r"сыпь|высыпан|множествен|распростран|бляшки|папулы|диссемин", re.I)
+    r"сыпь|высыпан|множествен|распростран|бляшки|папулы|диссемин|"
+    r"kuplab|ko'plab|koplab|xar ikkala|har ikkala|ikkala|papuloz|papulloz|papulez|papullez|"
+    r"eroziv|kaloklar|qaloqlar|kepaklan|toshmalar|blashka|simmetrik|обе |обеих|симметр", re.I)
 
 
 def clinical_hint(text):
-    """Klinik tavsif/yo'llanmadan ko'rinish turi: 'solitary' | 'eruption' | ''."""
+    """Klinik tavsif/yo'llanmadan ko'rinish turi: 'solitary' | 'eruption' | ''.
+    Matn kirill-o'zbek yoki rus bo'lishi mumkin — lotinga keltirilgan nusxa ham tekshiriladi."""
     t = str(text or "")
     if not t.strip():
         return ""
+    t = t + " " + _fold(t)
     sol = len(_SOLITARY_WORDS.findall(t))
     eru = len(_ERUPTION_WORDS.findall(t))
     if sol > eru:
@@ -927,6 +931,14 @@ _CLINICAL_CUES = (
      ["Psoriasis vulgaris", "Lichen simplex chronicus (Vidal)"]),
     (re.compile(r"pufak|pufakcha|пузыр|буллез|eroziya|эрози", re.I),
      ["Pemphigus vulgaris", "Bulloz pemfigoid", "Herpes (oddiy / belbog')"]),
+    # Anamnez: kuchli qichishish + surunkali papulyoz toshma + eroziya/qaloq
+    (re.compile(r"kichish|qichish|зуд|kuchli qichi|kichishish", re.I),
+     ["Ekzema (spongiotik dermatit)", "Lichen planus (qizil yassi temiratki)",
+      "Qo'tir (scabies)", "Lichen simplex chronicus (Vidal)"]),
+    (re.compile(r"kepaklan|kepak|шелушен|qipiq|чешу", re.I),
+     ["Psoriasis vulgaris", "Ekzema (spongiotik dermatit)", "Dermatofitiya (mikoz)"]),
+    (re.compile(r"kaloq|qaloq|корк|eroziv|эрозив", re.I),
+     ["Ekzema (spongiotik dermatit)", "Pemphigus vulgaris", "Gerpetiform dermatit (Duhring)"]),
 )
 
 
@@ -935,6 +947,7 @@ def clinical_entities(text):
     t = str(text or "")
     if not t.strip():
         return []
+    t = t + " " + _fold(t)
     out = []
     for rx, names in _CLINICAL_CUES:
         if rx.search(t):
