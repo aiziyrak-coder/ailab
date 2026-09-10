@@ -160,8 +160,8 @@ repls = {{
     "OPENAI_ROUTER_MODEL=": "OPENAI_ROUTER_MODEL=gpt-4o-mini",
     "OPENAI_MODEL_ID=": "OPENAI_MODEL_ID=gpt-5.6-sol",
     # Keys chegarasi — har deployda yangilanadi (himoya to'ri, ixtiyoriy emas)
-    "OPENAI_MAX_CALLS_PER_CASE=": "OPENAI_MAX_CALLS_PER_CASE=5",
-    "OPENAI_MAX_TOKENS_PER_CASE=": "OPENAI_MAX_TOKENS_PER_CASE=40000",
+    "OPENAI_MAX_CALLS_PER_CASE=": "OPENAI_MAX_CALLS_PER_CASE=9",
+    "OPENAI_MAX_TOKENS_PER_CASE=": "OPENAI_MAX_TOKENS_PER_CASE=60000",
 }}
 # Faqat yo'q bo'lsa qo'shiladi (serverda o'zgartirilsa saqlanadi):
 #  KB_ACCESS_PASSWORD  — Bilimlar bazasi paroli

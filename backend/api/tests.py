@@ -1220,8 +1220,8 @@ class TokenBudgetTests(TestCase):
 
         for k in ("OPENAI_MAX_CALLS_PER_CASE", "OPENAI_MAX_TOKENS_PER_CASE"):
             os.environ.pop(k, None)
-        self.assertLessEqual(eng._max_calls_per_case(), 5)
-        self.assertLessEqual(eng._max_tokens_per_case(), 40000)
+        self.assertLessEqual(eng._max_calls_per_case(), 9)
+        self.assertLessEqual(eng._max_tokens_per_case(), 60000)
 
 
 class EconomyPipelineMockTests(TestCase):
@@ -1255,6 +1255,9 @@ class EconomyPipelineMockTests(TestCase):
                 return json.dumps(obs)
             if "senior dermatopathologist signing out" in sysm:
                 return gestalt
+            if "scanning every field" in sysm:
+                ps = ["munro_microabscess", "regular_elongated_rete", "parakeratosis"]
+                return json.dumps({"fields": {"1": ps, "2": ["parakeratosis"], "3": [], "4": ps}})
             return decision
         return fake
 
@@ -1279,9 +1282,12 @@ class EconomyPipelineMockTests(TestCase):
                     os.environ.pop(k, None)
                 else:
                     os.environ[k] = v
-        # umumiy ko'rinish → ko'rik → qaror → tekshiruv: 4 chaqiruv, ortiq emas
-        self.assertEqual(calls, ["umumiy ko'rinish", "ko'rik", "qaror", "tekshiruv"], calls)
-        self.assertGreaterEqual(trace["record"]["confidence"], 70)   # gestalt mos → bonus
+        # umumiy ko'rinish → ko'rik → kadr qidiruv → qaror (qidiruv bo'lgach 3-kadrli
+        # tekshiruv kerak emas): 4 chaqiruv, ortiq emas
+        self.assertEqual(calls, ["umumiy ko'rinish", "ko'rik", "kadr qidiruv 1-4", "qaror"], calls)
+        self.assertIn("kadr: 1, 4", out)      # dalilda kadr raqami
+        # gestalt + qaror + jadval 1-o'rin — uch manba kelishdi → kamida 65%
+        self.assertGreaterEqual(trace["record"]["confidence"], 65)
         self.assertEqual(trace["gestalt"]["diagnosis"], "Psoriasis vulgaris")
         self.assertTrue(out.startswith("#### TASHXIS"))
         self.assertIn("YAKUNIY XULOSA: Psoriasis vulgaris", out)
@@ -1582,6 +1588,39 @@ class ClinicalReasoningTests(TestCase):
         self.assertEqual(rec.name, "Seboreik keratoz")
         self.assertNotIn("NOMUVOFIQLIK", text)
         self.assertTrue(any("Lichen simplex" in d.name for d in rec.differentials))
+
+    def test_frame_survey_counts_features_per_frame(self):
+        """Kadr-kadr qidiruv: SK vs verruca ajratuvchi belgilar barcha kadrlarda sanaladi."""
+        from lab_core import engine as eng
+
+        gestalt = {"diagnosis": "Seboreik keratoz", "confidence": "moderate",
+                   "alternatives": [{"name": "Verruca vulgaris", "why_less_likely": ""}]}
+        keys = eng._survey_keys(gestalt, "Меланоцитарный невус?", "")
+        for k in ("horn_cysts", "koilocytes", "melanocyte_nests"):
+            self.assertIn(k, keys, keys)
+
+        def fake(messages, kwargs, model=None, label=""):
+            # 1-4 kadrda koilotsit, 2-kadrda shox kistasi; nevus uyalari hech qayerda
+            return json.dumps({"fields": {"1": ["koilocytes"], "2": ["koilocytes", "horn_cysts"],
+                                          "3": [], "4": ["koilocytes"], "5": [], "6": []}})
+
+        eng._meter_reset()
+        old = eng._chat_complete
+        eng._chat_complete = fake
+        try:
+            parts = [{"type": "image_url", "image_url": {"url": f"data:,{i}"}} for i in range(6)]
+            sv = eng._frame_survey(keys, parts, {"temperature": 0.0})
+        finally:
+            eng._chat_complete = old
+        self.assertEqual(sv["found"]["koilocytes"]["count"], 3)
+        self.assertEqual(sv["found"]["koilocytes"]["frames"], [1, 2, 4])
+        self.assertEqual(sv["found"]["melanocyte_nests"]["count"], 0)
+        f = {"epidermis": {"koilocytes": False}, "junction": {"melanocyte_nests": True}}
+        changed = eng._apply_survey(f, sv)
+        self.assertTrue(eng._feature_true(f, "koilocytes"))
+        self.assertFalse(eng._feature_true(f, "melanocyte_nests"))
+        self.assertTrue(any("koilotsit" in c for c in changed))
+        self.assertIn("№ 1, 2, 4", eng._survey_block(sv))
 
     def test_after_verification_the_vascular_lesion_wins(self):
         from lab_core import dx_criteria as dxc

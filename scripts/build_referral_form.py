@@ -21,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "frontend" / "static" / "docs"
-LOGO = ROOT / "frontend" / "static" / "logo.png"
+LOGO = ROOT / "frontend" / "static" / "img" / "radeski-logo.png"
 
 GOLD = "#c09949"
 GOLD_DEEP = "#a8813a"
@@ -96,17 +96,17 @@ def build_pdf(path):
     c.rect(0, H - 6 * mm, W, 6 * mm, stroke=0, fill=1)          # tepa tilla chiziq
     if LOGO.is_file():
         try:
-            c.drawImage(str(LOGO), M, y - 16 * mm, width=16 * mm, height=16 * mm,
-                        preserveAspectRatio=True, mask="auto")
+            c.drawImage(str(LOGO), M, y - 9 * mm, width=42 * mm, height=13 * mm,
+                        preserveAspectRatio=True, anchor="sw", mask="auto")
         except Exception:
             pass
     c.setFillColor(ink)
-    c.setFont(BOLD, 15)
-    c.drawString(M + 20 * mm, y - 6 * mm, CLINIC)
-    c.setFont(REG, 8.5)
+    c.setFont(BOLD, 13)
+    c.drawString(M, y - 14 * mm, CLINIC)
+    c.setFont(REG, 8)
     c.setFillColor(soft)
-    c.drawString(M + 20 * mm, y - 11 * mm, f"{PRODUCT} · gistopatologiya platformasi · lab.fermi.uz")
-    c.drawString(M + 20 * mm, y - 15 * mm, "O‘zbekiston Respublikasi Sog‘liqni saqlash vazirligi · " + FORM_NO)
+    c.drawString(M, y - 18 * mm, f"{PRODUCT} · gistopatologiya platformasi · lab.fermi.uz")
+    c.drawString(M, y - 21.5 * mm, "O‘zbekiston Respublikasi SSV · " + FORM_NO)
 
     # № va sana kataklari (o‘ng yuqori)
     bx_w, bx_h = 42 * mm, 9 * mm
@@ -122,7 +122,7 @@ def build_pdf(path):
             c.setFillColor(soft); c.setFont(REG, 6.5)
             c.drawRightString(bx_x + bx_w - 2 * mm, by - 3.2 * mm, hint)
 
-    y -= 22 * mm
+    y -= 24 * mm
     c.setStrokeColor(gold); c.setLineWidth(1.2)
     c.line(M, y, W - M, y)
     y -= 9 * mm
@@ -209,89 +209,143 @@ def build_pdf(path):
 
 
 def build_docx(path):
+    """PDF bilan bir xil shakl — tahrirlanadigan Word hujjati."""
     from docx import Document
     from docx.enum.table import WD_TABLE_ALIGNMENT
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
-    from docx.shared import Cm, Pt, RGBColor
+    from docx.shared import Cm, Mm, Pt, RGBColor
 
     doc = Document()
     sec = doc.sections[0]
-    sec.page_width, sec.page_height = Cm(21.0), Cm(29.7)
-    for side in ("left_margin", "right_margin"):
-        setattr(sec, side, Cm(1.4))
-    sec.top_margin, sec.bottom_margin = Cm(1.2), Cm(1.2)
-    style = doc.styles["Normal"]
-    style.font.name = "Arial"
-    style.font.size = Pt(9)
-    style.element.rPr.rFonts.set(qn("w:eastAsia"), "Arial")
+    sec.page_width, sec.page_height = Mm(210), Mm(297)
+    sec.left_margin = sec.right_margin = Mm(14)
+    sec.top_margin, sec.bottom_margin = Mm(10), Mm(10)
+    normal = doc.styles["Normal"]
+    normal.font.name = "Arial"
+    normal.font.size = Pt(8.5)
+    normal.element.rPr.rFonts.set(qn("w:eastAsia"), "Arial")
+    normal.paragraph_format.space_after = Pt(0)
+    normal.paragraph_format.space_before = Pt(0)
+
+    def rgb(h):
+        return RGBColor.from_string(h.lstrip("#"))
 
     def shade(cell, hex_color):
         tcPr = cell._tc.get_or_add_tcPr()
         shd = OxmlElement("w:shd")
-        shd.set(qn("w:val"), "clear"); shd.set(qn("w:color"), "auto"); shd.set(qn("w:fill"), hex_color.lstrip("#"))
+        shd.set(qn("w:val"), "clear"); shd.set(qn("w:color"), "auto")
+        shd.set(qn("w:fill"), hex_color.lstrip("#"))
         tcPr.append(shd)
 
-    def para(text, size=9, bold=False, color=INK, align=None, space_after=2):
-        p = doc.add_paragraph()
-        r = p.add_run(text)
-        r.bold = bold; r.font.size = Pt(size)
-        r.font.color.rgb = RGBColor.from_string(color.lstrip("#"))
-        if align == "center":
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.paragraph_format.space_after = Pt(space_after)
-        p.paragraph_format.space_before = Pt(0)
+    def borders(table, color, sz=4, inside=True):
+        tbl = table._tbl
+        tblPr = tbl.tblPr
+        b = OxmlElement("w:tblBorders")
+        for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+            el = OxmlElement(f"w:{edge}")
+            if edge.startswith("inside") and not inside:
+                el.set(qn("w:val"), "nil")
+            else:
+                el.set(qn("w:val"), "single"); el.set(qn("w:sz"), str(sz))
+                el.set(qn("w:space"), "0"); el.set(qn("w:color"), color.lstrip("#"))
+            b.append(el)
+        tblPr.append(b)
+
+    def cell_margins(table, top=60, bottom=60, left=110, right=110):
+        tblPr = table._tbl.tblPr
+        m = OxmlElement("w:tblCellMar")
+        for k, v in (("top", top), ("left", left), ("bottom", bottom), ("right", right)):
+            el = OxmlElement(f"w:{k}"); el.set(qn("w:w"), str(v)); el.set(qn("w:type"), "dxa")
+            m.append(el)
+        tblPr.append(m)
+
+    def run(p, text, size=8.5, bold=False, color=INK):
+        r = p.add_run(text); r.bold = bold; r.font.size = Pt(size); r.font.color.rgb = rgb(color)
+        r.font.name = "Arial"; r._element.rPr.rFonts.set(qn("w:eastAsia"), "Arial")
+        return r
+
+    def row_height(row, mm_):
+        row.height = Mm(mm_)
+        trPr = row._tr.get_or_add_trPr()
+        h = OxmlElement("w:trHeight"); h.set(qn("w:val"), str(int(mm_ * 56.7))); h.set(qn("w:hRule"), "atLeast")
+        trPr.append(h)
+
+    def gap(pt=1):
+        p = doc.add_paragraph(); p.paragraph_format.space_after = Pt(pt)
+        p.paragraph_format.line_spacing = Pt(2)
         return p
 
-    para(CLINIC, 14, True, INK, space_after=0)
-    para(f"{PRODUCT} · gistopatologiya platformasi · lab.fermi.uz", 8, False, INK_SOFT, space_after=0)
-    para("O‘zbekiston Respublikasi Sog‘liqni saqlash vazirligi · " + FORM_NO, 8, False, INK_SOFT, space_after=6)
-    t = doc.add_table(rows=1, cols=2); t.alignment = WD_TABLE_ALIGNMENT.RIGHT
-    for cell, lab in zip(t.rows[0].cells, ("Yo‘llanma №: ______________", "Sana: ____.____.________")):
-        cell.text = ""; r = cell.paragraphs[0].add_run(lab); r.bold = True; r.font.size = Pt(9)
-    para("", 4, space_after=2)
-    para(TITLE, 13, True, INK, "center", space_after=1)
-    para("Iltimos, bosma harflarda, aniq va to‘liq to‘ldiring — shakl DermaPATH tomonidan avtomatik o‘qiladi",
-         7.5, False, INK_SOFT, "center", space_after=6)
+    # ── Sarlavha: logotip + klinika | № va sana ──
+    head = doc.add_table(rows=1, cols=2); head.alignment = WD_TABLE_ALIGNMENT.CENTER
+    head.autofit = False
+    left, right = head.rows[0].cells
+    left.width, right.width = Mm(122), Mm(60)
+    lp = left.paragraphs[0]
+    logo = ROOT / "frontend" / "static" / "img" / "radeski-logo.png"
+    if logo.is_file():
+        lp.add_run().add_picture(str(logo), width=Mm(46))
+    p = left.add_paragraph(); run(p, CLINIC, 13, True)
+    p = left.add_paragraph(); run(p, f"{PRODUCT} · gistopatologiya platformasi · lab.fermi.uz", 8, False, INK_SOFT)
+    p = left.add_paragraph(); run(p, "O‘zbekiston Respublikasi Sog‘liqni saqlash vazirligi · " + FORM_NO, 8, False, INK_SOFT)
+    box = right.add_table(rows=2, cols=1); box.autofit = False
+    borders(box, GOLD_DEEP, 8); cell_margins(box, 50, 50, 90, 90)
+    for r_ in box.rows:
+        r_.cells[0].width = Mm(54)
+    for i, (lab, hint) in enumerate((("YO‘LLANMA №", ""), ("SANA", "KK.OO.YYYY"))):
+        c = box.rows[i].cells[0]; row_height(box.rows[i], 9)
+        run(c.paragraphs[0], lab + ("    " + hint if hint else ""), 7, True, GOLD_DEEP)
+    right.paragraphs[0].text = ""
+
+    # tilla chiziq
+    line = doc.add_table(rows=1, cols=1); line.autofit = False
+    line.rows[0].cells[0].width = Mm(182); shade(line.rows[0].cells[0], GOLD); row_height(line.rows[0], 1.2)
+    line.rows[0].cells[0].paragraphs[0].paragraph_format.line_spacing = Pt(2)
+    gap(2)
+    p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER; run(p, TITLE, 13, True)
+    p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run(p, "Iltimos, bosma harflarda, aniq va to‘liq to‘ldiring — shakl DermaPATH tomonidan avtomatik o‘qiladi", 7.5, False, INK_SOFT)
+    gap(2)
 
     def section(title):
-        t = doc.add_table(rows=1, cols=1); t.style = "Table Grid"
-        cell = t.rows[0].cells[0]; shade(cell, GOLD_WASH)
-        cell.text = ""; r = cell.paragraphs[0].add_run(title.upper()); r.bold = True; r.font.size = Pt(8.5)
-        r.font.color.rgb = RGBColor.from_string(GOLD_DEEP.lstrip("#"))
-        para("", 2, space_after=1)
+        t = doc.add_table(rows=1, cols=1); c = t.rows[0].cells[0]; shade(c, GOLD_WASH)
+        borders(t, GOLD_WASH, 2); cell_margins(t, 50, 50, 110, 110); row_height(t.rows[0], 6.5)
+        run(c.paragraphs[0], title.upper(), 8.5, True, GOLD_DEEP)
+        gap(1)
 
-    def rows(fields):
-        t = doc.add_table(rows=0, cols=2); t.style = "Table Grid"
-        for label, hint, h in fields:
-            row = t.add_row()
-            a, b = row.cells
-            a.width, b.width = Cm(4.6), Cm(13.6)
-            a.text = ""; r = a.paragraphs[0].add_run(label); r.bold = True; r.font.size = Pt(8.5)
-            b.text = ""
-            hp = b.paragraphs[0]; hr = hp.add_run(hint); hr.font.size = Pt(6.5)
-            hr.font.color.rgb = RGBColor.from_string(INK_SOFT.lstrip("#"))
-            for _ in range(max(1, int(h / 5))):
-                b.add_paragraph("")
-        para("", 2, space_after=3)
+    def block(rows_):
+        """rows_: (label, hint_or_checks, height_mm). Checkbox qatorlari: hint '☐' bilan boshlanadi."""
+        t = doc.add_table(rows=0, cols=2); t.autofit = False
+        borders(t, LINE, 4); cell_margins(t, 45, 45, 110, 110)
+        for label, hint, h in rows_:
+            r = t.add_row(); a, b = r.cells
+            a.width, b.width = Mm(48), Mm(134); row_height(r, max(6.5, h * 0.85))
+            run(a.paragraphs[0], label, 8.5, True)
+            if hint.startswith("☐"):
+                run(b.paragraphs[0], hint, 9, False, INK)
+            else:
+                for _ in range(max(0, int(h / 7) - 1)):
+                    b.add_paragraph("")
+                run(b.paragraphs[-1], hint, 6.8, False, INK_SOFT)
+        gap(1)
 
     section("1 · Bemor")
-    rows([PATIENT_FIELDS[0], ("Jinsi", "☐ Erkak    ☐ Ayol", 5)] + PATIENT_FIELDS[1:])
+    block([PATIENT_FIELDS[0], ("Jinsi", "☐  Erkak        ☐  Ayol", 8)] + PATIENT_FIELDS[1:])
     section("2 · Klinik ma’lumot (davolovchi shifokor to‘ldiradi)")
-    rows([CLINICAL_FIELDS[0], CLINICAL_FIELDS[1],
-          ("Amaliyot turi", "☐ Eksizion  ☐ Insizion  ☐ Panch  ☐ Shave  ☐ Kyuretaj  ☐ Boshqa", 5),
-          ("Amaliyot sanasi", "KK.OO.YYYY", 5), CLINICAL_FIELDS[3],
-          ("Shoshilinchlik", "☐ Oddiy    ☐ STAT (shoshilinch)", 5),
-          ("Ilova", "☐ Klinik surat (toshma)   ☐ Dermatoskopiya   ☐ Avvalgi gistologiya", 5),
-          ("Davolovchi shifokor", "F.I.Sh., telefon, imzo", 6),
-          ("Muassasa", "klinika / poliklinika nomi, shahar", 6)])
+    block([CLINICAL_FIELDS[0], CLINICAL_FIELDS[1],
+           ("Amaliyot turi", "☐  Eksizion     ☐  Insizion     ☐  Panch     ☐  Shave     ☐  Kyuretaj     ☐  Boshqa", 8),
+           ("Amaliyot sanasi", "KK.OO.YYYY", 8), CLINICAL_FIELDS[3],
+           ("Shoshilinchlik", "☐  Oddiy        ☐  STAT (shoshilinch)", 8),
+           ("Ilova", "☐  Klinik surat (toshma)     ☐  Dermatoskopiya     ☐  Avvalgi gistologiya", 8),
+           ("Davolovchi shifokor", "F.I.Sh., telefon, imzo", 8),
+           ("Muassasa", "klinika / poliklinika nomi, shahar", 8)])
     section("3 · Patomorfologik tekshiruv (laboratoriya to‘ldiradi)")
-    rows([("Qabul qilingan sana", "KK.OO.YYYY · qabul qilgan xodim", 6)] + LAB_FIELDS)
-    para("Yo‘llanma va klinik surat DermaPATH ga birga yuklanadi: suratni tekis, yorug‘ joyda, butun varaq kadrda bo‘lib oling.",
-         6.8, False, INK_SOFT, space_after=0)
-    para("Yakuniy tashxis faqat litsenziyali patolog tomonidan qo‘yiladi. " + CLINIC + " · " + PRODUCT,
-         6.8, False, INK_SOFT)
+    block([("Qabul qilingan sana", "KK.OO.YYYY · qabul qilgan xodim", 8)] + LAB_FIELDS)
+
+    line = doc.add_table(rows=1, cols=1); shade(line.rows[0].cells[0], GOLD); row_height(line.rows[0], 1.2)
+    p = doc.add_paragraph(); run(p, "Yo‘llanma va klinik surat DermaPATH ga birga yuklanadi: suratni tekis, yorug‘ joyda, butun varaq kadrda bo‘lib oling.", 6.8, False, INK_SOFT)
+    p = doc.add_paragraph(); run(p, "Yakuniy tashxis faqat litsenziyali patolog tomonidan qo‘yiladi. " + CLINIC + " · " + PRODUCT, 6.8, False, INK_SOFT)
     doc.save(str(path))
 
 

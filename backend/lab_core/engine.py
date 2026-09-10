@@ -1911,7 +1911,7 @@ def _hypothesis_text(patient_context, gestalt=None):
 
 def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
                       patient_context=None, image_parts=None,
-                      clinical_block="", clinical_parts=None, gestalt=None):
+                      clinical_block="", clinical_parts=None, gestalt=None, survey=None):
     """Yakuniy tashxisni tuzilgan yozuv sifatida olish. Bo'lmasa None."""
     from . import dx_record as dxr
 
@@ -1926,6 +1926,9 @@ def _decide_diagnosis(features, adj, kb_block, kwargs, organ_lock=None,
     gb = _gestalt_block(gestalt)
     if gb:
         blocks.append(gb)
+    sb = _survey_block(survey)
+    if sb:
+        blocks.append(sb)
     crit = _dxc.criteria_block(features, clinical_text=clinical_block, referral_text=ref_text)
     if crit:
         blocks.append(crit)
@@ -2296,6 +2299,172 @@ def _decisive_features(rec, features, referral_text=""):
     return out[:8]
 
 
+# ─── Kadr-kadr qidiruv ───────────────────────────────────────────────────────
+# 6-keys darsi: bir xil kesma ikki o'tkazishda «seboreik keratoz» va «verruca»
+# bo'ldi. Ikkalasi papillomatoz keratoz; farqi — shox psevdokistalari va
+# bazaloid hujayralar (SK) yoki koilotsitlar va dag'al keratogialin (verruca).
+# Ko'rik 6 kadrni ko'radi, tekshiruv 3 tasini; qolgan 12 kadr ko'rilmaydi.
+# Patolog esa shubha bo'lsa HAMMA maydonni shu belgilar uchun ko'zdan kechiradi
+# va «koilotsitlar 4- va 9-maydonda» deb yozadi. Endi dastur ham shunday:
+# gipotezalarni ajratuvchi belgilar barcha kadrlarda, 6 tadan, izlanadi.
+
+_SURVEY_SYSTEM = (
+    "You are a dermatopathologist scanning every field of ONE case for specific findings. "
+    "You will get several numbered H&E fields and a list of features with definitions. "
+    "For EACH field report which of the features are definitely present in THAT field. "
+    "Be strict: report a feature only when you actually see it in that field. "
+    "Return ONE JSON object: {\"fields\": {\"<field number>\": [\"<feature key>\", ...]}} "
+    "with an entry for every field (empty list if nothing). Keys exactly as given."
+)
+
+
+def _survey_enabled():
+    v = (os.environ.get("HISTOLOGY_SURVEY") or "1").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
+def _survey_keys(gestalt, referral_text="", clinical_text="", rec=None, limit=10):
+    """Gipotezalarni bir-biridan AJRATUVCHI belgilar: har gipotezaning majburiy va
+    rad etuvchi belgilari (skalyar shartlarsiz)."""
+    names = _gestalt_names(gestalt)
+    if rec is not None and rec.name:
+        names.insert(0, rec.name)
+    names += _dxc.referral_entities(referral_text)[:2]
+    names += _dxc.clinical_entities((clinical_text or "") + " " + (referral_text or ""))[:2]
+    seen, ents = set(), []
+    for n in names:
+        e = _dxc.find_entity(n)
+        if e and e["name"] not in seen:
+            seen.add(e["name"])
+            ents.append(e)
+    keys = []
+    for e in ents[:4]:
+        for k in list(e["essential"]) + list(e["excluding"])[:3]:
+            if "=" not in k and k in _FEATURE_UZ and k not in keys:
+                keys.append(k)
+    return keys[:limit]
+
+
+def _frame_survey(keys, slide_parts, kwargs, batch=6):
+    """Har kadrda qaysi belgilar bor — {key: {"count": n, "frames": [1-based]}}.
+    None — qidiruv o'tmadi."""
+    parts = list(slide_parts or [])
+    if not keys or not parts or not _survey_enabled():
+        return None
+    defs = []
+    for k in keys:
+        d = _VERIFY_DEFS.get(k, "")
+        defs.append(f"- {k} ({_FEATURE_UZ.get(k, k)})" + (f": {d}" if d else ""))
+    found = {k: [] for k in keys}
+    answered = 0
+    for start in range(0, len(parts), batch):
+        chunk = parts[start:start + batch]
+        numbered = []
+        content = [{"type": "text", "text": (
+            f"Fields {start + 1}–{start + len(chunk)} of {len(parts)}. Features to look for:\n"
+            + "\n".join(defs)
+            + "\nReturn JSON with a key for every field number listed."
+        )}]
+        for i, p in enumerate(chunk, start=start + 1):
+            content.append({"type": "text", "text": f"FIELD {i}:"})
+            content.append(p)
+            numbered.append(i)
+        try:
+            raw = _chat_complete(
+                [{"role": "system", "content": _SURVEY_SYSTEM},
+                 {"role": "user", "content": content}],
+                {**kwargs, "max_tokens": 2000, "temperature": 0.0},
+                label=f"kadr qidiruv {start + 1}-{start + len(chunk)}",
+            )
+        except CaseBudgetExceeded as e:
+            log.warning("%s: %s", ZIYRAKAI_DISPLAY_NAME, e)
+            break
+        except Exception as e:
+            log.warning("%s: kadr qidiruv xato: %s", ZIYRAKAI_DISPLAY_NAME, e)
+            continue
+        data = _parse_observation(raw)
+        fields = (data or {}).get("fields") if isinstance(data, dict) else None
+        if not isinstance(fields, dict):
+            log.warning("%s: kadr qidiruv javobi o'qilmadi: %r", ZIYRAKAI_DISPLAY_NAME, _preview(raw))
+            continue
+        for fno, feats in fields.items():
+            try:
+                n = int(str(fno).strip().lstrip("field FIELD"))
+            except ValueError:
+                continue
+            if n not in numbered:
+                continue
+            answered += 1
+            for f_ in feats or []:
+                key = str(f_).strip()
+                if key in found and n not in found[key]:
+                    found[key].append(n)
+    if not answered:
+        return None
+    out = {k: {"count": len(v), "frames": sorted(v)} for k, v in found.items()}
+    log.info(
+        "%s: kadr qidiruv — %s kadr: %s",
+        ZIYRAKAI_DISPLAY_NAME, answered,
+        "; ".join(f"{_FEATURE_UZ.get(k, k)}={d['count']}" for k, d in out.items()),
+    )
+    return {"n_frames": len(parts), "answered": answered, "found": out}
+
+
+def _apply_survey(features, survey):
+    """Qidiruv natijasi ko'rik belgilariga o'tkaziladi: topilgan → True, hech qaysi
+    kadrda topilmagan → False. Kadr raqamlari alohida saqlanadi."""
+    if not isinstance(features, dict) or not survey:
+        return []
+    changed = []
+    frames = {}
+    for key, d in (survey.get("found") or {}).items():
+        present = d["count"] >= 1
+        if present:
+            frames[key] = d["frames"]
+        if _feature_true(features, key) != present:
+            _set_feature(features, key, present)
+            changed.append(f"{_FEATURE_UZ.get(key, key)}: {'bor' if present else 'yo`q'}")
+    features["_frames"] = frames
+    return changed
+
+
+def _survey_line(survey, keys=None):
+    """Hisobot uchun bitta satr: «Kadr sanog'i (18 kadr): koilotsitlar 4 (№7,8,9,11); …»."""
+    if not survey:
+        return ""
+    found = survey.get("found") or {}
+    items = []
+    for key in (keys or list(found.keys())):
+        d = found.get(key)
+        if d is None:
+            continue
+        lab = _FEATURE_UZ.get(key, key).split(" (")[0]
+        if d["count"]:
+            items.append(f"{lab} {d['count']} (№{','.join(str(x) for x in d['frames'][:6])})")
+        else:
+            items.append(f"{lab} 0")
+    if not items:
+        return ""
+    return f"Kadr sanog'i ({survey['answered']}/{survey['n_frames']} kadr): " + "; ".join(items[:8])
+
+
+def _survey_block(survey):
+    if not survey:
+        return ""
+    lines = [f"#### KADR-KADR QIDIRUV ({survey['answered']}/{survey['n_frames']} kadr ko'rildi — sanoq, taxmin emas)"]
+    for key, d in (survey.get("found") or {}).items():
+        lab = _FEATURE_UZ.get(key, key)
+        if d["count"]:
+            lines.append(f"- {lab}: {d['count']} kadrda (№ {', '.join(str(x) for x in d['frames'][:8])})")
+        else:
+            lines.append(f"- {lab}: hech bir kadrda topilmadi")
+    lines.append(
+        "Tashxis shu sanoqqa tayansin: gipotezaning majburiy belgisi hech bir kadrda "
+        "topilmagan bo'lsa, u gipoteza qo'yilmaydi; dalil qatorida kadr raqamini ayting."
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _verify_decisive_features(rec, features, image_parts, kwargs, referral_text=""):
     """Hal qiluvchi belgilarni bitta rasmda qayta so'rash; features yangilanadi.
     Qaytaradi: o'zgargan belgilar ro'yxati."""
@@ -2584,18 +2753,69 @@ def _finish_record(rec, features, adj, names, verified_changes=None, clinical_te
         features["_chosen_name"] = rec.name
         features["_clinical_text"] = clinical_text or ""
         features["_referral_text"] = referral_text or ""
+        # Dalil qatorlariga kadr raqamlari: «koilotsitlar (kadr: 4, 9)»
+        frames = features.get("_frames") or {}
+        if frames:
+            for e in rec.evidence:
+                low = e.feature.lower()
+                for key, fr in frames.items():
+                    lab = _FEATURE_UZ.get(key, key).lower().split(" (")[0]
+                    if fr and (lab in low or low in lab) and "kadr:" not in e.detail:
+                        e.detail = (e.detail + " " if e.detail else "") + \
+                            f"(kadr: {', '.join(str(x) for x in fr[:6])})"
+                        break
+            # Qidiruv hech bir kadrda topmagan «dalil» — dalil emas
+            absent = {k for k, fr in frames.items() if not fr}
+            sv = features.get("_survey") or {}
+            for key, d in (sv.get("found") or {}).items():
+                if d["count"] == 0:
+                    absent.add(key)
+            keep = []
+            for e in rec.evidence:
+                low = e.feature.lower()
+                bad = any((_FEATURE_UZ.get(k, k).lower().split(" (")[0] in low) for k in absent)
+                if bad:
+                    rec.notes.append(f"dalil «{e.feature}» olib tashlandi — qidiruvda hech bir kadrda topilmadi")
+                else:
+                    keep.append(e)
+            rec.evidence = keep
     pct, why = _confidence_percent(features, adj, names)
     if rec.certainty == dxr.CERTAIN_DESCRIPTIVE:
         pct = min(pct, 40)          # tavsifiy nom — nozologiya emas
     if getattr(rec, "gestalt_bonus", 0):
         pct += rec.gestalt_bonus
         why += "; umumiy ko'rinish mos"
+    # Kadr-kadr qidiruv: tanlangan nozologiyaning majburiy belgilari nechta kadrda
+    sv = (features or {}).get("_survey") if isinstance(features, dict) else None
+    ent_ = _dxc.find_entity(rec.name)
+    if sv and ent_:
+        found = sv.get("found") or {}
+        ess = [k for k in ent_["essential"] if k in found]
+        if ess:
+            hits = sum(1 for k in ess if found[k]["count"] >= 1)
+            multi = sum(1 for k in ess if found[k]["count"] >= 2)
+            if hits == 0:
+                pct = min(pct, 40)
+                why += "; qidiruv: majburiy belgi hech bir kadrda yo'q"
+            elif multi:
+                pct += 6
+                why += f"; qidiruv: {hits}/{len(ess)} majburiy belgi, {multi} tasi >=2 kadrda"
+            else:
+                why += f"; qidiruv: {hits}/{len(ess)} majburiy belgi (1 kadrda)"
+        excl = [k for k in ent_["excluding"] if k in found and found[k]["count"] >= 2]
+        if excl:
+            pct = min(pct, 50)
+            why += "; qidiruv: rad etuvchi belgi >=2 kadrda"
     if rec.confidence_cap:
         pct = min(pct, rec.confidence_cap)   # mezon qo'riqchisi qo'ygan shift
     # Uch mustaqil manba — umumiy ko'rinish, qaror va klinika — bir nomda bo'lsa,
     # ro'yxat shovqini ishonchni 65% dan pastga tushirmaydi (nomuvofiqlik bo'lmasa).
-    if (rec.gestalt_agreement == "mos" and clinic_backs_early and not rec.discordance
-            and not dxr.looks_malignant(rec)):
+    # Uchinchi manba — klinika YOKI mezon jadvalining 1-o'rni
+    _top1 = _dxc.rank_candidates(features, 1, str(features.get("_clinical_text") or ""),
+                                 str(features.get("_referral_text") or "")) if isinstance(features, dict) else []
+    table_backs = bool(_top1) and _same_entity(_top1[0]["name"], rec.name)
+    if (rec.gestalt_agreement == "mos" and (clinic_backs_early or table_backs)
+            and not rec.discordance and not dxr.looks_malignant(rec)):
         if pct < 65:
             why += "; umumiy ko'rinish + qaror + klinika kelishdi"
         pct = max(pct, 65)
@@ -4820,16 +5040,17 @@ def _meter_summary():
 
 def _max_calls_per_case():
     try:
-        return max(1, int(os.environ.get("OPENAI_MAX_CALLS_PER_CASE", "5")))
+        # klinik surat + umumiy ko'rinish + ko'rik + kadr qidiruv (≤3 paket) + qaror + tekshiruv
+        return max(1, int(os.environ.get("OPENAI_MAX_CALLS_PER_CASE", "9")))
     except ValueError:
-        return 5
+        return 9
 
 
 def _max_tokens_per_case():
     try:
-        return max(5000, int(os.environ.get("OPENAI_MAX_TOKENS_PER_CASE", "40000")))
+        return max(5000, int(os.environ.get("OPENAI_MAX_TOKENS_PER_CASE", "60000")))
     except ValueError:
-        return 40000
+        return 60000
 
 
 class CaseBudgetExceeded(RuntimeError):
@@ -5776,6 +5997,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
             )
     _meter_ensure()
     gestalt = None
+    survey = None
     economy = lab_type == "histology" and _economy_enabled() and _structured_enabled()
     if image_parts and economy:
         # TEJAMKOR YO'L. Avval UMUMIY KO'RINISH (montaj + tafsilot + tana surati) —
@@ -5794,6 +6016,14 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
         organ_lock = _organ_from_observation(features, patient_context)
         mismatch = _mismatch_from_observation(features, lab_type)
         log.info("%s: ko'rik (tejamkor, 1 chaqiruv) %.1fs", ZIYRAKAI_DISPLAY_NAME, time.time() - t0)
+        # Kadr-kadr qidiruv: gipotezalarni ajratuvchi belgilar HAMMA kadrlarda
+        if isinstance(features, dict) and gestalt and len(_vision_parts) >= 2:
+            _skeys = _survey_keys(gestalt, _referral_text(patient_context), clinical_block)
+            survey = _frame_survey(_skeys, _vision_parts, kwargs)
+            if survey:
+                _sch = _apply_survey(features, survey)
+                if _sch:
+                    log.info("%s: qidiruv ko'rikni tuzatdi: %s", ZIYRAKAI_DISPLAY_NAME, "; ".join(_sch[:6]))
         if mismatch:
             log.warning("%s: specimen mismatch lab=%s — tahlil to'xtatildi", ZIYRAKAI_DISPLAY_NAME, lab_type)
             return mismatch
@@ -5850,6 +6080,7 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
             _rec = _decide_diagnosis(
                 features, adj, kb_block, kwargs, organ_lock, patient_context, _vision_parts,
                 clinical_block=clinical_block, clinical_parts=clinical_parts, gestalt=gestalt,
+                survey=survey,
             )
         except CaseBudgetExceeded as e:
             log.warning("%s: %s", ZIYRAKAI_DISPLAY_NAME, e)
@@ -5876,7 +6107,18 @@ def _openai_generate(content_list, lab_type="histology", patient_context=None,
                         ZIYRAKAI_DISPLAY_NAME, " | ".join(_names[:3]),
                     )
             _changes = []
-            if economy and _rec.certainty != "tavsifiy":
+            if economy and survey:
+                _changes = []          # qidiruv allaqachon barcha kadrlarni ko'rdi
+                if isinstance(features, dict):
+                    features["_survey"] = survey
+                # Sanoq hisobotda: tanlangan va gestalt nozologiyalarining ajratuvchi belgilari
+                _ents = [e for e in (_dxc.find_entity(_rec.name), _dxc.find_entity(
+                    str((gestalt or {}).get("diagnosis") or ""))) if e]
+                _keys = []
+                for e in _ents:
+                    _keys += [k for k in e["essential"] if k in (survey.get("found") or {}) and k not in _keys]
+                _rec.survey_line = _survey_line(survey, _keys or None)
+            elif economy and _rec.certainty != "tavsifiy":
                 _changes = _verify_decisive_features(
                     _rec, features, _vision_parts, kwargs,
                     _hypothesis_text(patient_context, gestalt) + " " + (clinical_block or ""),

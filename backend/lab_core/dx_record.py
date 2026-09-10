@@ -89,6 +89,7 @@ class DxRecord:
     discordance: str = ""                           # klinik-gistologik nomuvofiqlik
     gestalt_agreement: str = ""                     # umumiy ko'rinish bilan kelishuv
     gestalt_bonus: int = 0
+    survey_line: str = ""                           # kadr-kadr qidiruv sanog'i
 
     # ── Yordamchilar ────────────────────────────────────────────────────
     def display_name(self):
@@ -127,6 +128,8 @@ class DxRecord:
             out.append(self.discordance)
         if self.gestalt_agreement and self.gestalt_agreement != "mos":
             out.append("Umumiy ko'rinish bilan " + self.gestalt_agreement)
+        if self.survey_line:
+            out.append(self.survey_line)
 
         out.append("")
         out.append(H_WHY)
