@@ -335,7 +335,8 @@ CRITERIA = [
       ["spongiosis", "parakeratosis"],
       ["extravasated_erythrocytes", "superficial_perivascular_infiltrate", "papillary_dermal_edema"],
       ["acantholysis", "granuloma", "munro_microabscess"], min_essential=2),
-    E("Seboreyali dermatit", ["seborey", "seborrh", "себорейный дерматит"], "spongiotik",
+    E("Seboreyali dermatit", ["seboreyali dermatit", "seboreik dermatit", "seborrheic dermatitis",
+      "себорейный дерматит", "seboreya"], "spongiotik",
       ["spongiosis", "parakeratosis"],
       ["neutrophils_in_corneum", "acanthosis", "superficial_perivascular_infiltrate"],
       ["acantholysis", "granuloma", "munro_microabscess"], min_essential=2),
@@ -522,8 +523,9 @@ CRITERIA = [
       ["acantholysis", "pagetoid_spread"], min_essential=2),
 
     # ── Epidermal o'smalar ──
-    E("Seboreik keratoz", ["seboreik keratoz", "seborrheic keratosis", "seborrhoeic",
-      "себорейный кератоз", "seboreik"], "epidermal",
+    E("Seboreik keratoz", ["seboreik keratoz", "seboreyali keratoz", "seborrheic keratosis",
+      "seborrhoeic", "себорейный кератоз", "seboreik", "keratoz seborey", "verruca seborrheica",
+      "себорейная бородавка"], "epidermal",
       ["horn_cysts", "basaloid_proliferation", "acanthosis"],
       ["papillomatosis", "hyperkeratosis", "basal_pigment"],
       ["full_thickness_atypia", "pagetoid_spread", "koilocytes", "peripheral_palisading",

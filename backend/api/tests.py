@@ -1551,6 +1551,38 @@ class ClinicalReasoningTests(TestCase):
         self.assertNotIn("taxminiy", text)
         self.assertNotIn("bazal membrana", text)      # ahamiyatsiz flip dalilga yozilmaydi
 
+    def test_seborrheic_names_do_not_collide(self):
+        from lab_core import dx_criteria as dxc
+
+        self.assertEqual(dxc.find_entity("Seboreyali keratoz, papillomatoz turi")["name"], "Seboreik keratoz")
+        self.assertEqual(dxc.find_entity("Себорейный кератоз")["name"], "Seboreik keratoz")
+        self.assertEqual(dxc.find_entity("Себорейный дерматит")["name"], "Seboreyali dermatit")
+
+    def test_eruptive_decision_on_a_solitary_lesion_yields_to_the_gestalt(self):
+        """6-keys: gestalt SK (yakka o'sma), qaror «lichen simplex» (tarqoq) —
+        klinika «nevus?» dedi; qaror turiga zid → nom gestaltniki, nomuvofiqlik yo'q."""
+        from lab_core import dx_record as dxr
+        from lab_core import engine as eng
+
+        f = {"sample_quality": "o'rtacha", "cytology": {},
+             "epidermis": {"acanthosis": True, "hyperkeratosis": True, "papillomatosis": True,
+                           "hypergranulosis": True, "basal_pigment": True},
+             "dermis": {"fibrosis": True, "superficial_perivascular_infiltrate": True}}
+        rec = dxr.from_json({"diagnosis": "Lichen simplex chronicus (Vidal)", "organ": "teri",
+                             "evidence": [{"feature": "akantoz", "detail": "x"},
+                                          {"feature": "giperkeratoz", "detail": "y"}]})
+        gestalt = {"diagnosis": "Seboreyali keratoz, papillomatoz-giperkeratotik turi",
+                   "confidence": "moderate",
+                   "decisive_features": ["Papillomatous acanthosis with horn pseudocysts"]}
+        clin = "Chap chakkada yakka 1,5–2 sm to'q jigarrang-qora g'adir-budur blyashka."
+        ref = "Меланоцитарный невус? Эксцизионная биопсия"
+        rec, text = eng._finish_record(rec, f, None, [], [], clinical_text=clin,
+                                       referral_text=ref + " Seboreik keratoz", gestalt=gestalt,
+                                       referral_pure=ref)
+        self.assertEqual(rec.name, "Seboreik keratoz")
+        self.assertNotIn("NOMUVOFIQLIK", text)
+        self.assertTrue(any("Lichen simplex" in d.name for d in rec.differentials))
+
     def test_after_verification_the_vascular_lesion_wins(self):
         from lab_core import dx_criteria as dxc
 

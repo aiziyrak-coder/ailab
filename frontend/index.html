@@ -11,10 +11,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" href="/static/img/favicon.png" type="image/png">
-  <link rel="stylesheet" href="/static/css/style.css?v=r16">
-  <link rel="stylesheet" href="/static/css/lab-pro.css?v=r16">
-  <link rel="stylesheet" href="/static/css/mobile.css?v=r16">
-  <link rel="stylesheet" href="/static/css/brand.css?v=r16">
+  <link rel="stylesheet" href="/static/css/style.css?v=r17">
+  <link rel="stylesheet" href="/static/css/lab-pro.css?v=r17">
+  <link rel="stylesheet" href="/static/css/mobile.css?v=r17">
+  <link rel="stylesheet" href="/static/css/brand.css?v=r17">
   <script>window.__MEDLAB_API_BASE__ = "{{ medlab_api_base|default:''|escapejs }}";</script>
 </head>
 <body>
@@ -93,7 +93,12 @@
           </button>
           <input type="file" id="referralInput" accept="image/*" style="display:none"
                  onchange="handleReferralSelect(event)">
-          <span class="referral-hint" id="referralHint">Yo‘llanma rasmini yuklang — quyidagi maydonlar avtomatik to‘ladi</span>
+          <a class="btn-referral btn-referral--doc" href="/static/docs/yollanma.pdf" download="DermaPATH-yollanma.pdf"
+             title="Chop etish uchun standart yo‘llanma varag‘i (PDF). Tahrirlash uchun: yollanma.docx">
+            <span class="btn-referral-icon" aria-hidden="true">⤓</span>
+            Yo‘llanma namunasi
+          </a>
+          <span class="referral-hint" id="referralHint">Yo‘llanma rasmini yuklang — maydonlar avtomatik to‘ladi. Namunani chop etib to‘ldiring: <a href="/static/docs/yollanma.pdf" download>PDF</a> · <a href="/static/docs/yollanma.docx" download>DOCX</a></span>
         </div>
 
         <form class="acc-form" autocomplete="off" onsubmit="return false;">
@@ -561,11 +566,11 @@
 
 <div id="toast"></div>
 <script src="/static/js/uz_localities.js?v=off59"></script>
-<script src="/static/js/dx_list.js?v=r16"></script>
-<script src="/static/js/dx_picker.js?v=r16"></script>
+<script src="/static/js/dx_list.js?v=r17"></script>
+<script src="/static/js/dx_picker.js?v=r17"></script>
 <script src="/static/js/auth.js"></script>
-<script src="/static/js/app.js?v=r16"></script>
-<script src="/static/js/ux.js?v=r16"></script>
-<script src="/static/js/referral.js?v=r16"></script>
+<script src="/static/js/app.js?v=r17"></script>
+<script src="/static/js/ux.js?v=r17"></script>
+<script src="/static/js/referral.js?v=r17"></script>
 </body>
 </html>

@@ -2530,10 +2530,21 @@ def _finish_record(rec, features, adj, names, verified_changes=None, clinical_te
             gev = _dxc.evaluate(ge, features) if ge is not None else None
             gestalt_excluded = bool(gev and gev["excluding_present"])
             strong = str(gestalt.get("confidence") or "").lower() in ("high", "moderate")
-            if clinic_backs and strong and not gestalt_excluded:
+            # Qaror klinik ko'rinish turiga zid nom qo'ygan (yakka tugunga tarqoq
+            # dermatoz), gestalt esa turiga mos — bu ham gestalt foydasiga ikkinchi
+            # mustaqil dalil (6-keys: gestalt SK, qaror «lichen simplex»).
+            hint_ = _dxc.clinical_hint(clinical_text) or _dxc.clinical_hint(referral_pure)
+            re_ = _dxc.find_entity(rec.name)
+            presentation_backs = bool(
+                hint_ and ge is not None and re_ is not None
+                and ge["presentation"] in (hint_, "either")
+                and re_["presentation"] not in (hint_, "either")
+            )
+            if (clinic_backs or presentation_backs) and strong and not gestalt_excluded:
                 rec.notes.append(
                     f"qaror «{rec.name}» senior o'qish «{gdx}» ni rad etuvchi belgisiz bekor qildi; "
-                    "klinika gestaltni qo'llaydi — nom gestaltniki"
+                    + ("klinika gestaltni qo'llaydi" if clinic_backs else "qaror nomi klinik ko'rinish turiga zid")
+                    + " — nom gestaltniki"
                 )
                 rec.differentials = [
                     d for d in rec.differentials
@@ -2554,6 +2565,9 @@ def _finish_record(rec, features, adj, names, verified_changes=None, clinical_te
                                                          detail="umumiy ko'rinishda (barcha kadrlar)"))
                 rec.gestalt_agreement = "mos"
                 rec.gestalt_bonus = 4
+                if rec.discordance and ge["presentation"] in (hint_, "either"):
+                    rec.discordance = ""          # nomuvofiqlik qaror nomiga tegishli edi
+                    rec.confidence_cap = 0
                 rec.certainty = dxr.CERTAIN_PROVISIONAL
                 rec.confidence_cap = min(rec.confidence_cap or 100, 72)
                 if isinstance(features, dict):

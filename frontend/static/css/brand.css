@@ -1371,3 +1371,11 @@ h1, h2, h3 {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+
+/* ── Yo'llanma namunasi tugmasi ─────────────────────────────────────────── */
+/* Klinikalar standart varaqni chop etib to'ldiradi — OCR uni bexato o'qiydi. */
+.referral-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn-referral--doc { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.referral-hint { flex-basis: 100%; }
+.referral-hint a { color: var(--rd-gold-deep); font-weight: 600; text-decoration: underline; }
