@@ -44,3 +44,9 @@ test_openai.py
 
 # Ma'lumotnoma atlas rasmlari (kitobdan olingan — gitga kirmaydi, SFTP bilan yuboriladi)
 backend/data/histology_kb/atlas/
+
+# Kitob ingest vaqtinchalik papkalari (repoga kirmaydi)
+_kb_extract/
+_kb_img_raw/
+_kb_text/
+_tmp_*.html

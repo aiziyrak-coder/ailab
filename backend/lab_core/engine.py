@@ -1423,15 +1423,7 @@ _DX_REQUIRED_FEATURES = {
     "hemangiom": ("vascular_proliferation",),
     "gemangiom": ("vascular_proliferation",),
     "psoriasis": ("parakeratosis",),
-    "lichen planus": ("band_like_infiltrate", "interface_damage"),
-    "granuloma annulare": ("granuloma",),
-    "sarkoidoz": ("granuloma",),
-    "vaskulit": ("vasculitis",),
     "hemangioma": ("vascular_proliferation",),
-    "gemangiom": ("vascular_proliferation",),
-    "kaposi": ("vascular_proliferation", "spindle_cells"),
-    "spongiotik": ("spongiosis",),
-    "mycosis fungoides": ("dense_lymphoid_infiltrate", "pagetoid_spread"),
 }
 
 

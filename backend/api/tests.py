@@ -1095,6 +1095,26 @@ class CriteriaTableTests(TestCase):
             self.assertIn("Bazal", dxc.find_entity(name)["name"], name)
         self.assertIsNone(dxc.find_entity("umuman notanish nom"))
 
+    def test_every_entity_resolves_to_itself_and_names_beat_short_aliases(self):
+        """Har nozologiya o'z nomidan o'zi topilsin; to'liq nom qisqa aliasdan,
+        uzun alias esa qisqa nomdan ustun («Lobulyar kapillyar gemangioma» —
+        Piogen granuloma, Gemangioma emas)."""
+        from lab_core import dx_criteria as dxc
+
+        for e in dxc.CRITERIA:
+            self.assertEqual(dxc.find_entity(e["name"])["name"], e["name"])
+        expect = {
+            "Pustulyoz psoriaz": "Pustulyoz psoriaz",
+            "Spitz nevusi": "Spitz nevusi",
+            "Teri sili (lupus vulgaris)": "Teri sili (lupus vulgaris)",
+            "Lobulyar kapillyar gemangioma (pyogenic granuloma)": "Piogen granuloma",
+            "Granuloma pyogenicum": "Piogen granuloma",
+            "Ангиома?": "Gemangioma",
+            "Verruca vulgaris (pigmentlangan oddiy so'gal)": "Verruca vulgaris",
+        }
+        for q, want in expect.items():
+            self.assertEqual(dxc.find_entity(q)["name"], want, q)
+
     def test_guard_downgrades_an_unsupported_name_via_criteria(self):
         from lab_core import dx_record as dxr
         from lab_core import engine as eng

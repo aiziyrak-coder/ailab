@@ -674,7 +674,8 @@ CRITERIA = [
       ["slit_like_vascular_spaces", "promontory_sign", "pleomorphism>=o'rta", "storiform_pattern"],
       min_essential=1),
     E("Piogen granuloma", ["piogen", "pyogenic", "пиогенн", "botriomikom", "angiom",
-      "lobulyar kapillyar", "lobular capillary"], "vaskulyar o'sma",
+      "lobulyar kapillyar", "lobular capillary", "лобулярн капиллярн",
+      "granuloma pyogenicum"], "vaskulyar o'sma",
       ["lobular_capillary_proliferation", "vascular_proliferation"],
       ["epidermal_collarette", "polypoid_exophytic", "ulceration", "neutrophils",
        "papillary_dermal_edema", "extravasated_erythrocytes"],
@@ -776,17 +777,36 @@ def _fold(s):
 _BY_ALIAS = [(tuple(_fold(a) for a in e["aliases"]), e) for e in CRITERIA]
 
 
+_BY_NAME = [(_fold(e["name"]), _fold(e["name"].split(" (")[0]), e) for e in CRITERIA]
+
+
 def find_entity(name):
-    """Nom bo'yicha mezon yozuvi — eng uzun mos kelgan alias g'olib."""
+    """Nom bo'yicha mezon yozuvi.
+
+    Avval TO'LIQ nom (yoki qavsgacha bo'lgan qismi) matnda bormi — shu g'olib.
+    Aks holda eng uzun mos alias. Ilgari faqat alias uzunligi hal qilardi va
+    «Pustulyoz psoriaz» → Psoriasis vulgaris («psoriaz» uzunroq), «Teri sili
+    (lupus vulgaris)» → DLE («lupus»), «Spitz nevusi» → Melanotsitar nevus
+    bo'lib ketardi — qaror va tekshiruv noto'g'ri mezon bilan ishlardi.
+    """
     low = _fold(name)
     if not low:
         return None
-    best, best_len = None, 0
+    n_best, n_len = None, 0
+    for full, short, e in _BY_NAME:
+        for cand in (full, short):
+            if cand and len(cand) >= 5 and cand in low and len(cand) > n_len:
+                n_best, n_len = e, len(cand)
+    a_best, a_len = None, 0
     for aliases, e in _BY_ALIAS:
         for a in aliases:
-            if a and a in low and len(a) > best_len:
-                best, best_len = e, len(a)
-    return best
+            if a and a in low and len(a) > a_len:
+                a_best, a_len = e, len(a)
+    # Nom aliasdan qisqa bo'lmasa — nom g'olib; aks holda uzunroq alias
+    # («Lobulyar kapillyar gemangioma» → Piogen granuloma, Gemangioma emas).
+    if n_best is not None and n_len >= a_len:
+        return n_best
+    return a_best or n_best
 
 
 # ─── 3. Belgilarni tekshirish ────────────────────────────────────────────────

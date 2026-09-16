@@ -98,13 +98,14 @@ Har o'zgarish shu raqamga solishtiriladi.
 Har keys uchun sarf jurnalga yoziladi (`journalctl -u lab-fermi-gunicorn | grep token`)
 va arxivdagi `keys.json` ichida `tokens` maydonida turadi.
 
-Tejamkor quvur (standart): **keysga 2–3 chaqiruv** — ko'rik (≤6 rasm) + qaror (≤3 rasm),
-kerak bo'lsa yengil takror. Rasmlar 1280 px. Eski quvur 9–20 chaqiruv qilardi.
+Tejamkor quvur (standart): **keysga 5–7 chaqiruv** — klinik surat, umumiy ko'rinish (montaj),
+ko'rik (montaj + 3 kadr), kadr-kadr qidiruv (9 kadrdan paket), qaror (montaj + 1 klinik surat).
+Rasmlar 1280 px. 18 kadrli keys ≈ 47k token ≈ $0.30; 1 kadrli keys ≈ 12k ≈ $0.08.
 
-Qattiq chegara: `OPENAI_MAX_CALLS_PER_CASE=6`, `OPENAI_MAX_TOKENS_PER_CASE=60000` —
+Qattiq chegara: `OPENAI_MAX_CALLS_PER_CASE=9`, `OPENAI_MAX_TOKENS_PER_CASE=60000` —
 oshsa keys to'xtatilib, mezon jadvalidan deterministik (taxminiy) yozuv chiqadi.
 
-Benchmark ham sarflaydi: `--n 24` ≈ 24 keys × ~18k token. Kredit kam bo'lsa `--n 8`.
+Benchmark ham sarflaydi: `--n 24` ≈ 24 keys × ~15k token (1 kadr). Kredit kam bo'lsa `--n 8`.
 
 ## 6. Sozlamalar (`backend/.env`)
 
@@ -115,6 +116,6 @@ Benchmark ham sarflaydi: `--n 24` ≈ 24 keys × ~18k token. Kredit kam bo'lsa `
 | `CASE_ARCHIVE_DAYS=180` | saqlash muddati |
 | `HISTOLOGY_ECONOMY=1` | tejamkor quvur (0 — eski to'liq quvur, 5–8× qimmat) |
 | `OPENAI_IMAGE_MAX_PX=1280` | rasm o'lchami (2048 — ikki barobar qimmat) |
-| `OPENAI_MAX_CALLS_PER_CASE=6` | keysga chaqiruv chegarasi |
+| `OPENAI_MAX_CALLS_PER_CASE=9` | keysga chaqiruv chegarasi (klinik surat + umumiy ko'rinish + ko'rik + qidiruv ≤3 + qaror + tekshiruv) |
 | `HISTOLOGY_OBSERVE_PASSES=1` | mustaqil ko'rik guruhlari soni (tejamkor: 1) |
 | `OPENAI_MODEL_ID=gpt-5.6-sol` | asosiy model |
